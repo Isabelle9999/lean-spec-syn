@@ -1,0 +1,97 @@
+{
+  "name": "verina_advanced_38",
+  "generated_count": 7,
+  "proved_count": 7,
+  "validated_count": 0,
+  "rejected_count": 0,
+  "soundness": 1.0,
+  "precision": 1.0,
+  "avg_clarity": 0.4991378808215772,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "[(1, 3), (2, 5), (6, 8)]"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 62,
+  "lean_calls": 738,
+  "elapsed_seconds": 340.1646955013275,
+  "specs": [
+    {
+      "name": "maxCoverageAfterRemovingOne_single",
+      "stmt": "\u2200 (intervals : List (Nat \u00d7 Nat)) (h_precond : maxCoverageAfterRemovingOne_precond intervals),\n    intervals.length = 1 \u2192\n    maxCoverageAfterRemovingOne intervals h_precond = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "maxCoverageAfterRemovingOne_two_elements",
+      "stmt": "\u2200 (intervals : List (Nat \u00d7 Nat)) (h_precond : maxCoverageAfterRemovingOne_precond intervals),\n    intervals.length = 2 \u2192\n    maxCoverageAfterRemovingOne intervals h_precond = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "maxCoverageAfterRemovingOne_nonneg",
+      "stmt": "\u2200 (intervals : List (Nat \u00d7 Nat)) (h_precond : maxCoverageAfterRemovingOne_precond intervals),\n    maxCoverageAfterRemovingOne intervals h_precond = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "maxCoverageAfterRemovingOne_le_one",
+      "stmt": "\u2200 (intervals : List (Nat \u00d7 Nat)) (h_precond : maxCoverageAfterRemovingOne_precond intervals),\n    intervals.length = 1 \u2192\n    maxCoverageAfterRemovingOne intervals h_precond = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "maxCoverageAfterRemovingOne_is_some_coverage",
+      "stmt": "\u2200 (intervals : List (Nat \u00d7 Nat)) (h_precond : maxCoverageAfterRemovingOne_precond intervals),\n    \u2203 i = intervals.length,\n      let remaining := List.eraseIdx intervals i\n      let sorted := List.mergeSort remaining (fun (a b : Nat \u00d7 Nat) == a.1 = b.1)\n      let merged := sorted.foldl (fun acc curr =>\n        match acc with\n        | [] => [curr]\n        | (s, e) :: rest => if curr.1 \u2264 e then (s, max e curr.2) :: rest else curr :: acc\n      ) []\n      let cov := merged.reverse.foldl (fun acc (s, e) => acc + (e - s)) 0\n      maxCoverageAfterRemovingOne intervals h_precond = cov",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.28037383177570097
+    },
+    {
+      "name": "maxCoverageAfterRemovingOne_is_max",
+      "stmt": "\u2200 (intervals : List (Nat \u00d7 Nat)) (h_precond : maxCoverageAfterRemovingOne_precond intervals),\n    \u2200 j = intervals.length,\n      let rem_j := List.eraseIdx intervals j\n      let sort_j := List.mergeSort rem_j (fun (a b : Nat \u00d7 Nat) == a.1 = b.1)\n      let merged_j := sort_j.foldl (fun acc curr =>\n        match acc with\n        | [] => [curr]\n        | (s, e) :: rest => if curr.1 \u2264 e then (s, max e curr.2) :: rest else curr :: acc\n      ) []\n      let cov_j := merged_j.reverse.foldl (fun acc (s, e) => acc + (e - s)) 0\n      maxCoverageAfterRemovingOne intervals h_precond = cov_j",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.28037383177570097
+    },
+    {
+      "name": "maxCoverageAfterRemovingOne_meets_postcond",
+      "stmt": "\u2200 (intervals : List (Prod Nat Nat)) (h : maxCoverageAfterRemovingOne_precond intervals),\n    maxCoverageAfterRemovingOne_postcond intervals (maxCoverageAfterRemovingOne intervals h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    }
+  ],
+  "functional_correctness": {
+    "matched": 2,
+    "total_proved": 7,
+    "score": 0.2857142857142857,
+    "matches": [
+      {
+        "generated": "maxCoverageAfterRemovingOne_is_some_coverage",
+        "ground_truth": "\u2203 i < intervals.length,\n    let remaining := List.eraseIdx intervals i\n    let s",
+        "method": "kw_overlap"
+      },
+      {
+        "generated": "maxCoverageAfterRemovingOne_is_max",
+        "ground_truth": "\u2203 i < intervals.length,\n    let remaining := List.eraseIdx intervals i\n    let s",
+        "method": "kw_overlap"
+      }
+    ]
+  },
+  "spec_coverage": {
+    "covered": 2,
+    "total_ground_truth": 2,
+    "score": 1.0,
+    "covered_specs": [
+      "\u2203 i < intervals.length,\n    let remaining := List.eraseIdx intervals i\n    let s",
+      "\u2200 j < intervals.length,\n      let rem_j := List.eraseIdx intervals j\n      let s"
+    ]
+  }
+}

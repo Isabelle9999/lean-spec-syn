@@ -1,0 +1,122 @@
+{
+  "name": "verina_advanced_2",
+  "generated_count": 13,
+  "proved_count": 0,
+  "validated_count": 0,
+  "rejected_count": 13,
+  "soundness": 0.0,
+  "precision": null,
+  "avg_clarity": 0.0,
+  "impl_independence": null,
+  "avg_uniqueness": null,
+  "admissibility": null,
+  "convergence_iterations": 0,
+  "llm_calls": 36,
+  "lean_calls": 143,
+  "elapsed_seconds": 456.4766380786896,
+  "specs": [
+    {
+      "name": "LongestCommonSubsequence_empty_left",
+      "stmt": "theorem LongestCommonSubsequence_empty_left : \u2200 (b : Array Int) (h_precond : LongestCommonSubsequence_precond #[] b), LongestCommonSubsequence #[] b h_precond = 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "LongestCommonSubsequence_empty_right",
+      "stmt": "\u2200 (a : Array Int) (h_precond : LongestCommonSubsequence_precond a #[]), LongestCommonSubsequence a #[] h_precond = 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "LongestCommonSubsequence_nonneg",
+      "stmt": "theorem LongestCommonSubsequence_nonneg : \u2200 (a b : Array Int) (h_precond : LongestCommonSubsequence_precond a b), LongestCommonSubsequence a b h_precond \u2265 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "LongestCommonSubsequence_le_left_size",
+      "stmt": "Int)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.9803921568627451
+    },
+    {
+      "name": "LongestCommonSubsequence_le_right_size",
+      "stmt": "\u2200 (a b : Array Int) (h_precond : LongestCommonSubsequence_precond a b),\n    LongestCommonSubsequence a b h_precond \u2264 b.size",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "LongestCommonSubsequence_result_is_common_subseq",
+      "stmt": "Array Int)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.9615384615384615
+    },
+    {
+      "name": "LongestCommonSubsequence_symm",
+      "stmt": "theorem LongestCommonSubsequence_symm : \u2200 (a b : Array Int) (h1 : LongestCommonSubsequence_precond a b) (h2 : LongestCommonSubsequence_precond b a), LongestCommonSubsequence a b h1 = LongestCommonSubsequence b a h2",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.528169014084507
+    },
+    {
+      "name": "LongestCommonSubsequence_meets_postcond",
+      "stmt": "theorem LongestCommonSubsequence_meets_postcond : \u2200 (a b : Array Int) (h_precond : LongestCommonSubsequence_precond a b), LongestCommonSubsequence_postcond a b (LongestCommonSubsequence a b h_precond) h_precond",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5639097744360902
+    },
+    {
+      "name": "LongestCommonSubsequence_result_le_both_sizes",
+      "stmt": "theorem LongestCommonSubsequence_result_le_both_sizes : \u2200 (a b : Array Int) (h_precond : LongestCommonSubsequence_precond a b), LongestCommonSubsequence a b h_precond \u2264 (min a.size b.size : Int)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5514705882352942
+    },
+    {
+      "name": "LongestCommonSubsequence_single_same",
+      "stmt": "\u2200 (x : Int) (h_precond : LongestCommonSubsequence_precond #[x] #[x]),\n    LongestCommonSubsequence #[x] #[x] h_precond = 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "LongestCommonSubsequence_single_diff",
+      "stmt": "theorem LongestCommonSubsequence_single_diff : \u2200 (x y : Int) (h_precond : LongestCommonSubsequence_precond #[x] #[y]), x \u2260 y \u2192 LongestCommonSubsequence #[x] #[y] h_precond = 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5576208178438662
+    },
+    {
+      "name": "LongestCommonSubsequence_same_args",
+      "stmt": "theorem LongestCommonSubsequence_same_args : LongestCommonSubsequence a a trivial = LongestCommonSubsequence a a trivial",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8064516129032259
+    },
+    {
+      "name": "LongestCommonSubsequence_third_eq_second_idempotent",
+      "stmt": "theorem LongestCommonSubsequence_third_eq_second_idempotent : LongestCommonSubsequence a b trivial = LongestCommonSubsequence a b trivial",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8064516129032259
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 0,
+    "score": 0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 2,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

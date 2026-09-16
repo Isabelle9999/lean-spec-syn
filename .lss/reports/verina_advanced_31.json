@@ -1,0 +1,138 @@
+{
+  "name": "verina_advanced_31",
+  "generated_count": 13,
+  "proved_count": 12,
+  "validated_count": 0,
+  "rejected_count": 1,
+  "soundness": 0.9230769230769231,
+  "precision": 1.0,
+  "avg_clarity": 0.6003989023049757,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "[1, 2, 3, 4]"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 40,
+  "lean_calls": 474,
+  "elapsed_seconds": 301.3279082775116,
+  "specs": [
+    {
+      "name": "longestIncreasingSubseqLength_empty",
+      "stmt": "\u2200 (h_precond : longestIncreasingSubseqLength_precond []),\n    longestIncreasingSubseqLength [] h_precond = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "longestIncreasingSubseqLength_singleton",
+      "stmt": "\u2200 (x : Int) (h_precond : longestIncreasingSubseqLength_precond [x]),\n    longestIncreasingSubseqLength [x] h_precond = 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "longestIncreasingSubseqLength_le_length",
+      "stmt": "\u2200 (xs : List Int) (h_precond : longestIncreasingSubseqLength_precond xs),\n    longestIncreasingSubseqLength xs h_precond = xs.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "longestIncreasingSubseqLength_nonneg",
+      "stmt": "\u2200 (xs : List Int) (h_precond : longestIncreasingSubseqLength_precond xs),\n    0 = longestIncreasingSubseqLength xs h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "longestIncreasingSubseqLength_result_contained",
+      "stmt": "\u2200 (xs : List Int) (h_precond : longestIncreasingSubseqLength_precond xs),\n    let allSubseq := (xs.foldl fun acc x == acc ++ acc.map (fun sub => x :: sub)) [[]] |>.map List.reverse\n    let increasingSubseqLens := allSubseq.filter (fun l => List.Pairwise (\u00b7 = \u00b7) l) |>.map (\u00b7.length)\n    increasingSubseqLens.contains (longestIncreasingSubseqLength xs h_precond)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.4398826979472141
+    },
+    {
+      "name": "longestIncreasingSubseqLength_is_max",
+      "stmt": "\u2200 (xs : List Int) (h_precond : longestIncreasingSubseqLength_precond xs),\n    let allSubseq := (xs.foldl fun acc x == acc ++ acc.map (fun sub => x :: sub)) [[]] |>.map List.reverse\n    let increasingSubseqLens := allSubseq.filter (fun l => List.Pairwise (\u00b7 = \u00b7) l) |>.map (\u00b7.length)\n    increasingSubseqLens.all (\u00b7 = longestIncreasingSubseqLength xs h_precond)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.4322766570605187
+    },
+    {
+      "name": "longestIncreasingSubseqLength_ge_one_of_nonempty",
+      "stmt": "\u2200 (xs : List Int) (h_precond : longestIncreasingSubseqLength_precond xs),\n    xs \u2260 [] \u2192\n    longestIncreasingSubseqLength xs h_precond = 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "longestIncreasingSubseqLength_cons_ge",
+      "stmt": "\u2200 (x : Int) (xs : List Int)\n      (h_precond : longestIncreasingSubseqLength_precond (x :: xs))\n      (h_precond2 : longestIncreasingSubseqLength_precond xs),\n    longestIncreasingSubseqLength xs h_precond2 =\n    longestIncreasingSubseqLength (x :: xs) h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5338078291814947
+    },
+    {
+      "name": "longestIncreasingSubseqLength_meets_postcond",
+      "stmt": "\u2200 (xs : List Int) (h_precond : longestIncreasingSubseqLength_precond xs),\n    longestIncreasingSubseqLength_postcond xs (longestIncreasingSubseqLength xs h_precond) h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "longestIncreasingSubseqLength_sorted_eq_length",
+      "stmt": "\u2200 (xs : List Int) (h_precond : longestIncreasingSubseqLength_precond xs),\n    List.Pairwise (\u00b7 = \u00b7) xs \u2192\n    longestIncreasingSubseqLength xs h_precond = xs.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "longestIncreasingSubseqLength_pos_iff_nonempty",
+      "stmt": "\u2200 (xs : List Int) (h_precond : longestIncreasingSubseqLength_precond xs),\n    0 = longestIncreasingSubseqLength xs h_precond \u2194 xs \u2260 []",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "longestIncreasingSubseqLength_empty",
+      "stmt": "longestIncreasingSubseqLength [] True.intro = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "longestIncreasingSubseqLength_bounds",
+      "stmt": "theorem longestIncreasingSubseqLength_bounds (l : List Int) (h : longestIncreasingSubseqLength_precond l) : longestIncreasingSubseqLength l h \u2264 l.length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7575757575757576
+    }
+  ],
+  "functional_correctness": {
+    "matched": 2,
+    "total_proved": 12,
+    "score": 0.16666666666666666,
+    "matches": [
+      {
+        "generated": "longestIncreasingSubseqLength_result_contained",
+        "ground_truth": "let allSubseq := (xs.foldl fun acc x => acc ++ acc.map (fun sub => x :: sub)) [[",
+        "method": "kw_overlap"
+      },
+      {
+        "generated": "longestIncreasingSubseqLength_is_max",
+        "ground_truth": "let allSubseq := (xs.foldl fun acc x => acc ++ acc.map (fun sub => x :: sub)) [[",
+        "method": "kw_overlap"
+      }
+    ]
+  },
+  "spec_coverage": {
+    "covered": 1,
+    "total_ground_truth": 2,
+    "score": 0.5,
+    "covered_specs": [
+      "let allSubseq := (xs.foldl fun acc x => acc ++ acc.map (fun sub => x :: sub)) [["
+    ]
+  }
+}

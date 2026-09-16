@@ -1,0 +1,146 @@
+{
+  "name": "verina_advanced_36",
+  "generated_count": 16,
+  "proved_count": 13,
+  "validated_count": 0,
+  "rejected_count": 3,
+  "soundness": 0.8125,
+  "precision": 1.0,
+  "avg_clarity": 0.624128401611501,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "[3, 3, 4, 2, 3, 3, 3]"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 53,
+  "lean_calls": 637,
+  "elapsed_seconds": 343.3299491405487,
+  "specs": [
+    {
+      "name": "majorityElement_singleton",
+      "stmt": "\u2200 (x : Nat) (h_precond : majorityElement_precond [x]),\n    majorityElement [x] h_precond = x",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "majorityElement_mem",
+      "stmt": "\u2200 (xs : List Nat) (h_precond : majorityElement_precond xs),\n    majorityElement xs h_precond \u2208 xs",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "majorityElement_count_gt_half",
+      "stmt": "\u2200 (xs : List Nat) (h_precond : majorityElement_precond xs),\n    xs.count (majorityElement xs h_precond) = xs.length / 2",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "majorityElement_count_pos",
+      "stmt": "\u2200 (xs : List Nat) (h_precond : majorityElement_precond xs),\n    xs.count (majorityElement xs h_precond) = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "majorityElement_count_ge_one",
+      "stmt": "\u2200 (xs : List Nat) (h_precond : majorityElement_precond xs),\n    xs.count (majorityElement xs h_precond) = 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "majorityElement_count_majority",
+      "stmt": "\u2200 (xs : List Nat) (h_precond : majorityElement_precond xs),\n    2 * xs.count (majorityElement xs h_precond) = xs.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "majorityElement_count_bound",
+      "stmt": "\u2200 (xs : List Nat) (h_precond : majorityElement_precond xs),\n    xs.count (majorityElement xs h_precond) = xs.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "majorityElement_replicate",
+      "stmt": "\u2200 (n : Nat) (x : Nat) (h1 : n = 0) (h_precond : majorityElement_precond (List.replicate n x)),\n    majorityElement (List.replicate n x) h_precond = x",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5454545454545455
+    },
+    {
+      "name": "majorityElement_count_nonzero",
+      "stmt": "\u2200 (xs : List Nat) (h_precond : majorityElement_precond xs),\n    \u00ac(xs.count (majorityElement xs h_precond) = 0)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "majorityElement_strict_majority",
+      "stmt": "\u2200 (xs : List Nat) (h_precond : majorityElement_precond xs),\n    xs.length / 2 = xs.count (majorityElement xs h_precond)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "majorityElement_count_le_length",
+      "stmt": "\u2200 (xs : List Nat) (h_precond : majorityElement_precond xs),\n    majorityElement xs h_precond \u2208 xs \u2227\n    xs.count (majorityElement xs h_precond) = xs.length / 2",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5576208178438662
+    },
+    {
+      "name": "majorityElement_meets_postcond",
+      "stmt": "\u2200 (args : List Nat) (h : majorityElement_precond args),\n    majorityElement_postcond args (majorityElement args h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "majorityElement_count",
+      "stmt": "theorem majorityElement_count (xs : List Nat) (h : majorityElement_precond xs) : (xs.filter (\u00b7 == majorityElement xs h)).length > xs.length / 2",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7042253521126761
+    },
+    {
+      "name": "majorityElement_mem",
+      "stmt": "majorityElement nums h \u2208 nums",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "majorityElement_beats_all",
+      "stmt": "List Nat) (h : majorityElement_precond nums) (x : Nat) : (nums.filter (\u00b7 == majorityElement nums h)).length > (nums.filter (\u00b7 == x)).length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7042253521126761
+    },
+    {
+      "name": "majorityElement_precond_nonempty",
+      "stmt": "List Nat) (h : majorityElement_precond xs) : xs.length > 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8333333333333334
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 13,
+    "score": 0.0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 1,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

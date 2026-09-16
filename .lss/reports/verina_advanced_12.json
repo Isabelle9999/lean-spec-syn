@@ -1,0 +1,153 @@
+{
+  "name": "verina_advanced_12",
+  "generated_count": 17,
+  "proved_count": 13,
+  "validated_count": 0,
+  "rejected_count": 4,
+  "soundness": 0.7647058823529411,
+  "precision": 1.0,
+  "avg_clarity": 0.5879523356754807,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "[1, 2, 3, 2, 4]"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 44,
+  "lean_calls": 628,
+  "elapsed_seconds": 351.64281368255615,
+  "specs": [
+    {
+      "name": "firstDuplicate_empty",
+      "stmt": "\u2200 (h_precond : firstDuplicate_precond []),\n    firstDuplicate [] h_precond = none",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "firstDuplicate_singleton",
+      "stmt": "\u2200 (x : Int) (h_precond : firstDuplicate_precond [x]),\n    firstDuplicate [x] h_precond = none",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "firstDuplicate_none_nodup",
+      "stmt": "\u2200 (lst : List Int) (h_precond : firstDuplicate_precond lst),\n    firstDuplicate lst h_precond = none \u2192 List.Nodup lst",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "firstDuplicate_some_count_gt_one",
+      "stmt": "\u2200 (lst : List Int) (x : Int) (h_precond : firstDuplicate_precond lst),\n    firstDuplicate lst h_precond = some x \u2192 lst.count x = 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5576208178438662
+    },
+    {
+      "name": "firstDuplicate_some_mem",
+      "stmt": "\u2200 (lst : List Int) (x : Int) (h_precond : firstDuplicate_precond lst),\n    firstDuplicate lst h_precond = some x \u2192 x \u2208 lst",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5639097744360902
+    },
+    {
+      "name": "firstDuplicate_nodup_none",
+      "stmt": "\u2200 (lst : List Int) (h_precond : firstDuplicate_precond lst),\n    List.Nodup lst \u2192 firstDuplicate lst h_precond = none",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "firstDuplicate_none_iff_nodup",
+      "stmt": "\u2200 (lst : List Int) (h_precond : firstDuplicate_precond lst),\n    firstDuplicate lst h_precond = none \u2194 List.Nodup lst",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "firstDuplicate_some_iff_not_nodup",
+      "stmt": "\u2200 (lst : List Int) (h_precond : firstDuplicate_precond lst),\n    (\u2203 x, firstDuplicate lst h_precond = some x) \u2194 \u00acList.Nodup lst",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.48387096774193555
+    },
+    {
+      "name": "firstDuplicate_result_count",
+      "stmt": "\u2200 (lst : List Int) (h_precond : firstDuplicate_precond lst),\n    \u2200 x, firstDuplicate lst h_precond = some x \u2192 2 = lst.count x",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.4746835443037975
+    },
+    {
+      "name": "firstDuplicate_minimal_second_occ",
+      "stmt": "\u2200 (lst : List Int) (h_precond : firstDuplicate_precond lst),\n    \u2200 x, firstDuplicate lst h_precond = some x \u2192\n    lst.all (fun y == (lst.count y = 1) \u2227 (secondOccIdx lst x = secondOccIdx lst y))",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.42613636363636365
+    },
+    {
+      "name": "firstDuplicate_none_all_distinct",
+      "stmt": "i < lst.length) (hj : j < lst.length), i < j \u2192 lst.get \u27e8i, hi\u27e9 \u2260 lst.get \u27e8j, hj\u27e9",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7246376811594204
+    },
+    {
+      "name": "firstDuplicate_two_same",
+      "stmt": "\u2200 (x : Int) (h_precond : firstDuplicate_precond [x, x]),\n    firstDuplicate [x, x] h_precond = some x",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "firstDuplicate_meets_postcond",
+      "stmt": "\u2200 (lst : List Int) (h_precond : firstDuplicate_precond lst),\n    firstDuplicate_postcond lst (firstDuplicate lst h_precond) h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "firstDuplicate_none_iff_nodup",
+      "stmt": "List Int) (h : firstDuplicate_precond l) : firstDuplicate l h = none \u2194 l.Nodup",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.78125
+    },
+    {
+      "name": "firstDuplicate_some_mem_duplicate",
+      "stmt": "theorem firstDuplicate_some_mem_duplicate (l : List Int) (h_precond : firstDuplicate_precond l) (v : Int) : firstDuplicate l h_precond = some v \u2192 1 < l.count v",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6666666666666666
+    },
+    {
+      "name": "firstDuplicate_some_iff",
+      "stmt": "firstDuplicate l = some v \u2194\n    \u2203 i j : Fin l.length, i.val < j.val \u2227 l.get i = v \u2227 l.get j = v \u2227\n    \u2200 j' : Fin l.length, \u2200 i' : Fin l.length, i'.val < j'.val \u2192 l.get j' = l.get i' \u2192\n      j.val \u2264 j'.val",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.33557046979865773
+    },
+    {
+      "name": "firstDuplicate_empty",
+      "stmt": "firstDuplicate ([] : List Int) (by trivial) = none",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.8474576271186441
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 13,
+    "score": 0.0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 2,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

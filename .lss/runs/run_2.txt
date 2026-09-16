@@ -1,0 +1,217 @@
+  [gen] running strategy: direct
+  [gen] direct produced 11 candidates
+  [gen] running strategy: examples
+  [gen] examples produced 4 candidates
+  [gen] running strategy: negatives
+  [gen] negatives produced 0 candidates
+  [gen] total after merge+dedup: 15
+  [pre] insertionSort_length: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpf1cbjuih.lean:50:12: error: unexpected end o
+  [g0] insertionSort_length: example store check ok
+  [g1] insertionSort_length: typecheck pass
+  [g2] insertionSort_length: eval pass (insertionSort [] = [])
+  [g3] insertionSort_length: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    (insertionSort l h_precond).length = l.l
+  [pre] insertionSort_sorted: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpf1cbjuih.lean:50:12: error: unexpected end o
+  [g0] insertionSort_sorted: example store check ok
+  [g1] insertionSort_sorted: typecheck pass
+  [g2] insertionSort_sorted: eval pass (insertionSort [] = [])
+  [g3] insertionSort_sorted: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Pairwise (· ≤ ·) (insertionSort l h
+  [pre] insertionSort_perm: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpf1cbjuih.lean:50:12: error: unexpected end o
+  [g0] insertionSort_perm: example store check ok
+  [g1] insertionSort_perm: fixed stmt typechecks
+  [g1] insertionSort_perm: typecheck pass
+  [g2] insertionSort_perm: eval pass (insertionSort [] = [])
+  [g3] insertionSort_perm: vacuity pass (not vacuous)
+  [g4] insertionSort_perm: bare lean failed, queued for mathlib/llm
+  [pre] insertionSort_isPerm: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpf1cbjuih.lean:50:12: error: unexpected end o
+  [g0] insertionSort_isPerm: example store check ok
+  [g1] insertionSort_isPerm: typecheck pass
+  [g2] insertionSort_isPerm: eval pass (insertionSort [] = [])
+  [g3] insertionSort_isPerm: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.isPerm l (insertionSort l h_precond
+  [pre] insertionSort_mem: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpf1cbjuih.lean:50:12: error: unexpected end o
+  [g0] insertionSort_mem: example store check ok
+  [g1] insertionSort_mem: typecheck pass
+  [g2] insertionSort_mem: eval pass (insertionSort [] = [])
+  [g3] insertionSort_mem: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l) (x : Int),
+    x ∈ insertionSort l h_precond 
+  [pre] insertionSort_nil: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpf1cbjuih.lean:50:12: error: unexpected end o
+  [g0] insertionSort_nil: example store check ok
+  [g1] insertionSort_nil: typecheck pass
+  [g2] insertionSort_nil: eval pass (insertionSort [] = [])
+  [g3] insertionSort_nil: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (h_precond : insertionSort_precond []),
+    insertionSort [] h_precond = []
+  [pre] insertionSort_nodup: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpf1cbjuih.lean:50:12: error: unexpected end o
+  [g0] insertionSort_nodup: example store check ok
+  [g1] insertionSort_nodup: typecheck pass
+  [g2] insertionSort_nodup: eval pass (insertionSort [] = [])
+  [g3] insertionSort_nodup: skipped vacuity (conclusion references insertionSort)
+  [g4] insertionSort_nodup: PROVED by rfl
+  [pre] insertionSort_count: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpf1cbjuih.lean:50:12: error: unexpected end o
+  [g0] insertionSort_count: example store check ok
+  [g1] insertionSort_count: typecheck pass
+  [g2] insertionSort_count: eval pass (insertionSort [] = [])
+  [g3] insertionSort_count: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l) (x : Int),
+    List.count x (insertionSort l 
+  [pre] insertionSort_multiset: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpf1cbjuih.lean:50:12: error: unexpected end o
+  [g0] insertionSort_multiset: example store check ok
+  [g1] insertionSort_multiset: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpg2nmkjci.lean:50
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l), (insertionSort l : Multiset Int) = (l : Mult
+  [pre] insertionSort_singleton: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpf1cbjuih.lean:50:12: error: unexpected end o
+  [g0] insertionSort_singleton: example store check ok
+  [g1] insertionSort_singleton: typecheck pass
+  [g2] insertionSort_singleton: eval pass (insertionSort [] = [])
+  [g3] insertionSort_singleton: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (x : Int) (h_precond : insertionSort_precond [x]),
+    insertionSort [x] h_precond = [x]
+  [pre] insertionSort_meets_postcond: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpf1cbjuih.lean:50:12: error: unexpected end o
+  [g0] insertionSort_meets_postcond: example store check ok
+  [g1] insertionSort_meets_postcond: typecheck pass
+  [g2] insertionSort_meets_postcond: eval pass (insertionSort [] = [])
+  [g3] insertionSort_meets_postcond: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ args (h : insertionSort_precond args),
+    insertionSort_postcond args (insertionSort args h) h
+  [g0] insertionSort_sorted: example store check ok
+  [g1] insertionSort_sorted: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmph_2v6dpg.lean:49
+         stmt: Sorted (· ≤ ·) (insertionSort l)
+  [g0] insertionSort_perm: example store check ok
+  [g1] insertionSort_perm: typecheck FAIL: ["C:\\Users\\User\\AppData\\Local\\Temp\\tmp7i6xafy6.lean:49
+         stmt: insertionSort l ~ l
+  [g0] insertionSort_length: example store check ok
+  [g1] insertionSort_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp0nijme9y.lean:49
+         stmt: (insertionSort l).length = l.length
+  [g0] insertionSort_mem: example store check ok
+  [g1] insertionSort_mem: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpjv5rq_dj.lean:49
+         stmt: α} {l : List α} [Ord α] : x ∈ List.insertionSort (· ≤ ·) l ↔ x ∈ l
+  [mathlib] batching 1 unproved specs...
+  [mathlib] batch took 1.8s
+  [g4] insertionSort_perm: PROVED by rfl (mathlib)
+  [gen] round 2 produced 5 replacement specs
+  [g0] insertionSort_multiset: example store check ok
+  [g1] insertionSort_multiset: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmphpo6lf26.lean:50
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    (insertionSort l h_precond).toFinset = l
+  [g0] insertionSort_sorted: example store check ok
+  [g1] insertionSort_sorted: typecheck pass
+  [g2] insertionSort_sorted: eval pass (insertionSort [] = [])
+  [g3] insertionSort_sorted: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Pairwise (· ≤ ·) (insertionSort l h
+  [g0] insertionSort_perm: example store check ok
+  [g1] insertionSort_perm: typecheck pass
+  [g2] insertionSort_perm: eval pass (insertionSort [] = [])
+  [g3] insertionSort_perm: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.isPerm l (insertionSort l h_precond
+  [g0] insertionSort_length: example store check ok
+  [g1] insertionSort_length: typecheck pass
+  [g2] insertionSort_length: eval pass (insertionSort [] = [])
+  [g3] insertionSort_length: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    (insertionSort l h_precond).length = l.l
+  [g0] insertionSort_mem: example store check ok
+  [g1] insertionSort_mem: typecheck pass
+  [g2] insertionSort_mem: eval pass (insertionSort [] = [])
+  [g3] insertionSort_mem: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l) (x : Int),
+    x ∈ insertionSort l h_precond 
+  [gen] round 2: 0 proved
+  [gen] round 3 produced 5 safe specs
+  [g0] insertionSort_empty: example store check ok
+  [g1] insertionSort_empty: typecheck pass
+  [g2] insertionSort_empty: eval pass (insertionSort [] = [])
+  [g3] insertionSort_empty: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (h : insertionSort_precond []),
+    insertionSort [] h = []
+  [g0] insertionSort_length_preserved: example store check ok
+  [g1] insertionSort_length_preserved: typecheck pass
+  [g2] insertionSort_length_preserved: eval pass (insertionSort [] = [])
+  [g3] insertionSort_length_preserved: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (l : List Int) (h : insertionSort_precond l),
+    (insertionSort l h).length = l.length
+  [g0] insertionSort_meets_postcond: example store check ok
+  [g1] insertionSort_meets_postcond: typecheck pass
+  [g2] insertionSort_meets_postcond: eval pass (insertionSort [] = [])
+  [g3] insertionSort_meets_postcond: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (l : List Int) (h : insertionSort_precond l),
+    insertionSort_postcond l (insertionSort l h) h
+  [g0] insertionSort_precond_always_true: example store check ok
+  [g1] insertionSort_precond_always_true: typecheck pass
+  [g2] insertionSort_precond_always_true: eval pass (insertionSort [] = [])
+  [g3] insertionSort_precond_always_true: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (l : List Int),
+    insertionSort_precond l
+  [g0] insertionSort_singleton: example store check ok
+  [g1] insertionSort_singleton: typecheck pass
+  [g2] insertionSort_singleton: eval pass (insertionSort [] = [])
+  [g3] insertionSort_singleton: vacuity FAIL (holds against two wrong impls)
+         stmt: ∀ (x : Int) (h : insertionSort_precond [x]),
+    insertionSort [x] h = [x]
+  [gen] round 3: 0 proved
+  [refine] entered, verbose=True, 3 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 3 proved specs
+  [refine] generating mutants...
+  mutants: 18 generated, 8 compile
+  [refine] mutant gen took 30.5s
+  [refine] running perturbation pre-check...
+  [refine] perturbation: 0 checks
+  [refine] perturbation took 1.7s
+  [refine] starting mutation loop...
+
+  [mut] === iteration 1/5 ===
+  [mut] 8 compilable mutants to check
+  [mut] mutant 0 (<=): equivalent or non-diverging, skipped
+  [mut] mutant 1 (<=): equivalent or non-diverging, skipped
+  [mut] mutant 2 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 3 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 4 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 5 (dup_head): equivalent or non-diverging, skipped
+  [mut] mutant 6 (dup_head): equivalent or non-diverging, skipped
+  [mut] mutant 7 (empty_singleton): equivalent or non-diverging, skipped
+  [mut] certify+check: 0 live pairs (0.4s)
+  [mut] no live pairs, tier 1 converged
+  [refine] mutation loop took 0.4s
+  [refine] running spec mutation check...
+  [refine] starting tier 2 (adversarial)...
+  [adv] LLM proposed function: @[reducible]
+def insertionSort_precond (l : List Int) : Prop := False
+  [adv] spec satisfaction: FAIL
+  [adv] rejected: proposed function doesn't satisfy specs
+  [adv] LLM proposed function: @[reducible]
+def insertionSort_precond (l : List Int) : Prop := True
+  [adv] spec satisfaction: FAIL
+  [adv] rejected: proposed function doesn't satisfy specs
+  [adv] LLM proposed function: IMPOSSIBLE
+  [refine] tier 2 took 46.8s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 19.9s
+  [debug] uniqueness inputs: 5 test inputs
+
+--- verina_advanced_17 ---
+  generated:  16
+  survived:   3 (3 kernel-proved, 0 validated)
+  rejected:   13
+  failure breakdown: 5 typecheck, 0 eval, 8 vacuity
+  soundness:  0.19
+  recall:     0.00
+  precision:  1.00
+  clarity:    0.714
+  uniqueness: 1.00
+  admissible: True
+  func_correct: 0.00 (0/3)
+  spec_coverage: 0.00 (0/2)
+  llm calls:  27
+  lean calls: 215
+    kernel-proved        [rfl (mathlib)]  insertionSort_perm: ∀ (l : List Int) (h_precond : insertionSort_precond l), (insertionSort l h_preco
+    kernel-proved        [rfl]  insertionSort_nodup: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Nodup l → List.
+    kernel-proved        [llm-gen-with-proof]  insertElement_mem: x ∈ insertElement x l
+new best: 3 kernel-proved (previous: 0 from none)

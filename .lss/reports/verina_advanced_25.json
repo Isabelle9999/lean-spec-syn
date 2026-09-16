@@ -1,0 +1,192 @@
+{
+  "name": "verina_advanced_25",
+  "generated_count": 23,
+  "proved_count": 0,
+  "validated_count": 0,
+  "rejected_count": 23,
+  "soundness": 0.0,
+  "precision": null,
+  "avg_clarity": 0.0,
+  "impl_independence": null,
+  "avg_uniqueness": null,
+  "admissibility": null,
+  "convergence_iterations": 0,
+  "llm_calls": 37,
+  "lean_calls": 95,
+  "elapsed_seconds": 422.20984172821045,
+  "specs": [
+    {
+      "name": "lengthOfLIS_empty",
+      "stmt": "theorem lengthOfLIS_empty : \u2200 (h_precond : lengthOfLIS_precond []), lengthOfLIS [] h_precond = 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "lengthOfLIS_singleton",
+      "stmt": "theorem lengthOfLIS_singleton : \u2200 (x : Int) (h_precond : lengthOfLIS_precond [x]), lengthOfLIS [x] h_precond = 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "lengthOfLIS_le_length",
+      "stmt": "\u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums), lengthOfLIS nums h_precond \u2264 nums.length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "lengthOfLIS_nonneg",
+      "stmt": "theorem lengthOfLIS_nonneg : \u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums), 0 \u2264 lengthOfLIS nums h_precond",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "lengthOfLIS_pos_of_nonempty",
+      "stmt": "theorem lengthOfLIS_pos_of_nonempty : \u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums), nums \u2260 [] \u2192 0 < lengthOfLIS nums h_precond",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "lengthOfLIS_result_is_subseq_len",
+      "stmt": "\u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums),\n    let allSubseq := (nums.foldl fun acc x => acc ++ acc.map (fun sub => x :: sub)) [[]] |>.map List.reverse\n    let increasingSubseqLens := allSubseq.filter (fun l => List.Pairwise (\u00b7 < \u00b7) l) |>.map (\u00b7.length)\n    increasingSubseqLens.contains (lengthOfLIS nums h_precond)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.4398826979472141
+    },
+    {
+      "name": "lengthOfLIS_is_maximum",
+      "stmt": "\u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums),\n    let allSubseq := (nums.foldl fun acc x => acc ++ acc.map (fun sub => x :: sub)) [[]] |>.map List.reverse\n    let increasingSubseqLens := allSubseq.filter (fun l => List.Pairwise (\u00b7 < \u00b7) l) |>.map (\u00b7.length)\n    increasingSubseqLens.all (\u00b7 \u2264 lengthOfLIS nums h_precond)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.4322766570605187
+    },
+    {
+      "name": "lengthOfLIS_append_ge",
+      "stmt": "theorem lengthOfLIS_append_ge : \u2200 (nums : List Int) (x : Int) (h1 : lengthOfLIS_precond nums) (h2 : lengthOfLIS_precond (nums ++ [x])), lengthOfLIS nums h1 \u2264 lengthOfLIS (nums ++ [x]) h2",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5172413793103449
+    },
+    {
+      "name": "lengthOfLIS_prefix_le",
+      "stmt": "theorem lengthOfLIS_prefix_le : \u2200 (l1 l2 : List Int) (h1 : lengthOfLIS_precond l1) (h2 : lengthOfLIS_precond (l1 ++ l2)), lengthOfLIS l1 h1 \u2264 lengthOfLIS (l1 ++ l2) h2",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.528169014084507
+    },
+    {
+      "name": "lengthOfLIS_sorted_eq_length",
+      "stmt": "theorem lengthOfLIS_sorted_eq_length : \u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums), List.Pairwise (\u00b7 < \u00b7) nums \u2192 lengthOfLIS nums h_precond = nums.length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5576208178438662
+    },
+    {
+      "name": "lengthOfLIS_constant_eq_one",
+      "stmt": "theorem lengthOfLIS_constant_eq_one : \u2200 (x : Int) (n : Nat) (h_precond : lengthOfLIS_precond (List.replicate (n + 1) x)), lengthOfLIS (List.replicate (n + 1) x) h_precond = 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5338078291814947
+    },
+    {
+      "name": "lengthOfLIS_ge_one_of_nonempty",
+      "stmt": "theorem lengthOfLIS_ge_one_of_nonempty : \u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums), nums.length \u2265 1 \u2192 lengthOfLIS nums h_precond \u2265 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "lengthOfLIS_meets_postcond",
+      "stmt": "\u2200 args (h : lengthOfLIS_precond args), lengthOfLIS_postcond args (lengthOfLIS args h) h",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6355932203389831
+    },
+    {
+      "name": "maxInArray_ge_zero",
+      "stmt": "\u2200 (arr : Array Nat), maxInArray arr \u2265 0",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.6607929515418502
+    },
+    {
+      "name": "maxInArray_mem_or_zero",
+      "stmt": "theorem maxInArray_mem_or_zero : \u2200 (arr : Array Nat), arr.size = 0 \u2228 maxInArray arr \u2208 arr.toList",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "maxInArray_is_upper_bound",
+      "stmt": "theorem maxInArray_is_upper_bound : \u2200 (arr : Array Nat) (i : Fin arr.size), arr[i] \u2264 maxInArray arr",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "lengthOfLIS_nonneg",
+      "stmt": "\u2200 (nums : List Int) (h : lengthOfLIS_precond nums),\n    lengthOfLIS nums h \u2265 0",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "lengthOfLIS_nonempty_pos",
+      "stmt": "theorem lengthOfLIS_nonempty_pos : \u2200 (nums : List Int) (h : lengthOfLIS_precond nums), nums.isEmpty = false \u2192 lengthOfLIS nums h \u2265 1",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "lengthOfLIS_empty",
+      "stmt": "theorem lengthOfLIS_empty : \u2200 (h : lengthOfLIS_precond []), lengthOfLIS [] h = 0",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "lengthOfLIS_le_length",
+      "stmt": "theorem lengthOfLIS_le_length : \u2200 (nums : List Int) (h : lengthOfLIS_precond nums), lengthOfLIS nums h \u2264 nums.length",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "lengthOfLIS_eq_max_dp",
+      "stmt": "\u2200 (nums : List Int) (h : lengthOfLIS_precond nums),\n    nums.isEmpty = false \u2192\n    \u2203 (dp : Array Nat), dp.size = nums.length \u2227\n      dp.size > 0 \u2227\n      lengthOfLIS nums h = maxInArray dp \u2227\n      maxInArray dp \u2208 dp.toList",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.4155124653739612
+    },
+    {
+      "name": "lengthOfLIS_empty",
+      "stmt": "theorem lengthOfLIS_empty : lengthOfLIS [] trivial = 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8620689655172414
+    },
+    {
+      "name": "lengthOfLIS_nonempty",
+      "stmt": "lengthOfLIS nums h \u2265 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.9090909090909091
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 0,
+    "score": 0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 2,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

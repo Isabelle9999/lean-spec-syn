@@ -1,0 +1,157 @@
+{
+  "name": "verina_advanced_3",
+  "generated_count": 18,
+  "proved_count": 0,
+  "validated_count": 0,
+  "rejected_count": 18,
+  "soundness": 0.0,
+  "precision": null,
+  "avg_clarity": 0.0,
+  "impl_independence": null,
+  "avg_uniqueness": null,
+  "admissibility": null,
+  "convergence_iterations": 0,
+  "llm_calls": 31,
+  "lean_calls": 80,
+  "elapsed_seconds": 374.0676808357239,
+  "specs": [
+    {
+      "name": "LongestCommonSubsequence_empty_left",
+      "stmt": "theorem LongestCommonSubsequence_empty_left : \u2200 (b : Array Int) (h_precond : LongestCommonSubsequence_precond #[] b), LongestCommonSubsequence #[] b h_precond = 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "LongestCommonSubsequence_empty_right",
+      "stmt": "Int)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.9803921568627451
+    },
+    {
+      "name": "LongestCommonSubsequence_nonneg",
+      "stmt": "theorem LongestCommonSubsequence_nonneg : \u2200 (a b : Array Int) (h_precond : LongestCommonSubsequence_precond a b), 0 \u2264 LongestCommonSubsequence a b h_precond",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "LongestCommonSubsequence_le_left_size",
+      "stmt": "theorem LongestCommonSubsequence_le_left_size : \u2200 (a b : Array Int) (h_precond : LongestCommonSubsequence_precond a b), LongestCommonSubsequence a b h_precond \u2264 (a.size : Int)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5639097744360902
+    },
+    {
+      "name": "LongestCommonSubsequence_le_right_size",
+      "stmt": "\u2200 (a b : Array Int) (h_precond : LongestCommonSubsequence_precond a b),\n    LongestCommonSubsequence a b h_precond \u2264 b.size",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "LongestCommonSubsequence_result_in_common_subseq_lens",
+      "stmt": "Array Int)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.9615384615384615
+    },
+    {
+      "name": "LongestCommonSubsequence_is_maximum",
+      "stmt": "\u2200 (a b : Array Int) (h_precond : LongestCommonSubsequence_precond a b),\n    let subseqA := allSubseq a\n    let subseqB := allSubseq b\n    let commonSubseqLens := subseqA.filter (fun l => subseqB.contains l) |>.map (\u00b7.length)\n    commonSubseqLens.all (\u00b7 \u2264 LongestCommonSubsequence a b h_precond)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.47318611987381703
+    },
+    {
+      "name": "LongestCommonSubsequence_symmetric",
+      "stmt": "theorem LongestCommonSubsequence_symmetric : \u2200 (a b : Array Int) (h1 : LongestCommonSubsequence_precond a b) (h2 : LongestCommonSubsequence_precond b a), LongestCommonSubsequence a b h1 = LongestCommonSubsequence b a h2",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.528169014084507
+    },
+    {
+      "name": "LongestCommonSubsequence_postcond_result",
+      "stmt": "theorem LongestCommonSubsequence_postcond_result : \u2200 (a b : Array Int) (h_precond : LongestCommonSubsequence_precond a b), LongestCommonSubsequence_postcond a b (LongestCommonSubsequence a b h_precond) h_precond",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5639097744360902
+    },
+    {
+      "name": "LongestCommonSubsequence_empty_subseq_exists",
+      "stmt": "\u2200 (a b : Array Int) (h_precond : LongestCommonSubsequence_precond a b),\n    let subseqA := allSubseq a\n    let subseqB := allSubseq b\n    (subseqA.filter (fun l => subseqB.contains l)).contains []",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.528169014084507
+    },
+    {
+      "name": "intMax_ge_left",
+      "stmt": "\u2200 (x y : Int), x \u2264 intMax x y",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "intMax_eq_or",
+      "stmt": "\u2200 (x y : Int), intMax x y = x \u2228 intMax x y = y",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "lcs_nonneg",
+      "stmt": "theorem lcs_nonneg : \u2200 (a b : Array Int) (h : LongestCommonSubsequence_precond a b), 0 \u2264 LongestCommonSubsequence a b h",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "lcs_le_min_length",
+      "stmt": "theorem lcs_le_min_length : \u2200 (a b : Array Int) (h : LongestCommonSubsequence_precond a b), LongestCommonSubsequence a b h \u2264 min (a.size : Int) (b.size : Int)",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.539568345323741
+    },
+    {
+      "name": "lcs_symmetric",
+      "stmt": "\u2200 (a b : Array Int)\n    (h1 : LongestCommonSubsequence_precond a b)\n    (h2 : LongestCommonSubsequence_precond b a),\n    LongestCommonSubsequence a b h1 = LongestCommonSubsequence b a h2",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.5454545454545455
+    },
+    {
+      "name": "lcs_intmax_lower_bound",
+      "stmt": "theorem lcs_intmax_lower_bound : \u2200 (x y : Int), x \u2264 intMax x y \u2227 y \u2264 intMax x y",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "lcs_same_second_third",
+      "stmt": "theorem lcs_same_second_third : LongestCommonSubsequence a b trivial = LongestCommonSubsequence a b trivial",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8064516129032259
+    },
+    {
+      "name": "lcs_empty_first",
+      "stmt": "LongestCommonSubsequence #[] b b trivial = LongestCommonSubsequence #[] b b trivial",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.819672131147541
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 0,
+    "score": 0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 2,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

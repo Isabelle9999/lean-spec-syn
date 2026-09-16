@@ -1,0 +1,213 @@
+{
+  "name": "verina_advanced_4",
+  "generated_count": 26,
+  "proved_count": 0,
+  "validated_count": 0,
+  "rejected_count": 26,
+  "soundness": 0.0,
+  "precision": null,
+  "avg_clarity": 0.0,
+  "impl_independence": null,
+  "avg_uniqueness": null,
+  "admissibility": null,
+  "convergence_iterations": 0,
+  "llm_calls": 42,
+  "lean_calls": 98,
+  "elapsed_seconds": 457.43976736068726,
+  "specs": [
+    {
+      "name": "LongestIncreasingSubsequence_empty",
+      "stmt": "theorem LongestIncreasingSubsequence_empty : \u2200 (h_precond : LongestIncreasingSubsequence_precond #[]), LongestIncreasingSubsequence #[] h_precond = (0 : Int)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "LongestIncreasingSubsequence_singleton",
+      "stmt": "\u2200 (x : Int) (h_precond : LongestIncreasingSubsequence_precond #[x]),\n    LongestIncreasingSubsequence #[x] h_precond = 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "LongestIncreasingSubsequence_pos",
+      "stmt": "theorem LongestIncreasingSubsequence_pos : \u2200 (a : Array Int) (h_precond : LongestIncreasingSubsequence_precond a), a.size > 0 \u2192 LongestIncreasingSubsequence a h_precond \u2265 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "LongestIncreasingSubsequence_le_size",
+      "stmt": "\u2200 (a : Array Int) (h_precond : LongestIncreasingSubsequence_precond a), LongestIncreasingSubsequence a h_precond \u2264 (a.size : Int)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "LongestIncreasingSubsequence_nonneg",
+      "stmt": "theorem LongestIncreasingSubsequence_nonneg : \u2200 (a : Array Int) (h_precond : LongestIncreasingSubsequence_precond a), LongestIncreasingSubsequence a h_precond \u2265 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "LongestIncreasingSubsequence_result_is_valid_length",
+      "stmt": "\u2200 (a : Array Int) (h_precond : LongestIncreasingSubsequence_precond a),\n    let allSubseq := (a.foldl fun acc x => acc ++ acc.map (fun sub => x :: sub)) [[]] |>.map List.reverse\n    let increasingSubseqLens := allSubseq.filter (fun l => List.Pairwise (\u00b7 < \u00b7) l) |>.map (\u00b7.length)\n    increasingSubseqLens.contains (LongestIncreasingSubsequence a h_precond)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.4398826979472141
+    },
+    {
+      "name": "LongestIncreasingSubsequence_is_maximum",
+      "stmt": "theorem LongestIncreasingSubsequence_is_maximum : \u2200 (a : Array Int) (h_precond : LongestIncreasingSubsequence_precond a), (LongestIncreasingSubsequence_postcond a (LongestIncreasingSubsequence a h_precond) h_precond).2",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "LongestIncreasingSubsequence_sorted_eq_size",
+      "stmt": "theorem LongestIncreasingSubsequence_sorted_eq_size : \u2200 (a : Array Int) (h_precond : LongestIncreasingSubsequence_precond a), List.Sorted (\u00b7 < \u00b7) a.toList \u2192 LongestIncreasingSubsequence a h_precond = a.size",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5576208178438662
+    },
+    {
+      "name": "LongestIncreasingSubsequence_constant_eq_one",
+      "stmt": "theorem LongestIncreasingSubsequence_constant_eq_one : \u2200 (n : Nat) (x : Int) (h_precond : LongestIncreasingSubsequence_precond (Array.replicate n x)), n > 0 \u2192 LongestIncreasingSubsequence (Array.replicate n x) h_precond = 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5338078291814947
+    },
+    {
+      "name": "LongestIncreasingSubsequence_meets_postcond",
+      "stmt": "theorem LongestIncreasingSubsequence_meets_postcond : \u2200 (a : Array Int) (h_precond : LongestIncreasingSubsequence_precond a), LongestIncreasingSubsequence_postcond a (LongestIncreasingSubsequence a h_precond) h_precond",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "LongestIncreasingSubsequence_exact",
+      "stmt": "\u2200 (a : Array Int) (h_precond : LongestIncreasingSubsequence_precond a),\n    let result := LongestIncreasingSubsequence a h_precond\n    let allSubseq := (a.foldl fun acc x => acc ++ acc.map (fun sub => x :: sub)) [[]] |>.map List.reverse\n    let increasingSubseqLens := allSubseq.filter (fun l => List.Pairwise (\u00b7 < \u00b7) l) |>.map (\u00b7.length)\n    increasingSubseqLens.contains result \u2227 increasingSubseqLens.all (\u00b7 \u2264 result)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.4076086956521739
+    },
+    {
+      "name": "intMax_ge_left",
+      "stmt": "\u2200 (x y : Int), x \u2264 intMax x y",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "intMax_eq_or",
+      "stmt": "\u2200 (x y : Int), intMax x y = x \u2228 intMax x y = y",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "lis_nonneg",
+      "stmt": "\u2200 (a : Array Int) (h : LongestIncreasingSubsequence_precond a), 0 \u2264 LongestIncreasingSubsequence a h",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "lis_at_least_one",
+      "stmt": "\u2200 (a : Array Int) (h : LongestIncreasingSubsequence_precond a), a.size > 0 \u2192 1 \u2264 LongestIncreasingSubsequence a h",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "lis_single_element",
+      "stmt": "\u2200 (x : Int) (h : LongestIncreasingSubsequence_precond #[x]),\n    LongestIncreasingSubsequence #[x] h = 1",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "lis_at_most_size",
+      "stmt": "Int)",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.9803921568627451
+    },
+    {
+      "name": "lis_two_increasing",
+      "stmt": "\u2200 (x y : Int) (h : LongestIncreasingSubsequence_precond #[x, y]),\n    x < y \u2192 LongestIncreasingSubsequence #[x, y] h = 2",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "lis_empty_array_returns_zero",
+      "stmt": "theorem lis_empty_array_returns_zero : \u2200 (h_precond : LongestIncreasingSubsequence_precond (#[] : Array Int)), LongestIncreasingSubsequence (#[] : Array Int) h_precond = 0",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "lis_empty_dp_case",
+      "stmt": "theorem lis_empty_dp_case : \u2200 (a : Array Int) (h_precond : LongestIncreasingSubsequence_precond a), a.size = 0 \u2192 LongestIncreasingSubsequence a h_precond = (0 : Int)",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.5576208178438662
+    },
+    {
+      "name": "foldl_intMax_nonneg",
+      "stmt": "theorem foldl_intMax_nonneg : \u2200 (dp : Array Int), dp \u2260 #[] \u2192 0 \u2264 dp.foldl intMax 0",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "foldl_intMax_ge_one",
+      "stmt": "Fin dp.size` - this should typecheck. But `Array.foldl` takes an initial value and the fold starts from 0. Let me check: `Array.foldl` signature is `Array.foldl (f : \u03b2 \u2192 \u03b1 \u2192 \u03b2) (init : \u03b2) (as : Array \u03b1) (start",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.5555555555555556
+    },
+    {
+      "name": "lis_empty",
+      "stmt": "LongestIncreasingSubsequence #[] True.intro = 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "lis_nonempty",
+      "stmt": "theorem lis_nonempty (arr : Array Int) (h_precond : LongestIncreasingSubsequence_precond arr) : LongestIncreasingSubsequence arr h_precond \u2265 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7575757575757576
+    },
+    {
+      "name": "lis_upper_bound",
+      "stmt": "LongestIncreasingSubsequence arr h_precond \u2264 (arr.size : Int)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8771929824561403
+    },
+    {
+      "name": "lis_sorted_increasing",
+      "stmt": "theorem lis_sorted_increasing (arr : Array Int) (h_precond : LongestIncreasingSubsequence_precond arr) : LongestIncreasingSubsequence arr h_precond = arr.size",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7575757575757576
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 0,
+    "score": 0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 2,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

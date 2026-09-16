@@ -1,0 +1,178 @@
+{
+  "name": "verina_advanced_28",
+  "generated_count": 21,
+  "proved_count": 0,
+  "validated_count": 0,
+  "rejected_count": 21,
+  "soundness": 0.0,
+  "precision": null,
+  "avg_clarity": 0.0,
+  "impl_independence": null,
+  "avg_uniqueness": null,
+  "admissibility": null,
+  "convergence_iterations": 0,
+  "llm_calls": 34,
+  "lean_calls": 80,
+  "elapsed_seconds": 417.08960604667664,
+  "specs": [
+    {
+      "name": "longestConsecutive_empty",
+      "stmt": "theorem longestConsecutive_empty : \u2200 (h_precond : longestConsecutive_precond []), longestConsecutive [] h_precond = 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "longestConsecutive_singleton",
+      "stmt": "\u2200 (x : Int) (h_precond : longestConsecutive_precond [x]),\n    longestConsecutive [x] h_precond = 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "longestConsecutive_le_length",
+      "stmt": "theorem longestConsecutive_le_length : \u2200 (nums : List Int) (h_precond : longestConsecutive_precond nums), longestConsecutive nums h_precond \u2264 nums.length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "longestConsecutive_nonneg",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestConsecutive_precond nums), 0 \u2264 longestConsecutive nums h_precond",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "longestConsecutive_pos",
+      "stmt": "theorem longestConsecutive_pos : \u2200 (nums : List Int) (h_precond : longestConsecutive_precond nums), nums \u2260 [] \u2192 1 \u2264 longestConsecutive nums h_precond",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "longestConsecutive_is_consec_sublist_len",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestConsecutive_precond nums), let sorted_nums",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6437768240343348
+    },
+    {
+      "name": "longestConsecutive_is_maximum",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestConsecutive_precond nums),\n    let sorted_nums := nums.mergeSort\n    let consec_sublist_lens := List.range nums.length |>.flatMap (fun start =>\n      List.range (nums.length - start + 1) |>.map (fun len => sorted_nums.extract start (start + len))) |>.filter isConsecutive |>.map (\u00b7.length)\n    nums \u2260 [] \u2192 consec_sublist_lens.all (\u00b7 \u2264 longestConsecutive nums h_precond)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.4249291784702549
+    },
+    {
+      "name": "longestConsecutive_meets_postcond",
+      "stmt": "theorem longestConsecutive_meets_postcond : \u2200 (nums : List Int) (h_precond : longestConsecutive_precond nums), longestConsecutive_postcond nums (longestConsecutive nums h_precond) h_precond",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "longestConsecutive_two_consec",
+      "stmt": "\u2200 (x : Int) (h_precond : longestConsecutive_precond [x, x + 1]),\n    longestConsecutive [x, x + 1] h_precond = 2",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "longestConsecutive_append_nodup",
+      "stmt": ": nums) h_precond \u2264 (x :: nums).length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8771929824561403
+    },
+    {
+      "name": "longestConsecutive_eq_zero_iff_empty",
+      "stmt": "theorem longestConsecutive_eq_zero_iff_empty : \u2200 (nums : List Int) (h_precond : longestConsecutive_precond nums), longestConsecutive nums h_precond = 0 \u2194 nums = []",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "isConsecutive_empty",
+      "stmt": "List Int) : Bool",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.9259259259259258
+    },
+    {
+      "name": "longestConsecutive_empty",
+      "stmt": "theorem longestConsecutive_empty : \u2200 (h : longestConsecutive_precond []), longestConsecutive [] h = 0",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "longestConsecutive_single",
+      "stmt": "theorem longestConsecutive_single : \u2200 (x : Int) (h : longestConsecutive_precond [x]), longestConsecutive [x] h = 1",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "longestConsecutive_result_pos",
+      "stmt": "theorem longestConsecutive_result_pos : \u2200 (nums : List Int) (h : longestConsecutive_precond nums), nums \u2260 [] \u2192 longestConsecutive nums h \u2265 1",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "longestConsecutive_upper_bound",
+      "stmt": "theorem longestConsecutive_upper_bound : \u2200 (nums : List Int) (h : longestConsecutive_precond nums), longestConsecutive nums h \u2264 nums.length",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "longestConsecutive_consecutive_list",
+      "stmt": "theorem longestConsecutive_consecutive_list : \u2200 (n : Nat) (start : Int) (h : longestConsecutive_precond (List.map (fun i => start + i) (List.range n))), n > 0 \u2192 longestConsecutive (List.map (fun i => start + i) (List.range n)) h = n",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.47318611987381703
+    },
+    {
+      "name": "longestConsecutive_empty",
+      "stmt": "longestConsecutive [] (by simp [longestConsecutive_precond]) = 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8771929824561403
+    },
+    {
+      "name": "longestConsecutive_singleton",
+      "stmt": "longestConsecutive [n] (by simp [longestConsecutive_precond]) = 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8771929824561403
+    },
+    {
+      "name": "longestConsecutive_nonempty_pos",
+      "stmt": "longestConsecutive l h_precond \u2265 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "longestConsecutive_le_length",
+      "stmt": "List Int) (h_precond : longestConsecutive_precond l) : longestConsecutive l h_precond \u2264 l.length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8064516129032259
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 0,
+    "score": 0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 2,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

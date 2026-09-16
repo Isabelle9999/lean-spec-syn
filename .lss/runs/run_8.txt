@@ -1,0 +1,174 @@
+  [gen] running strategy: direct
+  [gen] direct produced 11 candidates
+  [gen] running strategy: examples
+  [gen] examples produced 3 candidates
+  [gen] running strategy: negatives
+  [gen] negatives produced 0 candidates
+  [gen] total after merge+dedup: 14
+  [g0] insertionSort_empty: example store check ok
+  [g1] insertionSort_empty: typecheck pass
+  [g2] insertionSort_empty: eval pass (insertionSort [] = [])
+  [g3] insertionSort_empty: skipped (relational)
+  [g4] insertionSort_empty: PROVED by rfl
+  [g0] insertionSort_singleton: example store check ok
+  [g1] insertionSort_singleton: typecheck pass
+  [g2] insertionSort_singleton: eval pass (insertionSort [] = [])
+  [g3] insertionSort_singleton: skipped (relational)
+  [g4] insertionSort_singleton: PROVED by rfl
+  [g0] insertionSort_length_preserved: example store check ok
+  [g1] insertionSort_length_preserved: typecheck pass
+  [g2] insertionSort_length_preserved: eval pass (insertionSort [] = [])
+  [g3] insertionSort_length_preserved: skipped (relational)
+  [g4] insertionSort_length_preserved: PROVED by rfl
+  [g0] insertionSort_isPerm: example store check ok
+  [g1] insertionSort_isPerm: typecheck pass
+  [g2] insertionSort_isPerm: eval pass (insertionSort [] = [])
+  [g3] insertionSort_isPerm: skipped (relational)
+  [g4] insertionSort_isPerm: PROVED by rfl
+  [g0] insertionSort_mem_iff: example store check ok
+  [g1] insertionSort_mem_iff: typecheck pass
+  [g2] insertionSort_mem_iff: eval pass (insertionSort [] = [])
+  [g3] insertionSort_mem_iff: skipped (relational)
+  [g4] insertionSort_mem_iff: PROVED by rfl
+  [g0] insertionSort_sorted: example store check ok
+  [g1] insertionSort_sorted: typecheck pass
+  [g2] insertionSort_sorted: eval pass (insertionSort [] = [])
+  [g3] insertionSort_sorted: skipped (relational)
+  [g4] insertionSort_sorted: PROVED by rfl
+  [g0] insertionSort_cons: example store check ok
+  [g1] insertionSort_cons: typecheck pass
+  [g2] insertionSort_cons: eval pass (insertionSort [] = [])
+  [g3] insertionSort_cons: skipped (relational)
+  [g4] insertionSort_cons: PROVED by rfl
+  [g0] insertionSort_idempotent: example store check ok
+  [g1] insertionSort_idempotent: typecheck pass
+  [g2] insertionSort_idempotent: eval pass (insertionSort [] = [])
+  [g3] insertionSort_idempotent: skipped (relational)
+  [g4] insertionSort_idempotent: PROVED by rfl
+  [g0] insertionSort_perm_of_input: example store check ok
+  [g1] insertionSort_perm_of_input: typecheck pass
+  [g2] insertionSort_perm_of_input: eval pass (insertionSort [] = [])
+  [g3] insertionSort_perm_of_input: skipped (relational)
+  [g4] insertionSort_perm_of_input: PROVED by rfl
+  [g0] insertionSort_not_shorter: example store check ok
+  [g1] insertionSort_not_shorter: typecheck pass
+  [g2] insertionSort_not_shorter: eval pass (insertionSort [] = [])
+  [g3] insertionSort_not_shorter: skipped (relational)
+  [g4] insertionSort_not_shorter: PROVED by rfl
+  [g0] insertionSort_meets_postcond: example store check ok
+  [g1] insertionSort_meets_postcond: typecheck pass
+  [g2] insertionSort_meets_postcond: eval pass (insertionSort [] = [])
+  [g3] insertionSort_meets_postcond: skipped (relational)
+  [g4] insertionSort_meets_postcond: PROVED by rfl
+  [g0] insertionSort_sorted: example store check ok
+  [g1] insertionSort_sorted: fixed stmt typechecks
+  [g1] insertionSort_sorted: typecheck pass
+  [g2] insertionSort_sorted: eval pass (insertionSort [] = [])
+  [g4] insertionSort_sorted: bare lean failed, queued for mathlib/llm
+  [g0] insertionSort_perm: example store check ok
+  [g1] insertionSort_perm: typecheck pass
+  [g2] insertionSort_perm: eval pass (insertionSort [] = [])
+  [g4] insertionSort_perm: bare lean failed, queued for mathlib/llm
+  [g0] insertionSort_length: example store check ok
+  [g1] insertionSort_length: typecheck pass
+  [g2] insertionSort_length: eval pass (insertionSort [] = [])
+  [g4] insertionSort_length: bare lean failed, queued for mathlib/llm
+  [mathlib] batching 3 unproved specs...
+  [mathlib] batch took 2.0s
+  [g4] insertionSort_sorted: PROVED by rfl (mathlib)
+  [g4] insertionSort_perm: PROVED by rfl (mathlib)
+  [g4] insertionSort_length: PROVED by rfl (mathlib)
+  [refine] entered, verbose=True, 14 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 14 proved specs
+  [refine] generating mutants...
+  mutants: 34 generated, 10 compile
+  [refine] mutant gen took 24.9s
+  [refine] running perturbation pre-check...
+  [refine] perturbation: 0 checks
+  [refine] perturbation took 1.7s
+  [refine] starting mutation loop...
+
+  [mut] === iteration 1/5 ===
+  [mut] 10 compilable mutants to check
+  [mut] mutant 0 (<=): equivalent or non-diverging, skipped
+  [mut] mutant 1 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 2 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 3 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 4 (dup_head): equivalent or non-diverging, skipped
+  [mut] mutant 5 (dup_head): equivalent or non-diverging, skipped
+  [mut] mutant 6 (empty_singleton): equivalent or non-diverging, skipped
+  [mut] mutant 7 (swap_arms_0_1): equivalent or non-diverging, skipped
+  [mut] mutant 8 (negate_cond): equivalent or non-diverging, skipped
+  [mut] mutant 9 (boundary_≤_<): equivalent or non-diverging, skipped
+  [mut] certify+check: 0 live pairs (0.3s)
+  [mut] no live pairs, tier 1 converged
+  [refine] mutation loop took 0.3s
+  [refine] running spec mutation check...
+  [refine] IronSpec ASC analysis...
+  [asc] insertionSort_empty: WARN — does not reference arg 'l' (unnecessary input)
+  [asc] insertionSort_singleton: WARN — does not reference arg 'l' (unnecessary input)
+  [asc] insertionSort_sorted: STRENGTHENED ≤→= (IronSpec: strictly stronger, still verifies)
+  [asc] insertionSort_not_shorter: STRENGTHENED ≥→= (IronSpec: strictly stronger, still verifies)
+  [asc] insertionSort_meets_postcond: WARN — does not reference arg 'l' (unnecessary input)
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: IMPOSSIBLE
+  [refine] tier 2 took 17.5s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 99.2s
+  [pc] insertionSort_empty: post_completeness=n/a (0/0)
+  [pc] insertionSort_singleton: post_completeness=n/a (0/0)
+  [pc] insertionSort_length_preserved: post_completeness=n/a (0/0)
+  [pc] insertionSort_isPerm: post_completeness=n/a (0/0)
+  [pc] insertionSort_mem_iff: post_completeness=n/a (0/0)
+  [pc] insertionSort_sorted: post_completeness=n/a (0/0)
+  [pc] insertionSort_cons: post_completeness=n/a (0/0)
+  [pc] insertionSort_idempotent: post_completeness=n/a (0/0)
+  [pc] insertionSort_perm_of_input: post_completeness=n/a (0/0)
+  [pc] insertionSort_not_shorter: post_completeness=n/a (0/0)
+  [pc] insertionSort_meets_postcond: post_completeness=n/a (0/0)
+  [pc] insertionSort_perm: post_completeness=n/a (0/0)
+  [pc] insertionSort_length: post_completeness=n/a (0/0)
+  [debug] uniqueness inputs: 5 test inputs
+
+--- verina_advanced_17 ---
+  generated:  14
+  survived:   14 (14 kernel-proved, 0 validated)
+  soundness:  1.00
+  recall:     0.00
+  precision:  1.00
+  clarity:    0.661
+  uniqueness: 1.00
+  admissible: True
+  func_correct: 0.00 (0/14)
+  spec_coverage: 0.00 (0/2)
+  llm calls:  32
+  lean calls: 345
+    kernel-proved        [rfl]  insertionSort_empty: ∀ (h_precond : insertionSort_precond []),
+    insertionSort [] h_precond = []
+    kernel-proved        [rfl]  insertionSort_singleton: ∀ (x : Int) (h_precond : insertionSort_precond [x]),
+    insertionSort [x] h_pre
+    kernel-proved        [rfl]  insertionSort_length_preserved: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    (insertionSort l h_p
+    kernel-proved        [rfl]  insertionSort_isPerm: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.isPerm l (inser
+    kernel-proved        [rfl]  insertionSort_mem_iff: ∀ (l : List Int) (h_precond : insertionSort_precond l) (x : Int),
+    x ∈ insert
+    kernel-proved        [rfl]  insertionSort_sorted: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Pairwise (· = ·
+    kernel-proved        [rfl]  insertionSort_cons: ∀ (x : Int) (xs : List Int)
+    (h_precond : insertionSort_precond (x :: xs)),
+ 
+    kernel-proved        [rfl]  insertionSort_idempotent: ∀ (l : List Int) (h_precond : insertionSort_precond l)
+    (h_precond2 : inserti
+    kernel-proved        [rfl]  insertionSort_perm_of_input: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Perm l (inserti
+    kernel-proved        [rfl]  insertionSort_not_shorter: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    (insertionSort l h_p
+    kernel-proved        [rfl]  insertionSort_meets_postcond: ∀ (args : List Int) (h : insertionSort_precond args),
+    insertionSort_postcond
+    kernel-proved        [rfl (mathlib)]  insertionSort_sorted: List.Pairwise (· ≤ ·) (insertionSort l h)
+    kernel-proved        [rfl (mathlib)]  insertionSort_perm: (insertionSort l h).Perm l
+    kernel-proved        [rfl (mathlib)]  insertionSort_length: (insertionSort l h).length = l.length
+new best: 14 kernel-proved (previous: 4 from run_4)

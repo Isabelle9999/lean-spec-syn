@@ -1,0 +1,126 @@
+{
+  "name": "rust_swap",
+  "generated_count": 14,
+  "proved_count": 13,
+  "validated_count": 1,
+  "rejected_count": 0,
+  "soundness": 0.9285714285714286,
+  "precision": null,
+  "avg_clarity": 0.5313218492731542,
+  "impl_independence": null,
+  "avg_uniqueness": null,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "0"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 74,
+  "lean_calls": 565,
+  "elapsed_seconds": 1602.4981286525726,
+  "specs": [
+    {
+      "name": "swap_trivial_equal_fields",
+      "stmt": "\u2200 (v : Std.U32), records.swap { first := v, second := v } = ok { first := v, second := v }",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.5576208178438662
+    },
+    {
+      "name": "swap_correct",
+      "stmt": "\u2200 (p : records.Pair), records.swap p = ok { first := p.second, second := p.first }",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "swap_always_ok",
+      "stmt": "\u2200 (p : records.Pair), \u2203 r, records.swap p = ok r",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.5300353356890459
+    },
+    {
+      "name": "swap_never_fails",
+      "stmt": "\u2200 (p : records.Pair), \u00ac (records.swap p = fail .panic)",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "swap_first_is_second",
+      "stmt": "\u2200 (p : records.Pair), \u2203 r, records.swap p = ok r \u2227 r.first = p.second",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.5084745762711864
+    },
+    {
+      "name": "swap_second_is_first",
+      "stmt": "\u2200 (p : records.Pair), \u2203 r, records.swap p = ok r \u2227 r.second = p.first",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.5084745762711864
+    },
+    {
+      "name": "swap_preserves_values",
+      "stmt": "\u2200 (p : records.Pair), \u2203 r, records.swap p = ok r \u2227 r.first = p.second \u2227 r.second = p.first",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.488599348534202
+    },
+    {
+      "name": "swap_same_fields_identity",
+      "stmt": "\u2200 (v : Std.U32), \u2203 r, records.swap { first := v, second := v } = ok r \u2227 r.first = v \u2227 r.second = v",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.4573170731707317
+    },
+    {
+      "name": "swap_equiv_explicit",
+      "stmt": "\u2200 (a b : Std.U32), records.swap { first := a, second := b } = ok { first := b, second := a }",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.5514705882352942
+    },
+    {
+      "name": "swap_involution",
+      "stmt": "\u2200 (p : records.Pair), \u2203 r1 r2, records.swap p = ok r1 \u2227 records.swap r1 = ok r2 \u2227 r2.first = p.first \u2227 r2.second = p.second",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.4573170731707317
+    },
+    {
+      "name": "swap_swap_eq_original",
+      "stmt": "\u2200 (p : records.Pair), \u2203 r, records.swap p = ok r \u2227 records.swap r = ok { first := p.first, second := p.second }",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.46583850931677023
+    },
+    {
+      "name": "swap_result_determined",
+      "stmt": "\u2200 (p : records.Pair) (r : records.Pair), records.swap p = ok r \u2192 r.first = p.second \u2227 r.second = p.first",
+      "status": "proved",
+      "method": "l1:simp [records.swap]",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "swap_symmetric_pair",
+      "stmt": "\u2200 (p : records.Pair), p.first = p.second \u2192 records.swap p = ok p",
+      "status": "validated",
+      "method": "",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "swap_of_swapped_input",
+      "stmt": "\u2200 (a b : Std.U32), records.swap { first := a, second := b } = ok { first := b, second := a } \u2227 records.swap { first := b, second := a } = ok { first := a, second := b }",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.45180722891566266
+    }
+  ],
+  "functional_correctness": {
+    "score": null
+  },
+  "spec_coverage": {
+    "score": null
+  }
+}

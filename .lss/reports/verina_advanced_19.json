@@ -1,0 +1,119 @@
+{
+  "name": "verina_advanced_19",
+  "generated_count": 11,
+  "proved_count": 11,
+  "validated_count": 0,
+  "rejected_count": 0,
+  "soundness": 1.0,
+  "precision": 1.0,
+  "avg_clarity": 0.5976231370032253,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": false,
+    "witness_input": null
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 29,
+  "lean_calls": 563,
+  "elapsed_seconds": 471.8256380558014,
+  "specs": [
+    {
+      "name": "isCleanPalindrome_empty",
+      "stmt": "\u2200 (h_precond : isCleanPalindrome_precond \"\"), \n    isCleanPalindrome \"\" h_precond = true",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "isCleanPalindrome_single_alpha",
+      "stmt": "\u2200 (h_precond : isCleanPalindrome_precond \"a\"),\n    isCleanPalindrome \"a\" h_precond = true",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "isCleanPalindrome_returns_bool",
+      "stmt": "\u2200 (s : String) (h_precond : isCleanPalindrome_precond s),\n    isCleanPalindrome s h_precond = true \u2227 isCleanPalindrome s h_precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "isCleanPalindrome_true_means_palindrome",
+      "stmt": "\u2200 (s : String) (h_precond : isCleanPalindrome_precond s),\n    isCleanPalindrome s h_precond = true \u2192 normalizeString s = (normalizeString s).reverse",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "isCleanPalindrome_false_means_not_palindrome",
+      "stmt": "\u2200 (s : String) (h_precond : isCleanPalindrome_precond s),\n    isCleanPalindrome s h_precond = false \u2192 normalizeString s \u2260 (normalizeString s).reverse",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "isCleanPalindrome_norm_eq_reverse",
+      "stmt": "\u2200 (s : String) (h_precond : isCleanPalindrome_precond s),\n    isCleanPalindrome s h_precond = true \u2194 normalizeString s = (normalizeString s).reverse",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "isCleanPalindrome_eq_decide",
+      "stmt": "\u2200 (s : String) (h_precond : isCleanPalindrome_precond s),\n    isCleanPalindrome s h_precond = decide (normalizeString s = (normalizeString s).reverse)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "isCleanPalindrome_result_stable",
+      "stmt": "\u2200 (s : String) (h_precond : isCleanPalindrome_precond s),\n    (isCleanPalindrome s h_precond = true) = (normalizeString s = reverseList (normalizeString s))",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "isCleanPalindrome_meets_postcond",
+      "stmt": "\u2200 (s : String) (h : isCleanPalindrome_precond s), \n    isCleanPalindrome_postcond s (isCleanPalindrome s h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "isCleanPalindrome_norm_reverse_iff",
+      "stmt": "\u2200 (s : String) (h_precond : isCleanPalindrome_precond s),\n    isCleanPalindrome s h_precond = true \u2194 \n    let norm := normalizeString s\n    norm = norm.reverse",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5639097744360902
+    },
+    {
+      "name": "isCleanPalindrome_false_iff",
+      "stmt": "\u2200 (s : String) (h_precond : isCleanPalindrome_precond s),\n    isCleanPalindrome s h_precond = false \u2194 normalizeString s \u2260 (normalizeString s).reverse",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5836575875486382
+    }
+  ],
+  "functional_correctness": {
+    "matched": 1,
+    "total_proved": 11,
+    "score": 0.09090909090909091,
+    "matches": [
+      {
+        "generated": "isCleanPalindrome_norm_reverse_iff",
+        "ground_truth": "let norm := normalizeString s\n  (result = true \u2192 norm = norm.reverse)",
+        "method": "kw_overlap"
+      }
+    ]
+  },
+  "spec_coverage": {
+    "covered": 1,
+    "total_ground_truth": 2,
+    "score": 0.5,
+    "covered_specs": [
+      "let norm := normalizeString s\n  (result = true \u2192 norm = norm.reverse)"
+    ]
+  }
+}

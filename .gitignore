@@ -1,0 +1,11 @@
+.lss/cache/
+.lss/cache.json
+.lss/hashes.json
+__pycache__/
+lean_project/
+rust_benchmarks/
+.claude/
+CLAUDE.md
+all_prompts.txt
+rust16.txt
+*.log

@@ -1,0 +1,167 @@
+{
+  "name": "verina_advanced_21",
+  "generated_count": 19,
+  "proved_count": 15,
+  "validated_count": 0,
+  "rejected_count": 4,
+  "soundness": 0.7894736842105263,
+  "precision": 1.0,
+  "avg_clarity": 0.666682989995886,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": ""
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 46,
+  "lean_calls": 480,
+  "elapsed_seconds": 372.9049870967865,
+  "specs": [
+    {
+      "name": "isPalindrome_empty",
+      "stmt": "\u2200 (h_precond : isPalindrome_precond \"\") ,\n    isPalindrome \"\" h_precond = true",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6437768240343348
+    },
+    {
+      "name": "isPalindrome_single_char",
+      "stmt": "\u2200 (c : Char) (h_precond : isPalindrome_precond \u27e8[c]\u27e9),\n    isPalindrome \u27e8[c]\u27e9 h_precond = true",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "isPalindrome_true_iff_eq_reverse",
+      "stmt": "\u2200 (s : String) (h_precond : isPalindrome_precond s),\n    isPalindrome s h_precond = true \u2192 s.toList == s.toList.reverse",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "isPalindrome_true_implies_list_eq_reverse",
+      "stmt": "\u2200 (s : String) (h_precond : isPalindrome_precond s),\n    isPalindrome s h_precond = true \u2192 s.toList = s.toList.reverse",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "isPalindrome_false_implies_ne_reverse",
+      "stmt": "\u2200 (s : String) (h_precond : isPalindrome_precond s),\n    isPalindrome s h_precond = false \u2192 s.toList \u2260 s.toList.reverse",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "isPalindrome_false_implies_nonempty",
+      "stmt": "\u2200 (s : String) (h_precond : isPalindrome_precond s),\n    isPalindrome s h_precond = false \u2192 s.toList \u2260 []",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "isPalindrome_reverse_eq",
+      "stmt": "theorem isPalindrome_reverse_eq : \u2200 (s : String) (h_precond : isPalindrome_precond s) (h_precond2 : isPalindrome_precond (String.mk s.toList.reverse)), isPalindrome s h_precond = isPalindrome (String.mk s.toList.reverse) h_precond2",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5514705882352942
+    },
+    {
+      "name": "isPalindrome_eq_list_beq_reverse",
+      "stmt": "\u2200 (s : String) (h_precond : isPalindrome_precond s),\n    isPalindrome s h_precond = (s.toList == s.toList.reverse)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "isPalindrome_idempotent",
+      "stmt": "\u2200 (s : String) (h_precond : isPalindrome_precond s),\n    isPalindrome s h_precond = isPalindrome s h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "isPalindrome_of_reverse_palindrome",
+      "stmt": "\u2200 (s : String) (h_precond : isPalindrome_precond s)\n    (h_precond2 : isPalindrome_precond \u27e8s.toList.reverse\u27e9),\n    isPalindrome s h_precond = true \u2192\n    isPalindrome \u27e8s.toList.reverse\u27e9 h_precond2 = true",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5576208178438662
+    },
+    {
+      "name": "isPalindrome_meets_postcond",
+      "stmt": "\u2200 (args : String) (h : isPalindrome_precond args),\n    isPalindrome_postcond args (isPalindrome args h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "isPalindrome_iff_eq_reverse",
+      "stmt": "isPalindrome s h = true \u2194 s.data = s.data.reverse",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.8474576271186441
+    },
+    {
+      "name": "isPalindrome_empty",
+      "stmt": "isPalindrome \"\" h = true",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "isPalindrome_single_char",
+      "stmt": "isPalindrome (String.mk [c]) h = true",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.8928571428571428
+    },
+    {
+      "name": "isPalindrome_extend",
+      "stmt": ": s.data ++ [c])` or using `{ data",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8620689655172414
+    },
+    {
+      "name": "isPalindrome_of_reverse_palindrome",
+      "stmt": "\u2200 (s : String) (h_precond : isPalindrome_precond s),\n    s.toList = s.toList.reverse \u2192 isPalindrome s h_precond = true",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "isPalindrome_empty",
+      "stmt": "\u2200 (h_precond : isPalindrome_precond \"\"), isPalindrome \"\" h_precond = true",
+      "status": "proved",
+      "method": "trivial",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "isPalindrome_postcond_result_false",
+      "stmt": "\u2200 (s : String) (h_precond : isPalindrome_precond s),\n    isPalindrome s h_precond = false \u2192\n    s.toList \u2260 [] \u2227 s.toList != s.toList.reverse",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "isPalindrome_empty",
+      "stmt": "\u2200 (h : isPalindrome_precond \"\"), isPalindrome \"\" h = true",
+      "status": "proved",
+      "method": "llm-gen-with-proof",
+      "clarity_score": 0.6521739130434783
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 15,
+    "score": 0.0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 2,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

@@ -1,0 +1,154 @@
+{
+  "name": "verina_advanced_1",
+  "generated_count": 16,
+  "proved_count": 13,
+  "validated_count": 0,
+  "rejected_count": 3,
+  "soundness": 0.8125,
+  "precision": 1.0,
+  "avg_clarity": 0.5612014133611548,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "[2, 2, 3]"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 45,
+  "lean_calls": 436,
+  "elapsed_seconds": 326.8719229698181,
+  "specs": [
+    {
+      "name": "FindSingleNumber_result_count_one",
+      "stmt": "\u2200 (nums : List Int) (h_precond : FindSingleNumber_precond nums),\n    (filterlist (FindSingleNumber nums h_precond) nums).length = 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "FindSingleNumber_result_mem",
+      "stmt": "\u2200 (nums : List Int) (h_precond : FindSingleNumber_precond nums),\n    FindSingleNumber nums h_precond \u2208 nums",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "FindSingleNumber_others_count_two",
+      "stmt": "\u2200 (nums : List Int) (h_precond : FindSingleNumber_precond nums),\n    \u2200 (x : Int), x \u2208 nums \u2192 x \u2260 FindSingleNumber nums h_precond \u2192\n    (filterlist x nums).length = 2",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.44910179640718567
+    },
+    {
+      "name": "FindSingleNumber_result_unique",
+      "stmt": "\u2200 (nums : List Int) (h_precond : FindSingleNumber_precond nums),\n    nums.count (FindSingleNumber nums h_precond) = 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "FindSingleNumber_nums_nonempty",
+      "stmt": "\u2200 (nums : List Int) (h_precond : FindSingleNumber_precond nums),\n    nums.length = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6355932203389831
+    },
+    {
+      "name": "FindSingleNumber_filter_singleton",
+      "stmt": "\u2200 (nums : List Int) (h_precond : FindSingleNumber_precond nums),\n    (filterlist (FindSingleNumber nums h_precond) nums).length = 1 \u2227\n    FindSingleNumber nums h_precond \u2208 nums",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5639097744360902
+    },
+    {
+      "name": "FindSingleNumber_partition",
+      "stmt": "\u2200 (nums : List Int) (h_precond : FindSingleNumber_precond nums),\n    \u2200 (x : Int), x \u2208 nums \u2192\n    (x = FindSingleNumber nums h_precond) \u2227 ((filterlist x nums).length = 2)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.44910179640718567
+    },
+    {
+      "name": "FindSingleNumber_filterlist_eq_singleton",
+      "stmt": "\u2200 (nums : List Int) (h_precond : FindSingleNumber_precond nums),\n    \u2203 (v : Int), filterlist (FindSingleNumber nums h_precond) nums = [v]",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.48387096774193555
+    },
+    {
+      "name": "FindSingleNumber_singleton",
+      "stmt": "\u2200 (x : Int) (h_precond : FindSingleNumber_precond [x]),\n    FindSingleNumber [x] h_precond = x",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "FindSingleNumber_not_duplicated",
+      "stmt": "\u2200 (nums : List Int) (h_precond : FindSingleNumber_precond nums),\n    \u00ac ((filterlist (FindSingleNumber nums h_precond) nums).length = 2)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "FindSingleNumber_count_leq_two",
+      "stmt": "\u2200 (nums : List Int) (h_precond : FindSingleNumber_precond nums),\n    \u2200 (x : Int), x \u2208 nums \u2192\n    (filterlist x nums).length = 1 \u2227 (filterlist x nums).length = 2",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.44910179640718567
+    },
+    {
+      "name": "FindSingleNumber_meets_postcond",
+      "stmt": "\u2200 (nums : List Int) (h : FindSingleNumber_precond nums),\n    FindSingleNumber_postcond nums (FindSingleNumber nums h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "FindSingleNumber_result_in_filterlist",
+      "stmt": "\u2200 (nums : List Int) (h_precond : FindSingleNumber_precond nums),\n    FindSingleNumber nums h_precond \u2208 filterlist (FindSingleNumber nums h_precond) nums",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "findSingleNumber_eq_xor_fold",
+      "stmt": "theorem findSingleNumber_eq_xor_fold (nums : List Int) (h_precond : FindSingleNumber_precond nums) : FindSingleNumber nums h_precond = nums.foldl (\u00b7 ^^^ \u00b7) 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7142857142857143
+    },
+    {
+      "name": "findSingleNumber_appears_once",
+      "stmt": "theorem findSingleNumber_appears_once (nums : List Int) (h_precond : FindSingleNumber_precond nums) : FindSingleNumber_postcond nums (FindSingleNumber nums h_precond) h_precond",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7462686567164178
+    },
+    {
+      "name": "findSingleNumber_mem",
+      "stmt": "theorem findSingleNumber_mem : \u2200 (nums : List Int) (h : FindSingleNumber_precond nums), FindSingleNumber nums h \u2208 nums",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5976095617529881
+    }
+  ],
+  "functional_correctness": {
+    "matched": 1,
+    "total_proved": 13,
+    "score": 0.07692307692307693,
+    "matches": [
+      {
+        "generated": "FindSingleNumber_count_leq_two",
+        "ground_truth": "\u2200 (x : Int),\n    x \u2208 nums \u2192\n    (x = result) \u2228 ((filterlist x nums).length = 2)",
+        "method": "kw_overlap"
+      }
+    ]
+  },
+  "spec_coverage": {
+    "covered": 1,
+    "total_ground_truth": 3,
+    "score": 0.3333333333333333,
+    "covered_specs": [
+      "\u2200 (x : Int),\n    x \u2208 nums \u2192\n    (x = result) \u2228 ((filterlist x nums).length = 2)"
+    ]
+  }
+}

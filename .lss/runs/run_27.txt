@@ -1,0 +1,92 @@
+loaded 16 rust functions from /home/user9999/rust_benchmarks
+  [gen] function complexity: hard
+  [gen] running strategy: direct
+  [gen] direct produced 13 candidates
+  [g0] swap_trivial_equal: example store check ok
+  [g1] swap_trivial_equal: typecheck pass
+  [g4] swap_trivial_equal: all layers failed, validated
+  [g0] swap_always_ok: example store check ok
+  [g1] swap_always_ok: typecheck pass
+  [g4] swap_always_ok: proved (l1) by l1:tauto
+  [g0] swap_first_becomes_second: example store check ok
+  [g1] swap_first_becomes_second: typecheck pass
+  [g4] swap_first_becomes_second: proved (l3) by l3:decompose_repaired
+  [g0] swap_output_first_is_input_second: example store check ok
+  [g1] swap_output_first_is_input_second: typecheck pass
+  [g4] swap_output_first_is_input_second: all layers failed, validated
+  [g0] swap_output_second_is_input_first: example store check ok
+  [g1] swap_output_second_is_input_first: typecheck pass
+  [g4] swap_output_second_is_input_first: all layers failed, validated
+  [dedup] skipping duplicate in validate: swap_correct
+  [g0] swap_any_values: example store check ok
+  [g1] swap_any_values: typecheck pass
+  [g4] swap_any_values: all layers failed, validated
+  [dedup] skipping duplicate in validate: swap_equiv_construction
+  [g0] swap_involution: example store check ok
+  [g1] swap_involution: typecheck pass
+  [g3] swap_involution: skipped (relational)
+  [g4] swap_involution: all layers failed, validated
+  [g0] swap_swap_is_identity: example store check ok
+  [g1] swap_swap_is_identity: typecheck pass
+  [g3] swap_swap_is_identity: skipped (relational)
+  [g4] swap_swap_is_identity: proved (l3) by l3:decompose_repaired
+  [g0] swap_same_fields: example store check ok
+  [g1] swap_same_fields: typecheck pass
+  [g4] swap_same_fields: all layers failed, validated
+  [g0] swap_result_first_determined: example store check ok
+  [g1] swap_result_first_determined: typecheck pass
+  [g3] swap_result_first_determined: skipped (relational)
+  [g4] swap_result_first_determined: all layers failed, validated
+  [g0] swap_symmetric: example store check ok
+  [g1] swap_symmetric: typecheck pass
+  [g3] swap_symmetric: skipped (relational)
+  [g4] swap_symmetric: proved (l3) by l3:decompose_repaired
+  [pbt] swap_trivial_equal: pass
+  [pbt] swap_output_first_is_input_second: pass
+  [pbt] swap_output_second_is_input_first: pass
+  [pbt] swap_any_values: pass
+  [pbt] swap_involution: pass
+  [pbt] swap_same_fields: pass
+  [pbt] swap_result_first_determined: pass
+  [dedup] dropped post-gwp duplicate: swap_correct: ∀ (p : records.Pair),
+    records.swap p = ok { first := p.s
+  [dedup] dropped post-gwp duplicate: swap_equiv_construction: ∀ (p : records.Pair),
+    records.swap p = ok { first := p.s
+  CRASH on rust_swap: [Errno 2] No such file or directory: 'C:\\Users\\User\\.elan\\toolchains\\leanprover--lean4---v4.32.2\\bin\\lean.exe'
+Traceback (most recent call last):
+  File "/mnt/c/Users/User/projects/sps-bootstrapping-semantics/isabelle-v2/run.py", line 385, in main
+    _, report = run_bench(bm, args, llm, checker, store, args.baseline, project_dir=rust_project_dir, func_source=bm.get("func_source"))
+                ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/c/Users/User/projects/sps-bootstrapping-semantics/isabelle-v2/run.py", line 142, in run_bench
+    specs, timed_out = _with_timeout(_synth, timeout)
+                       ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/mnt/c/Users/User/projects/sps-bootstrapping-semantics/isabelle-v2/run.py", line 107, in _with_timeout
+    raise exc[0]
+  File "/mnt/c/Users/User/projects/sps-bootstrapping-semantics/isabelle-v2/run.py", line 92, in worker
+    result[0] = fn()
+                ~~^^
+  File "/mnt/c/Users/User/projects/sps-bootstrapping-semantics/isabelle-v2/run.py", line 133, in _synth
+    s = synthesize(lean_code, ti, tpl, llm, checker, store, func_name=fn, verbose=vb, debug_dir=debug_dir, postcond_defs=postcond_defs, project_dir=project_dir, func_source=func_source)
+  File "/mnt/c/Users/User/projects/sps-bootstrapping-semantics/isabelle-v2/synth.py", line 2773, in synthesize
+    stdout, stderr, rc = _run_lean(full)
+                         ~~~~~~~~~^^^^^^
+  File "/mnt/c/Users/User/projects/sps-bootstrapping-semantics/isabelle-v2/lean.py", line 106, in _run_lean
+    r = subprocess.run([LEAN, path], capture_output=True, text=True, encoding="utf-8", timeout=60)
+  File "/home/user9999/miniconda3/lib/python3.13/subprocess.py", line 554, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user9999/miniconda3/lib/python3.13/subprocess.py", line 1039, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        pass_fds, cwd, env,
+                        ^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+                        gid, gids, uid, umask,
+                        ^^^^^^^^^^^^^^^^^^^^^^
+                        start_new_session, process_group)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user9999/miniconda3/lib/python3.13/subprocess.py", line 1991, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\User\\.elan\\toolchains\\leanprover--lean4---v4.32.2\\bin\\lean.exe'
+
+incremental: 1 re-verified, 0 carried forward

@@ -1,0 +1,141 @@
+loaded 16 rust functions from /home/user9999/rust_benchmarks
+  [gen] function complexity: hard
+  [gen] running strategy: direct
+  [gen] direct produced 13 candidates
+  [g0] swap_trivial_first_eq: example store check ok
+  [g1] swap_trivial_first_eq: typecheck pass
+  [g4] swap_trivial_first_eq: all layers failed, validated
+  [g0] swap_same_fields: example store check ok
+  [g1] swap_same_fields: typecheck pass
+  [g4] swap_same_fields: proved (l1) by l1:tauto
+  [g0] swap_always_ok: example store check ok
+  [g1] swap_always_ok: typecheck pass
+  [g4] swap_always_ok: proved (l1) by l1:tauto
+  [g0] swap_result_is_pair: example store check ok
+  [g1] swap_result_is_pair: typecheck pass
+  [g4] swap_result_is_pair: proved (l1) by l1:tauto
+  [g0] swap_first_is_second: example store check ok
+  [g1] swap_first_is_second: typecheck pass
+  [g4] swap_first_is_second: proved (l1) by l1:tauto
+  [g0] swap_second_is_first: example store check ok
+  [g1] swap_second_is_first: typecheck pass
+  [g4] swap_second_is_first: proved (l1) by l1:tauto
+  [g0] swap_correct: example store check ok
+  [g1] swap_correct: typecheck pass
+  [g4] swap_correct: proved (l1) by l1:tauto
+  [g0] swap_fields_exchanged: example store check ok
+  [g1] swap_fields_exchanged: typecheck pass
+  [g4] swap_fields_exchanged: all layers failed, validated
+  [g0] swap_eq_mk: example store check ok
+  [g1] swap_eq_mk: typecheck pass
+  [g4] swap_eq_mk: all layers failed, validated
+  [g0] swap_involution: example store check ok
+  [g1] swap_involution: typecheck pass
+  [g3] swap_involution: skipped (relational)
+  [g4] swap_involution: all layers failed, validated
+  [g0] swap_double_is_identity: example store check ok
+  [g1] swap_double_is_identity: typecheck pass
+  [g3] swap_double_is_identity: skipped (relational)
+  [g4] swap_double_is_identity: all layers failed, validated
+  [g0] swap_result_first_eq_input_second: example store check ok
+  [g1] swap_result_first_eq_input_second: typecheck FAIL: ['/home/user9999/rust_benchmarks/tmpktnbb9f2.lean:15:19: err
+         stmt: ∀ (p : records.Pair),
+  (records.swap p).map (fun r => r.first) = ok p.second
+  [g0] swap_result_second_eq_input_first: example store check ok
+  [g1] swap_result_second_eq_input_first: fixed stmt typechecks
+  [g1] swap_result_second_eq_input_first: typecheck pass
+  [g4] swap_result_second_eq_input_first: proved (l1) by l1:tauto
+  [pbt] swap_trivial_first_eq: pass
+  [pbt] swap_fields_exchanged: pass
+  [pbt] swap_eq_mk: pass
+  [pbt] swap_involution: pass
+  [pbt] swap_double_is_identity: pass
+  [g0] swap_result_first_eq_input_second: example store check ok
+  [g1] swap_result_first_eq_input_second: typecheck FAIL: ['/home/user9999/rust_benchmarks/tmpms4a0tsw.lean:11:83: err
+         stmt: = pair.second, second
+  [repair] mutation-guided: 1 repaired, 0 proved
+  [dedup] dropped post-gwp duplicate: swap_result_second_eq_input_first: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ r.second 
+  [2nd] swap_trivial_first_eq: FAIL
+  [2nd] swap_fields_exchanged: FAIL
+  [2nd] swap_eq_mk: FAIL
+  [2nd] swap_involution: FAIL
+  [2nd] swap_double_is_identity: FAIL
+  [refine] entered, verbose=True, 6 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 11 proved specs
+  [refine] generating mutants...
+  mutants: 1 generated, 0 compile
+  [refine] mutant gen took 0.0s
+  [refine] no compilable mutants, skipping tier 1
+  [refine] running spec mutation check...
+  [spec-mut] swap_first_is_second: operator '∧ -> ∨ at 49' is unnecessarily tight
+  [spec-mut] swap_second_is_first: operator '∧ -> ∨ at 49' is unnecessarily tight
+  [refine] IronSpec ASC analysis...
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: typecheck FAIL — /home/user9999/rust_benchmarks/tmpcrvl1uhg.lean:6:61: error:
+  [adv] round 1: typecheck FAIL — /home/user9999/rust_benchmarks/tmpsm7shy32.lean:6:61: error:
+  [adv] round 1: spec satisfaction FAIL on swap_trivial_first_eq
+  [adv] round 2/3
+  [adv] round 2: typecheck FAIL — /home/user9999/rust_benchmarks/tmpn2ddxi2n.lean:6:61: error:
+  [adv] round 2: typecheck FAIL — /home/user9999/rust_benchmarks/tmprjidt8jo.lean:6:61: error:
+  [adv] round 2: spec satisfaction FAIL on swap_trivial_first_eq
+  [adv] round 2: typecheck FAIL — /home/user9999/rust_benchmarks/tmplvspqd0l.lean:6:61: error:
+  [adv] round 2: typecheck FAIL — /home/user9999/rust_benchmarks/tmpxhzmq9o_.lean:6:61: error:
+  [adv] round 2: typecheck FAIL — /home/user9999/rust_benchmarks/tmpm8rbdbci.lean:6:61: error(
+  [adv] round 2: typecheck FAIL — /home/user9999/rust_benchmarks/tmp3l32g6z_.lean:6:61: error:
+  [adv] round 2: typecheck FAIL — /home/user9999/rust_benchmarks/tmpwp1d_o_w.lean:6:61: error:
+  [adv] round 2: typecheck FAIL — /home/user9999/rust_benchmarks/tmpphlbgdxm.lean:6:61: error:
+  [adv] round 2: typecheck FAIL — /home/user9999/rust_benchmarks/tmpwdq3iwkw.lean:6:110: error
+  [adv] round 3/3
+  [adv] round 3: typecheck FAIL — /home/user9999/rust_benchmarks/tmp5jawjtza.lean:6:61: error:
+  [adv] round 3: typecheck FAIL — /home/user9999/rust_benchmarks/tmp8fa6tz0k.lean:6:61: error:
+  [adv] round 3: spec satisfaction FAIL on swap_trivial_first_eq
+  [refine] tier 2 took 61.4s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 81.4s
+  [pc] swap_same_fields: post_completeness=n/a (0/0)
+  [pc] swap_always_ok: post_completeness=n/a (0/0)
+  [pc] swap_result_is_pair: post_completeness=n/a (0/0)
+  [pc] swap_first_is_second: post_completeness=n/a (0/0)
+  [pc] swap_second_is_first: post_completeness=n/a (0/0)
+  [pc] swap_correct: post_completeness=n/a (0/0)
+  [debug] uniqueness inputs: 0 test inputs
+
+--- rust_swap ---
+  generated:  12
+  survived:   11 (6 kernel-proved, 5 validated)
+  rejected:   1
+  failure breakdown: 1 typecheck, 0 eval, 0 vacuity
+  soundness:  0.50
+  recall:     0.00
+  precision:  1.00
+  mutants:    4 total, 1 killed, 0 survived, 0 equiv, 0 inconclusive, 0 stillborn (score 1/1)
+  clarity:    0.534
+  uniqueness: -
+  admissible: True
+  func_correct: - (no ground truth)
+  spec_coverage: - (no ground truth)
+  llm calls:  29
+  lean calls: 203
+    validated (unproved)  swap_trivial_first_eq: ∀ (p : records.Pair), p.first = p.first →
+  ∃ r, records.swap p = ok r
+    kernel-proved        [l1:tauto]  swap_same_fields: ∀ (v : Std.U32), records.swap { first := v, second := v } = ok { first := v, sec
+    kernel-proved        [l1:tauto]  swap_always_ok: ∀ (p : records.Pair), ∃ r, records.swap p = ok r
+    kernel-proved        [l1:tauto]  swap_result_is_pair: ∀ (p : records.Pair), ∃ (r : records.Pair), records.swap p = ok r
+    kernel-proved        [l1:tauto]  swap_first_is_second: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ r.first = p.second
+    kernel-proved        [l1:tauto]  swap_second_is_first: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ r.second = p.first
+    kernel-proved        [l1:tauto]  swap_correct: ∀ (p : records.Pair), records.swap p = ok { first := p.second, second := p.first
+    validated (unproved)  swap_fields_exchanged: ∀ (p : records.Pair),
+  ∃ r, records.swap p = ok r ∧ r.first = p.second ∧ r.seco
+    validated (unproved)  swap_eq_mk: ∀ (a b : Std.U32),
+  records.swap { first := a, second := b } = ok { first := b,
+    validated (unproved)  swap_involution: ∀ (p : records.Pair),
+  records.swap p >>= records.swap = ok p
+    validated (unproved)  swap_double_is_identity: ∀ (p : records.Pair),
+  ∃ r1 r2, records.swap p = ok r1 ∧ records.swap r1 = ok r
+  divergent: none detected
+  trait detection (records.swap): no traits found
+
+incremental: 1 re-verified, 0 carried forward
+below best (6 vs 404 from run_11)

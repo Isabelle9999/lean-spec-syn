@@ -1,0 +1,136 @@
+loaded 16 rust functions from /home/user9999/rust_benchmarks
+  [gen] function complexity: hard
+  [gen] running strategy: direct
+  [gen] direct produced 14 candidates
+  [g0] swap_trivial_same: example store check ok
+  [g1] swap_trivial_same: typecheck pass
+  [g4] swap_trivial_same: proved (l1) by l1:tauto
+  [g0] swap_always_ok: example store check ok
+  [g1] swap_always_ok: typecheck pass
+  [g4] swap_always_ok: proved (l1) by l1:tauto
+  [g0] swap_first_is_second: example store check ok
+  [g1] swap_first_is_second: typecheck pass
+  [g4] swap_first_is_second: proved (l1) by l1:tauto
+  [g0] swap_second_is_first: example store check ok
+  [g1] swap_second_is_first: typecheck pass
+  [g4] swap_second_is_first: proved (l1) by l1:tauto
+  [g0] swap_correct: example store check ok
+  [g1] swap_correct: typecheck pass
+  [g4] swap_correct: proved (l1) by l1:tauto
+  [g0] swap_first_field_preserved: example store check ok
+  [g1] swap_first_field_preserved: typecheck pass
+  [g4] swap_first_field_preserved: proved (l1) by l1:tauto
+  [g0] swap_second_field_preserved: example store check ok
+  [g1] swap_second_field_preserved: typecheck pass
+  [g4] swap_second_field_preserved: proved (l1) by l1:tauto
+  [dedup] skipping duplicate in validate: swap_fields_swapped
+  [g0] swap_involution: example store check ok
+  [g1] swap_involution: typecheck FAIL: ["/home/user9999/rust_benchmarks/tmpb7yqeei_.lean:14:105: er
+         stmt: theorem swap_involution : ∀ (p : records.Pair), (records.swap p >>= records.swap) = ok p
+  [g0] swap_double_involution: example store check ok
+  [g1] swap_double_involution: typecheck pass
+  [g3] swap_double_involution: skipped (relational)
+  [g4] swap_double_involution: proved (l1) by l1:tauto
+  [g0] swap_zero_pair: example store check ok
+  [g1] swap_zero_pair: typecheck FAIL: ['/home/user9999/rust_benchmarks/tmpvweg27e2.lean:14:50: err
+         stmt: theorem swap_zero_pair : records.swap { first
+  [g0] swap_same_elements: example store check ok
+  [g1] swap_same_elements: typecheck pass
+  [g4] swap_same_elements: proved (l1) by l1:tauto
+  [dedup] skipping duplicate in validate: swap_result_well_formed
+  [g0] swap_equiv_components: example store check ok
+  [g1] swap_equiv_components: typecheck pass
+  [g4] swap_equiv_components: proved (l1) by l1:tauto
+  [g0] swap_involution: example store check ok
+  [g1] swap_involution: fixed stmt typechecks
+  [g1] swap_involution: typecheck pass
+  [g3] swap_involution: skipped (relational)
+  [g4] swap_involution: proved (l1) by l1:tauto
+  [repair] mutation-guided: 1 repaired, 1 proved
+  [dedup] dropped post-gwp duplicate: swap_fields_swapped: ∀ (p : records.Pair), records.swap p = ok { first := p.secon
+  [dedup] dropped post-gwp duplicate: swap_result_well_formed: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ r.first =
+  [refine] entered, verbose=True, 11 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 11 proved specs
+  [refine] generating mutants...
+  mutants: 7 generated, 7 compile
+  [refine] mutant gen took 23.0s
+  [refine] running perturbation pre-check...
+  [refine] perturbation: 0 checks
+  [refine] perturbation took 0.0s
+  [refine] starting mutation loop...
+
+  [mut] === iteration 1/5 ===
+  [mut] 7 compilable mutants to check
+  [mut] mutant 0 (struct_val_swap): killed, no weakness
+  [mut] mutant 1 (struct_dup_first): inconclusive, no weakness
+  [mut] mutant 2 (struct_dup_second): killed, no weakness
+  [mut] mutant 3 (field_src_swap): killed, no weakness
+  [mut] mutant 4 (llm_rewrite): killed, no weakness
+  [mut] mutant 5 (llm_rewrite): inconclusive, no weakness
+  [mut] mutant 6 (llm_rewrite): killed, no weakness
+  [mut] certify+check: 0 live pairs (342.8s)
+  [mut] no live pairs, tier 1 converged
+  [refine] mutation loop took 342.8s
+  [refine] running spec mutation check...
+  [spec-mut] swap_first_is_second: operator '∧ -> ∨ at 49' is unnecessarily tight
+  [spec-mut] swap_second_is_first: operator '∧ -> ∨ at 49' is unnecessarily tight
+  [spec-mut] swap_first_field_preserved: operator '∧ -> ∨ at 72' is unnecessarily tight
+  [spec-mut] swap_second_field_preserved: operator '∧ -> ∨ at 72' is unnecessarily tight
+  [spec-mut] swap_double_involution: operator '∧ -> ∨ at 49' is unnecessarily tight
+  [spec-mut] swap_same_elements: operator '∧ -> ∨ at 49' is unnecessarily tight
+  [spec-mut] swap_same_elements: operator '∧ -> ∨ at 70' is unnecessarily tight
+  [refine] IronSpec ASC analysis...
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: spec satisfaction FAIL on swap_involution
+  [adv] round 2/3
+  [adv] round 2: IMPOSSIBLE
+  [refine] tier 2 took 138.2s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 87.4s
+  [pc] swap_trivial_same: post_completeness=n/a (0/0)
+  [pc] swap_always_ok: post_completeness=n/a (0/0)
+  [pc] swap_first_is_second: post_completeness=n/a (0/0)
+  [pc] swap_second_is_first: post_completeness=n/a (0/0)
+  [pc] swap_correct: post_completeness=n/a (0/0)
+  [pc] swap_first_field_preserved: post_completeness=n/a (0/0)
+  [pc] swap_second_field_preserved: post_completeness=n/a (0/0)
+  [pc] swap_double_involution: post_completeness=n/a (0/0)
+  [pc] swap_same_elements: post_completeness=n/a (0/0)
+  [pc] swap_equiv_components: post_completeness=n/a (0/0)
+  [pc] swap_involution: post_completeness=n/a (0/0)
+  [debug] uniqueness inputs: 0 test inputs
+
+--- rust_swap ---
+  generated:  13
+  survived:   11 (11 kernel-proved, 0 validated)
+  rejected:   2
+  failure breakdown: 2 typecheck, 0 eval, 0 vacuity
+  soundness:  0.85
+  recall:     0.00
+  precision:  1.00
+  mutants:    4 total, 1 killed, 0 survived, 0 equiv, 1 inconclusive, 0 stillborn (score 1/1)
+  clarity:    0.530
+  uniqueness: -
+  admissible: True
+  func_correct: - (no ground truth)
+  spec_coverage: - (no ground truth)
+  llm calls:  27
+  lean calls: 243
+    kernel-proved        [l1:tauto]  swap_trivial_same: ∀ (v : Std.U32), records.swap { first := v, second := v } = ok { first := v, sec
+    kernel-proved        [l1:tauto]  swap_always_ok: ∀ (p : records.Pair), ∃ r, records.swap p = ok r
+    kernel-proved        [l1:tauto]  swap_first_is_second: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ r.first = p.second
+    kernel-proved        [l1:tauto]  swap_second_is_first: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ r.second = p.first
+    kernel-proved        [l1:tauto]  swap_correct: ∀ (p : records.Pair), records.swap p = ok { first := p.second, second := p.first
+    kernel-proved        [l1:tauto]  swap_first_field_preserved: ∀ (a b : Std.U32), ∃ r, records.swap { first := a, second := b } = ok r ∧ r.firs
+    kernel-proved        [l1:tauto]  swap_second_field_preserved: ∀ (a b : Std.U32), ∃ r, records.swap { first := a, second := b } = ok r ∧ r.seco
+    kernel-proved        [l1:tauto]  swap_double_involution: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ records.swap r = ok p
+    kernel-proved        [l1:tauto]  swap_same_elements: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ r.first = p.second ∧ r.second
+    kernel-proved        [l1:tauto]  swap_equiv_components: ∀ (a b : Std.U32), records.swap { first := a, second := b } = ok { first := b, s
+    kernel-proved        [l1:tauto]  swap_involution: ∀ (p : FeatureSuite.records.Pair), (FeatureSuite.records.swap p >>= FeatureSuite
+  divergent: none detected
+  trait detection (records.swap): no traits found
+
+incremental: 1 re-verified, 0 carried forward
+below best (11 vs 404 from run_11)

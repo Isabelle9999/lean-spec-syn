@@ -1,0 +1,154 @@
+{
+  "name": "verina_advanced_37",
+  "generated_count": 16,
+  "proved_count": 15,
+  "validated_count": 0,
+  "rejected_count": 1,
+  "soundness": 0.9375,
+  "precision": 1.0,
+  "avg_clarity": 0.6054646129842943,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "[3, 2, 3]"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 47,
+  "lean_calls": 901,
+  "elapsed_seconds": 378.7482416629791,
+  "specs": [
+    {
+      "name": "majorityElement_singleton",
+      "stmt": "\u2200 (x : Int) (h : majorityElement_precond [x]),\n    majorityElement [x] h = x",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "majorityElement_mem",
+      "stmt": "\u2200 (nums : List Int) (h_precond : majorityElement_precond nums),\n    majorityElement nums h_precond \u2208 nums",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "majorityElement_count_gt_half",
+      "stmt": "\u2200 (nums : List Int) (h_precond : majorityElement_precond nums),\n    List.count (majorityElement nums h_precond) nums = nums.length / 2",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "majorityElement_is_majority",
+      "stmt": "\u2200 (nums : List Int) (h_precond : majorityElement_precond nums),\n    let n := nums.length\n    let result := majorityElement nums h_precond\n    List.count result nums = n / 2",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.539568345323741
+    },
+    {
+      "name": "majorityElement_others_leq_half",
+      "stmt": "\u2200 (nums : List Int) (h_precond : majorityElement_precond nums),\n    nums.all (fun x == x = majorityElement nums h_precond \u2227\n      List.count x nums = nums.length / 2)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.539568345323741
+    },
+    {
+      "name": "majorityElement_count_pos",
+      "stmt": "\u2200 (nums : List Int) (h_precond : majorityElement_precond nums),\n    List.count (majorityElement nums h_precond) nums = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "majorityElement_two_same",
+      "stmt": "\u2200 (x : Int) (h : majorityElement_precond [x, x]),\n    majorityElement [x, x] h = x",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "majorityElement_count_exceeds_any",
+      "stmt": "\u2200 (nums : List Int) (h_precond : majorityElement_precond nums),\n    \u2200 y : Int, y \u2260 majorityElement nums h_precond \u2192\n    List.count y nums = List.count (majorityElement nums h_precond) nums",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.44910179640718567
+    },
+    {
+      "name": "majorityElement_meets_postcond",
+      "stmt": "\u2200 (nums : List Int) (h : majorityElement_precond nums),\n    majorityElement_postcond nums (majorityElement nums h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "majorityElement_unique",
+      "stmt": "\u2200 (nums : List Int) (h_precond : majorityElement_precond nums),\n    \u2200 m : Int, List.count m nums = nums.length / 2 \u2192\n    m = majorityElement nums h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.4573170731707317
+    },
+    {
+      "name": "majorityElement_repeated_list",
+      "stmt": "\u2200 (nums : List Int) (h_precond : majorityElement_precond nums),\n    let r := majorityElement nums h_precond\n    \u2200 (h2 : majorityElement_precond (List.replicate (nums.length / 2 + 1) r)),\n    majorityElement (List.replicate (nums.length / 2 + 1) r) h2 = r",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.4155124653739612
+    },
+    {
+      "name": "majorityElement_count_strictly_greater",
+      "stmt": "\u2200 (nums : List Int) (h_precond : majorityElement_precond nums),\n    2 * List.count (majorityElement nums h_precond) nums = nums.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "majorityElement_count_le_length",
+      "stmt": "\u2200 (nums : List Int) (h_precond : majorityElement_precond nums),\n    List.count (majorityElement nums h_precond) nums = nums.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "majorityElement_result_in_list",
+      "stmt": "majorityElement nums h \u2208 nums",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "majorityElement_appears_majority",
+      "stmt": "List Int) (h : majorityElement_precond nums) : (nums.filter (\u00b7 == majorityElement nums h)).length * 2 > nums.length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7462686567164178
+    },
+    {
+      "name": "majorityElement_singleton",
+      "stmt": "majorityElement [x] h = x",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    }
+  ],
+  "functional_correctness": {
+    "matched": 1,
+    "total_proved": 15,
+    "score": 0.06666666666666667,
+    "matches": [
+      {
+        "generated": "majorityElement_is_majority",
+        "ground_truth": "let n := nums.length\n  (List.count result nums > n / 2)",
+        "method": "kw_overlap"
+      }
+    ]
+  },
+  "spec_coverage": {
+    "covered": 1,
+    "total_ground_truth": 2,
+    "score": 0.5,
+    "covered_specs": [
+      "let n := nums.length\n  (List.count result nums > n / 2)"
+    ]
+  }
+}

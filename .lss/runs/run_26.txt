@@ -1,0 +1,56 @@
+loaded 16 rust functions from /home/user9999/rust_benchmarks
+  [gen] function complexity: hard
+  [gen] running strategy: direct
+  [gen] direct produced 14 candidates
+  [g0] swap_trivial_same_fields: example store check ok
+  [g1] swap_trivial_same_fields: typecheck pass
+  [g4] swap_trivial_same_fields: all layers failed, validated
+  [g0] swap_correct: example store check ok
+  [g1] swap_correct: typecheck pass
+  [g4] swap_correct: proved (l3) by l3:decompose_repaired
+  [g0] swap_ok: example store check ok
+  [g1] swap_ok: typecheck pass
+  [g4] swap_ok: all layers failed, validated
+  [g0] swap_first_is_second: example store check ok
+  [g1] swap_first_is_second: typecheck pass
+  [g4] swap_first_is_second: all layers failed, validated
+  [g0] swap_second_is_first: example store check ok
+  [g1] swap_second_is_first: typecheck pass
+  [g4] swap_second_is_first: all layers failed, validated
+  [g0] swap_preserves_values: example store check ok
+  [g1] swap_preserves_values: typecheck pass
+  [g4] swap_preserves_values: all layers failed, validated
+  [g0] swap_equal_fields_preserved: example store check ok
+  [g1] swap_equal_fields_preserved: typecheck pass
+  [g4] swap_equal_fields_preserved: all layers failed, validated
+  [g0] swap_constructed: example store check ok
+  [g1] swap_constructed: typecheck pass
+  [g4] swap_constructed: all layers failed, validated
+  [dedup] skipping duplicate in validate: swap_first_field
+  [dedup] skipping duplicate in validate: swap_second_field
+  [g0] swap_involution: example store check ok
+  [g1] swap_involution: typecheck pass
+  [g3] swap_involution: skipped (relational)
+  [g4] swap_involution: all layers failed, validated
+  [g0] swap_double_first: example store check ok
+  [g1] swap_double_first: typecheck pass
+  [g3] swap_double_first: skipped (relational)
+  [g4] swap_double_first: all layers failed, validated
+  [g0] swap_double_second: example store check ok
+  [g1] swap_double_second: typecheck pass
+  [g3] swap_double_second: skipped (relational)
+  [g4] swap_double_second: all layers failed, validated
+  [g0] swap_double_eq: example store check ok
+  [g1] swap_double_eq: typecheck pass
+  [g3] swap_double_eq: skipped (relational)
+  [g4] swap_double_eq: all layers failed, validated
+  [pbt] swap_trivial_same_fields: pass
+  [pbt] swap_ok: pass
+  [pbt] swap_first_is_second: pass
+  [pbt] swap_second_is_first: pass
+  [pbt] swap_preserves_values: pass
+
+--- rust_swap ---
+  timeout after 900s
+
+incremental: 1 re-verified, 0 carried forward

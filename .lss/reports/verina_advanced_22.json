@@ -1,0 +1,159 @@
+{
+  "name": "verina_advanced_22",
+  "generated_count": 16,
+  "proved_count": 16,
+  "validated_count": 0,
+  "rejected_count": 0,
+  "soundness": 1.0,
+  "precision": 1.0,
+  "avg_clarity": 0.5209860205649735,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "[1, 3, 5, 2, 1]"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 70,
+  "lean_calls": 976,
+  "elapsed_seconds": 456.4212052822113,
+  "specs": [
+    {
+      "name": "isPeakValley_empty",
+      "stmt": "\u2200 (h_precond : isPeakValley_precond []),\n    isPeakValley [] h_precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "isPeakValley_singleton",
+      "stmt": "\u2200 (x : Int) (h_precond : isPeakValley_precond [x]),\n    isPeakValley [x] h_precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "isPeakValley_two_elements_increasing",
+      "stmt": "\u2200 (x y : Int) (h : x = y)\n    (h_precond : isPeakValley_precond [x, y]),\n    isPeakValley [x, y] h_precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "isPeakValley_two_elements_decreasing",
+      "stmt": "\u2200 (x y : Int) (h : x = y)\n    (h_precond : isPeakValley_precond [x, y]),\n    isPeakValley [x, y] h_precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "isPeakValley_no_peak_false",
+      "stmt": "\u2200 (lst : List Int) (h_precond : isPeakValley_precond lst),\n    let len := lst.length\n    let validPeaks := List.range len |=.filter (fun p =>\n      1 = p \u2227 p = len - 1 \u2227\n      (List.range p).all (fun i => lst[i]! < lst[i + 1]!) \u2227\n      (List.range (len - 1 - p)).all (fun i => lst[p + i]! > lst[p + i + 1]!))\n    validPeaks.length = 0 \u2192 \u00ac isPeakValley lst h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.36855036855036855
+    },
+    {
+      "name": "isPeakValley_has_peak_true",
+      "stmt": "\u2200 (lst : List Int) (h_precond : isPeakValley_precond lst),\n    let len := lst.length\n    let validPeaks := List.range len |=.filter (fun p =>\n      1 = p \u2227 p = len - 1 \u2227\n      (List.range p).all (fun i => lst[i]! < lst[i + 1]!) \u2227\n      (List.range (len - 1 - p)).all (fun i => lst[p + i]! > lst[p + i + 1]!))\n    validPeaks \u2260 [] \u2192 isPeakValley lst h_precond = true",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.36585365853658536
+    },
+    {
+      "name": "isPeakValley_equal_adjacent_false",
+      "stmt": "\u2200 (a b : Int) (l1 l2 : List Int)\n    (h_precond : isPeakValley_precond (l1 ++ [a, a] ++ l2)),\n    a = b \u2192 isPeakValley (l1 ++ [a, b] ++ l2) (by simp_all) = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.49668874172185423
+    },
+    {
+      "name": "isPeakValley_postcond_forward",
+      "stmt": "\u2200 (List.range lst.length |=.filter (fun p =>\n      1 = p \u2227 p = lst.length - 1 \u2227\n      (List.range p).all (fun i => lst[i]! < lst[i + 1]!) \u2227\n      (List.range (lst.length - 1 - p)).all (fun i => lst[p + i]! > lst[p + i + 1]!))) \u2260 []",
+      "status": "proved",
+      "method": "trivial",
+      "clarity_score": 0.436046511627907
+    },
+    {
+      "name": "isPeakValley_postcond_backward",
+      "stmt": "\u2200 (List.range lst.length |=.filter (fun p =>\n      1 = p \u2227 p = lst.length - 1 \u2227\n      (List.range p).all (fun i => lst[i]! < lst[i + 1]!) \u2227\n      (List.range (lst.length - 1 - p)).all (fun i => lst[p + i]! > lst[p + i + 1]!))).length = 0",
+      "status": "proved",
+      "method": "trivial",
+      "clarity_score": 0.436046511627907
+    },
+    {
+      "name": "isPeakValley_iff_valid_peak",
+      "stmt": "\u2200 (lst : List Int) (h_precond : isPeakValley_precond lst),\n    isPeakValley lst h_precond = true \u2194\n    (List.range lst.length |=.filter (fun p =>\n      1 = p \u2227 p = lst.length - 1 \u2227\n      (List.range p).all (fun i => lst[i]! < lst[i + 1]!) \u2227\n      (List.range (lst.length - 1 - p)).all (fun i => lst[p + i]! > lst[p + i + 1]!))) \u2260 []",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.38860103626943
+    },
+    {
+      "name": "isPeakValley_bool_result",
+      "stmt": "\u2200 (lst : List Int) (h_precond : isPeakValley_precond lst),\n    (isPeakValley lst h_precond = true) \u2227 (isPeakValley lst h_precond = false)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "isPeakValley_meets_postcond",
+      "stmt": "\u2200 (args : List Int) (h : isPeakValley_precond args),\n    isPeakValley_postcond args (isPeakValley args h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "isPeakValley_empty",
+      "stmt": "\u2200 (precond : isPeakValley_precond []),\n  isPeakValley [] precond = true",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "isPeakValley_singleton",
+      "stmt": "\u2200 (x : Int) (precond : isPeakValley_precond [x]),\n  isPeakValley [x] precond = true",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "isPeakValley_alternating_true",
+      "stmt": "\u2200 (l[i.val]! > l[i.val - 1]! \u2227 l[i.val]! > l[i.val + 1]!) \u2227 \n    (l[i.val]! < l[i.val - 1]! \u2227 l[i.val]! < l[i.val + 1]!)) \u2194 \n  isPeakValley l precond = true",
+      "status": "proved",
+      "method": "trivial",
+      "clarity_score": 0.5172413793103449
+    },
+    {
+      "name": "isPeakValley_monotone_false",
+      "stmt": "\u2200 (l : List Int) (precond : isPeakValley_precond l),\n  l.length = 3 \u2192\n  (\u2200 i : Fin (l.length - 1), l[i.val]! = l[i.val + 1]!) \u2192\n  isPeakValley l precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.43731778425655976
+    }
+  ],
+  "functional_correctness": {
+    "matched": 2,
+    "total_proved": 16,
+    "score": 0.125,
+    "matches": [
+      {
+        "generated": "isPeakValley_no_peak_false",
+        "ground_truth": "let len := lst.length\n  let validPeaks :=\n    List.range len |>.filter (fun p =>",
+        "method": "kw_overlap"
+      },
+      {
+        "generated": "isPeakValley_has_peak_true",
+        "ground_truth": "let len := lst.length\n  let validPeaks :=\n    List.range len |>.filter (fun p =>",
+        "method": "kw_overlap"
+      }
+    ]
+  },
+  "spec_coverage": {
+    "covered": 1,
+    "total_ground_truth": 2,
+    "score": 0.5,
+    "covered_specs": [
+      "let len := lst.length\n  let validPeaks :=\n    List.range len |>.filter (fun p =>"
+    ]
+  }
+}

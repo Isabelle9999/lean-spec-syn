@@ -1,0 +1,121 @@
+loaded 16 rust functions from /home/user9999/rust_benchmarks
+
+--- rust_insertion_sort ---
+  timeout after 1800s
+  [refine] entered, verbose=False, 1 proved specs
+
+--- rust_is_sorted ---
+  timeout after 1800s
+  [refine] entered, verbose=False, 3 proved specs
+
+--- rust_sort_and_summarize ---
+  timeout after 1800s
+  [refine] entered, verbose=False, 11 proved specs
+  [spec-mut] identity_output_eq_input: operator '∧ -> ∨ at 40' is unnecessarily tight
+  [spec-mut] identity_nonneg: operator '∧ -> ∨ at 40' is unnecessarily tight
+  [spec-mut] identity_succ_rel: operator '∧ -> ∨ at 40' is unnecessarily tight
+
+--- rust_identity ---
+  generated:  14
+  survived:   12 (11 kernel-proved, 1 validated)
+  rejected:   2
+  failure breakdown: 2 typecheck, 0 eval, 0 vacuity
+  soundness:  0.79
+  recall:     0.00
+  precision:  -
+  mutants:    0 total, 0 killed, 0 survived, 0 equiv, 0 inconclusive, 0 stillborn (score unavailable)
+  clarity:    0.583
+  uniqueness: -
+  admissible: True
+  func_correct: - (no ground truth)
+  spec_coverage: - (no ground truth)
+  llm calls:  44
+  lean calls: 177
+    kernel-proved        [l1:tauto]  identity_always_ok: ∀ (v : Std.U32), ∃ r, identity v = ok r
+    kernel-proved        [l1:tauto]  identity_result_exists: ∀ (v : Std.U32), identity v ≠ fail .panic
+    kernel-proved        [l1:tauto]  identity_preserves_value: ∀ (v : Std.U32), identity v = ok v
+    kernel-proved        [l1:tauto]  identity_output_eq_input: ∀ (v : Std.U32), ∃ r, identity v = ok r ∧ r = v
+    kernel-proved        [l1:aesop]  identity_nonneg: ∀ (v : Std.U32), ∃ r, identity v = ok r ∧ r.val ≥ 0
+    validated (unproved)  identity_bounded: ∀ (v : Std.U32), ∃ r, identity v = ok r ∧ r.val < 2^32
+    kernel-proved        [l1:tauto]  identity_succ_rel: ∀ (v : Std.U32), ∃ r, identity v = ok r ∧ r.val = v.val
+    kernel-proved        [l1:tauto]  identity_eq_id: ∀ (v : Std.U32), identity v = ok (id v)
+    kernel-proved        [l3:decompose]  identity_idempotent: ∀ (v : Std.U32), 
+  (do let r ← identity v; identity r) = identity v
+    kernel-proved        [l3:decompose_repaired]  identity_involution: ∀ (v : Std.U32), 
+  (do let r ← identity v; identity r) = ok v
+    kernel-proved        [l1:simp]  identity_deterministic: ∀ (v w : Std.U32), v = w → identity v = identity w
+    kernel-proved        [l1:simp [identity]]  identity_inj: ∀ (v w : Std.U32), identity v = ok w → v = w
+  divergent: none detected
+  trait detection (identity): no traits found
+  [refine] entered, verbose=False, 3 proved specs
+
+--- rust_contains ---
+  timeout after 1800s
+  [refine] entered, verbose=False, 4 proved specs
+
+--- rust_length ---
+  timeout after 1800s
+  [refine] entered, verbose=False, 4 proved specs
+
+--- rust_head_or ---
+  timeout after 1800s
+  [refine] entered, verbose=False, 13 proved specs
+  [refine] entered, verbose=False, 5 proved specs
+  [spec-mut] swap_first_is_second: operator '∧ -> ∨ at 49' is unnecessarily tight
+  [spec-mut] swap_second_is_first: operator '∧ -> ∨ at 49' is unnecessarily tight
+  [spec-mut] swap_preserves_values: operator '∧ -> ∨ at 49' is unnecessarily tight
+  [spec-mut] swap_preserves_values: operator '∧ -> ∨ at 70' is unnecessarily tight
+  [spec-mut] swap_same_fields_identity: operator '∧ -> ∨ at 70' is unnecessarily tight
+  [spec-mut] swap_same_fields_identity: operator '∧ -> ∨ at 84' is unnecessarily tight
+  [spec-mut] swap_involution: operator '∧ -> ∨ at 54' is unnecessarily tight
+  [spec-mut] swap_involution: operator '∧ -> ∨ at 80' is unnecessarily tight
+  [spec-mut] swap_involution: operator '∧ -> ∨ at 101' is unnecessarily tight
+  [spec-mut] swap_swap_eq_original: operator '∧ -> ∨ at 49' is unnecessarily tight
+  [spec-mut] swap_result_determined: operator '∧ -> ∨ at 84' is unnecessarily tight
+  [spec-mut] swap_of_swapped_input: operator '∧ -> ∨ at 93' is unnecessarily tight
+
+--- rust_swap ---
+  generated:  14
+  survived:   14 (13 kernel-proved, 1 validated)
+  soundness:  0.93
+  recall:     0.00
+  precision:  -
+  mutants:    4 total, 0 killed, 0 survived, 0 equiv, 4 inconclusive, 0 stillborn (score unavailable)
+  clarity:    0.531
+  uniqueness: -
+  admissible: True
+  func_correct: - (no ground truth)
+  spec_coverage: - (no ground truth)
+  llm calls:  74
+  lean calls: 565
+    kernel-proved        [l1:tauto]  swap_trivial_equal_fields: ∀ (v : Std.U32), records.swap { first := v, second := v } = ok { first := v, sec
+    kernel-proved        [l1:tauto]  swap_correct: ∀ (p : records.Pair), records.swap p = ok { first := p.second, second := p.first
+    kernel-proved        [l1:tauto]  swap_always_ok: ∀ (p : records.Pair), ∃ r, records.swap p = ok r
+    kernel-proved        [l1:tauto]  swap_never_fails: ∀ (p : records.Pair), ¬ (records.swap p = fail .panic)
+    kernel-proved        [l1:tauto]  swap_first_is_second: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ r.first = p.second
+    kernel-proved        [l1:tauto]  swap_second_is_first: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ r.second = p.first
+    kernel-proved        [l1:tauto]  swap_preserves_values: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ r.first = p.second ∧ r.second
+    kernel-proved        [l1:tauto]  swap_same_fields_identity: ∀ (v : Std.U32), ∃ r, records.swap { first := v, second := v } = ok r ∧ r.first 
+    kernel-proved        [l1:tauto]  swap_equiv_explicit: ∀ (a b : Std.U32), records.swap { first := a, second := b } = ok { first := b, s
+    kernel-proved        [l1:tauto]  swap_involution: ∀ (p : records.Pair), ∃ r1 r2, records.swap p = ok r1 ∧ records.swap r1 = ok r2 
+    kernel-proved        [l1:tauto]  swap_swap_eq_original: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ records.swap r = ok { first :
+    kernel-proved        [l1:simp [records.swap]]  swap_result_determined: ∀ (p : records.Pair) (r : records.Pair), records.swap p = ok r → r.first = p.sec
+    validated (unproved)  swap_symmetric_pair: ∀ (p : records.Pair), p.first = p.second → records.swap p = ok p
+    kernel-proved        [l1:tauto]  swap_of_swapped_input: ∀ (a b : Std.U32), records.swap { first := a, second := b } = ok { first := b, s
+  divergent: none detected
+  trait detection (records.swap): no traits found
+
+--- rust_order_pair ---
+  timeout after 1800s
+  [refine] entered, verbose=False, 2 proved specs
+
+--- rust_clamp_to_bounds ---
+  timeout after 1800s
+
+--- rust_linear_search ---
+  timeout after 1800s
+  [refine] entered, verbose=False, 1 proved specs
+  [refine] entered, verbose=False, 7 proved specs
+
+--- rust_count_occurrences ---
+  timeout after 1800s

@@ -1,0 +1,1892 @@
+  [gen] function complexity: hard
+  [gen] running strategy: direct
+  [gen] direct produced 14 candidates
+  [g0] findExponents_length: example store check ok
+  [g1] findExponents_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp28xz35o4.lean:19
+         stmt: ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes), (findExponents n prime
+  [g0] findExponents_primes_covered: example store check ok
+  [g1] findExponents_primes_covered: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp2a33xrb2.lean:19
+         stmt: ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes),
+    primes.all (fun p 
+  [g0] findExponents_keys_in_primes: example store check ok
+  [g1] findExponents_keys_in_primes: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp6_twgrd0.lean:19
+         stmt: ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes),
+    (findExponents n p
+  [g0] findExponents_product_eq: example store check ok
+  [g1] findExponents_product_eq: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp1ls8caj9.lean:19
+         stmt: theorem findExponents_product_eq : ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_precon
+  [g0] findExponents_keys_perm: example store check ok
+  [g1] findExponents_keys_perm: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpolljxpmb.lean:19
+         stmt: ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes),
+    List.Perm ((findEx
+  [g0] findExponents_keys_nodup: example store check ok
+  [g1] findExponents_keys_nodup: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpbd6kb5w6.lean:19
+         stmt: ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes), List.Nodup ((findExpon
+  [g0] findExponents_nonempty: example store check ok
+  [g1] findExponents_nonempty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpvyddqo41.lean:19
+         stmt: ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes),
+    (findExponents n p
+  [g0] findExponents_exponents_nonneg: example store check ok
+  [g1] findExponents_exponents_nonneg: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp3lysro9y.lean:19
+         stmt: theorem findExponents_exponents_nonneg : ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_
+  [g0] findExponents_fst_eq_primes: example store check ok
+  [g1] findExponents_fst_eq_primes: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp7cf5io8q.lean:19
+         stmt: ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes), (findExponents n prime
+  [g0] findExponents_factorization: example store check ok
+  [g1] findExponents_factorization: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpthd5qf_x.lean:19
+         stmt: theorem findExponents_factorization : ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_pre
+  [g0] findExponents_one_zero_exponents: example store check ok
+  [g1] findExponents_one_zero_exponents: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpfd1y2_dz.lean:19
+         stmt: ∀ (primes : List Nat) (h_precond : findExponents_precond 1 primes),
+    (findExponents 1 primes h_pr
+  [g0] findExponents_single_prime: example store check ok
+  [g1] findExponents_single_prime: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmprzvny2ds.lean:19
+         stmt: theorem findExponents_single_prime : ∀ (n : Nat) (p : Nat) (h_precond : findExponents_precond n [p])
+  [g0] findExponents_keys_prime: example store check ok
+  [g1] findExponents_keys_prime: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpd7uvd76z.lean:19
+         stmt: ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes),
+    (findExponents n p
+  [g0] findExponents_meets_postcond: example store check ok
+  [g1] findExponents_meets_postcond: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp5foq4olj.lean:19
+         stmt: ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes),
+    findExponents_post
+  [g0] findExponents_primes_covered: example store check ok
+  [g1] findExponents_primes_covered: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpjdblndnn.lean:19
+         stmt: ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes), primes.all (fun p => (
+  [g0] findExponents_product_eq: example store check ok
+  [g1] findExponents_product_eq: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp0oz6t7xl.lean:19
+         stmt: theorem findExponents_product_eq : ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_precon
+  [g0] findExponents_keys_perm: example store check ok
+  [g1] findExponents_keys_perm: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpolljxpmb.lean:19
+         stmt: theorem findExponents_keys_perm : ∀ (n : Nat) (primes : List Nat) (h_precond : findExponents_precond
+  [repair] mutation-guided: 3 repaired, 0 proved
+  [refine] entered, verbose=True, 0 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 0 proved specs
+  [refine] generating mutants...
+  mutants: 69 generated, 0 compile
+  [refine] mutant gen took 8.5s
+  [refine] no compilable mutants, skipping tier 1
+  [refine] running spec mutation check...
+  [refine] IronSpec ASC analysis...
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpu327vgox.lean:19:23: err
+  [adv] round 2/3
+  [adv] round 2: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpgqq05lo3.lean:19:23: err
+  [adv] round 3/3
+  [adv] round 3: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpgqq05lo3.lean:19:23: err
+  [refine] tier 2 took 10.5s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 0.0s
+
+--- verina_advanced_10 ---
+  generated:  14
+  survived:   0 (0 kernel-proved, 0 validated)
+  rejected:   14
+  failure breakdown: 14 typecheck, 0 eval, 0 vacuity
+  soundness:  0.00
+  recall:     0.00
+  precision:  -
+  clarity:    0.000
+  uniqueness: -
+  func_correct: 0.00 (0/0)
+  spec_coverage: 0.00 (0/3)
+  llm calls:  28
+  lean calls: 68
+  [gen] function complexity: hard
+  [gen] running strategy: direct
+  [gen] direct produced 12 candidates
+  [gen] running strategy: examples
+  [gen] examples produced 0 candidates
+  [gen] running strategy: negatives
+  [gen] negatives produced 0 candidates
+  [slice] generating specs for arm 1: [] => false
+  [slice] generating specs for arm 2: chord :: rest =>
+      let a := chord[0]!
+      le
+  [slice] generating specs for arm 3: [] => checkIntersection (chord :: newStack) rest
+  [slice] generating specs for arm 4: top :: _ =>
+        if top[1]! > a && top[1]! < b 
+  [slice] generating specs for arm 5: [] => [x]
+  [slice] case-specific: 8 total specs
+  [slice] total from slicing: 8 specs
+  [gen] slicing produced 8 candidates
+  [gen] total after merge+dedup: 20
+  [g0] hasChordIntersection_false_when_no_intersection: example store check ok
+  [g1] hasChordIntersection_false_when_no_intersection: typecheck pass
+  [g2] hasChordIntersection_false_when_no_intersection: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g3] hasChordIntersection_false_when_no_intersection: skipped (relational)
+  [g4] hasChordIntersection_false_when_no_intersection: PROVED by rfl
+  [g0] hasChordIntersection_returns_bool: example store check ok
+  [g1] hasChordIntersection_returns_bool: typecheck pass
+  [g2] hasChordIntersection_returns_bool: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g3] hasChordIntersection_returns_bool: skipped (relational)
+  [g4] hasChordIntersection_returns_bool: PROVED by rfl
+  [g0] hasChordIntersection_bool_type: example store check ok
+  [g1] hasChordIntersection_bool_type: typecheck pass
+  [g2] hasChordIntersection_bool_type: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g3] hasChordIntersection_bool_type: skipped (relational)
+  [g4] hasChordIntersection_bool_type: PROVED by rfl
+  [g0] hasChordIntersection_true_when_intersection_exists: example store check ok
+  [g1] hasChordIntersection_true_when_intersection_exists: typecheck pass
+  [g2] hasChordIntersection_true_when_intersection_exists: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g3] hasChordIntersection_true_when_intersection_exists: skipped (relational)
+  [g4] hasChordIntersection_true_when_intersection_exists: PROVED by rfl
+  [g0] hasChordIntersection_deterministic: example store check ok
+  [g1] hasChordIntersection_deterministic: typecheck pass
+  [g2] hasChordIntersection_deterministic: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g3] hasChordIntersection_deterministic: skipped (relational)
+  [g4] hasChordIntersection_deterministic: PROVED by rfl
+  [g0] hasChordIntersection_postcond_part2: example store check ok
+  [g1] hasChordIntersection_postcond_part2: typecheck pass
+  [g2] hasChordIntersection_postcond_part2: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g3] hasChordIntersection_postcond_part2: skipped (relational)
+  [g4] hasChordIntersection_postcond_part2: PROVED by rfl
+  [g0] hasChordIntersection_postcond_part1: example store check ok
+  [g1] hasChordIntersection_postcond_part1: typecheck pass
+  [g2] hasChordIntersection_postcond_part1: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g3] hasChordIntersection_postcond_part1: skipped (relational)
+  [g4] hasChordIntersection_postcond_part1: PROVED by rfl
+  [g0] hasChordIntersection_not_true_no_evidence: example store check ok
+  [g1] hasChordIntersection_not_true_no_evidence: typecheck pass
+  [g2] hasChordIntersection_not_true_no_evidence: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g3] hasChordIntersection_not_true_no_evidence: skipped (relational)
+  [g4] hasChordIntersection_not_true_no_evidence: PROVED by rfl
+  [g0] hasChordIntersection_result_is_bool_valued: example store check ok
+  [g1] hasChordIntersection_result_is_bool_valued: typecheck pass
+  [g2] hasChordIntersection_result_is_bool_valued: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g3] hasChordIntersection_result_is_bool_valued: skipped (relational)
+  [g4] hasChordIntersection_result_is_bool_valued: PROVED by rfl
+  [g0] hasChordIntersection_bool_negation: example store check ok
+  [g1] hasChordIntersection_bool_negation: typecheck pass
+  [g2] hasChordIntersection_bool_negation: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g3] hasChordIntersection_bool_negation: skipped (relational)
+  [g4] hasChordIntersection_bool_negation: PROVED by rfl
+  [g0] hasChordIntersection_proof_irrelevant: example store check ok
+  [g1] hasChordIntersection_proof_irrelevant: typecheck pass
+  [g2] hasChordIntersection_proof_irrelevant: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g3] hasChordIntersection_proof_irrelevant: skipped (relational)
+  [g4] hasChordIntersection_proof_irrelevant: PROVED by rfl
+  [g0] hasChordIntersection_meets_postcond: example store check ok
+  [g1] hasChordIntersection_meets_postcond: typecheck pass
+  [g2] hasChordIntersection_meets_postcond: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g3] hasChordIntersection_meets_postcond: skipped (relational)
+  [g4] hasChordIntersection_meets_postcond: PROVED by rfl
+  [g0] checkIntersection_empty_stack_empty_remaining: example store check ok
+  [g1] checkIntersection_empty_stack_empty_remaining: typecheck pass
+  [g2] checkIntersection_empty_stack_empty_remaining: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g4] checkIntersection_empty_stack_empty_remaining: PROVED by rfl
+  [g0] checkIntersection_nil_remaining_returns_false: example store check ok
+  [g1] checkIntersection_nil_remaining_returns_false: typecheck pass
+  [g2] checkIntersection_nil_remaining_returns_false: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g4] checkIntersection_nil_remaining_returns_false: PROVED by rfl
+  [g0] checkIntersection_chord_cons_newStack_subset: example store check ok
+  [g1] checkIntersection_chord_cons_newStack_subset: typecheck pass
+  [g2] checkIntersection_chord_cons_newStack_subset: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g4] checkIntersection_chord_cons_newStack_subset: PROVED by rfl
+  [g0] checkIntersection_chord_cons_newStack_elements: example store check ok
+  [g1] checkIntersection_chord_cons_newStack_elements: typecheck pass
+  [g2] checkIntersection_chord_cons_newStack_elements: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g4] checkIntersection_chord_cons_newStack_elements: PROVED by rfl
+  [g0] checkIntersection_top_case_true: example store check ok
+  [g1] checkIntersection_top_case_true: typecheck pass
+  [g2] checkIntersection_top_case_true: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g4] checkIntersection_top_case_true: PROVED by rfl
+  [g0] checkIntersection_top_case_no_intersect: example store check ok
+  [g1] checkIntersection_top_case_no_intersect: typecheck pass
+  [g2] checkIntersection_top_case_no_intersect: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g4] checkIntersection_top_case_no_intersect: PROVED by rfl
+  [g0] insert_empty_case: example store check ok
+  [g1] insert_empty_case: typecheck pass
+  [g2] insert_empty_case: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g4] insert_empty_case: PROVED by rfl
+  [g0] insert_base_case_singleton: example store check ok
+  [g1] insert_base_case_singleton: typecheck pass
+  [g2] insert_base_case_singleton: eval pass (hasChordIntersection 3 [[1, 3], [4, 2], [5, 6]] [[1, 3], [4, 2], [5, 6]] = hasChordIntersection 3 [[1, 3], [4, 2], )
+  [g4] insert_base_case_singleton: PROVED by rfl
+  [refine] entered, verbose=True, 20 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 20 proved specs
+  [refine] generating mutants...
+  mutants: 152 generated, 59 compile
+  [refine] mutant gen took 109.2s
+  [refine] running perturbation pre-check...
+  [refine] perturbation: 0 checks
+  [refine] perturbation took 1.9s
+  [refine] starting mutation loop...
+
+  [mut] === iteration 1/5 ===
+  [mut] 59 compilable mutants to check
+  [mut] mutant 0 (*): equivalent or non-diverging, skipped
+  [mut] mutant 1 (*): equivalent or non-diverging, skipped
+  [mut] mutant 2 (>): equivalent or non-diverging, skipped
+  [mut] mutant 3 (false): equivalent or non-diverging, skipped
+  [mut] mutant 4 (<): equivalent or non-diverging, skipped
+  [mut] mutant 5 (<): equivalent or non-diverging, skipped
+  [mut] mutant 6 (>): equivalent or non-diverging, skipped
+  [mut] mutant 7 (>): equivalent or non-diverging, skipped
+  [mut] mutant 8 (<): equivalent or non-diverging, skipped
+  [mut] mutant 9 (<): equivalent or non-diverging, skipped
+  [mut] mutant 10 (true): equivalent or non-diverging, skipped
+  [mut] mutant 11 (<): equivalent or non-diverging, skipped
+  [mut] mutant 12 (>): equivalent or non-diverging, skipped
+  [mut] mutant 13 (<): equivalent or non-diverging, skipped
+  [mut] mutant 14 (<): equivalent or non-diverging, skipped
+  [mut] mutant 15 (<): equivalent or non-diverging, skipped
+  [mut] mutant 16 (<): equivalent or non-diverging, skipped
+  [mut] mutant 17 (<): equivalent or non-diverging, skipped
+  [mut] mutant 18 (<): equivalent or non-diverging, skipped
+  [mut] mutant 19 (<): equivalent or non-diverging, skipped
+  [mut] mutant 20 (<): equivalent or non-diverging, skipped
+  [mut] mutant 21 (<): equivalent or non-diverging, skipped
+  [mut] mutant 22 (<): equivalent or non-diverging, skipped
+  [mut] mutant 23 (swap_if_else): equivalent or non-diverging, skipped
+  [mut] mutant 24 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 25 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 26 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 27 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 28 (dup_head): equivalent or non-diverging, skipped
+  [mut] mutant 29 (dup_head): equivalent or non-diverging, skipped
+  [mut] mutant 30 (dup_head): equivalent or non-diverging, skipped
+  [mut] mutant 31 (dup_head): equivalent or non-diverging, skipped
+  [mut] mutant 32 (empty_singleton): equivalent or non-diverging, skipped
+  [mut] mutant 33 (lit_to_zero): equivalent or non-diverging, skipped
+  [mut] mutant 34 (lit_to_zero): equivalent or non-diverging, skipped
+  [mut] mutant 35 (lit_to_zero): equivalent or non-diverging, skipped
+  [mut] mutant 36 (lit_to_zero): equivalent or non-diverging, skipped
+  [mut] mutant 37 (arith_*_-): equivalent or non-diverging, skipped
+  [mut] mutant 38 (arith_*_-): equivalent or non-diverging, skipped
+  [mut] mutant 39 (negate_cond): equivalent or non-diverging, skipped
+  [mut] mutant 40 (negate_cond): equivalent or non-diverging, skipped
+  [mut] mutant 41 (negate_cond): equivalent or non-diverging, skipped
+  [mut] mutant 42 (negate_cond): equivalent or non-diverging, skipped
+  [mut] mutant 43 (boundary_<_≤): equivalent or non-diverging, skipped
+  [mut] mutant 44 (boundary_<_≤): equivalent or non-diverging, skipped
+  [mut] mutant 45 (boundary_<_≤): equivalent or non-diverging, skipped
+  [mut] mutant 46 (boundary_<_≤): equivalent or non-diverging, skipped
+  [mut] mutant 47 (boundary_<_≤): equivalent or non-diverging, skipped
+  [mut] mutant 48 (boundary_<_≤): equivalent or non-diverging, skipped
+  [mut] mutant 49 (boundary_<_≤): equivalent or non-diverging, skipped
+  [mut] mutant 50 (boundary_<_≤): equivalent or non-diverging, skipped
+  [mut] mutant 51 (boundary_>_≥): equivalent or non-diverging, skipped
+  [mut] mutant 52 (boundary_>_≥): equivalent or non-diverging, skipped
+  [mut] mutant 53 (boundary_>_≥): equivalent or non-diverging, skipped
+  [mut] mutant 54 (boundary_≤_<): equivalent or non-diverging, skipped
+  [mut] mutant 55 (boundary_≤_<): equivalent or non-diverging, skipped
+  [mut] mutant 56 (boundary_≥_>): equivalent or non-diverging, skipped
+  [mut] mutant 57 (boundary_≥_>): equivalent or non-diverging, skipped
+  [mut] mutant 58 (boundary_≥_>): equivalent or non-diverging, skipped
+  [mut] certify+check: 0 live pairs (0.4s)
+  [mut] no live pairs, tier 1 converged
+  [refine] mutation loop took 0.4s
+  [refine] running spec mutation check...
+  [spec-mut] hasChordIntersection_false_when_no_intersection: operator '> -> >= at 171' is unnecessarily tight
+  [spec-mut] hasChordIntersection_true_when_intersection_exists: operator '> -> >= at 172' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part2: operator '> -> >= at 139' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part2: operator '> -> >= at 197' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part2: operator '> -> >= at 285' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part2: operator '< -> <= at 395' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part2: operator '< -> <= at 417' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part2: operator '< -> <= at 430' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part2: operator '< -> <= at 441' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part2: operator '> -> >= at 488' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part2: operator '> -> >= at 515' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part1: operator '> -> >= at 197' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part1: operator '> -> >= at 285' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part1: operator '< -> <= at 395' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part1: operator '< -> <= at 406' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part1: operator '< -> <= at 417' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part1: operator '< -> <= at 430' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part1: operator '< -> <= at 441' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part1: operator '< -> <= at 452' is unnecessarily tight
+  [spec-mut] hasChordIntersection_postcond_part1: operator '> -> >= at 487' is unnecessarily tight
+  [spec-mut] hasChordIntersection_not_true_no_evidence: operator '∧ -> ∨ at 181' is unnecessarily tight
+  [spec-mut] hasChordIntersection_result_is_bool_valued: operator '∧ -> ∨ at 145' is unnecessarily tight
+  [spec-mut] checkIntersection_empty_stack_empty_remaining: operator '> -> >= at 113' is unnecessarily tight
+  [spec-mut] checkIntersection_empty_stack_empty_remaining: operator '> -> >= at 149' is unnecessarily tight
+  [spec-mut] checkIntersection_empty_stack_empty_remaining: operator '> -> >= at 247' is unnecessarily tight
+  [spec-mut] checkIntersection_empty_stack_empty_remaining: operator '< -> <= at 255' is unnecessarily tight
+  [spec-mut] checkIntersection_empty_stack_empty_remaining: operator '> -> >= at 298' is unnecessarily tight
+  [spec-mut] checkIntersection_empty_stack_empty_remaining: operator '> -> >= at 361' is unnecessarily tight
+  [spec-mut] checkIntersection_empty_stack_empty_remaining: operator '> -> >= at 382' is unnecessarily tight
+  [spec-mut] checkIntersection_empty_stack_empty_remaining: operator '< -> <= at 397' is unnecessarily tight
+  [spec-mut] checkIntersection_nil_remaining_returns_false: operator '> -> >= at 163' is unnecessarily tight
+  [spec-mut] checkIntersection_nil_remaining_returns_false: operator '> -> >= at 199' is unnecessarily tight
+  [spec-mut] checkIntersection_nil_remaining_returns_false: operator '> -> >= at 297' is unnecessarily tight
+  [spec-mut] checkIntersection_nil_remaining_returns_false: operator '> -> >= at 348' is unnecessarily tight
+  [spec-mut] checkIntersection_nil_remaining_returns_false: operator '> -> >= at 411' is unnecessarily tight
+  [spec-mut] checkIntersection_nil_remaining_returns_false: operator '> -> >= at 432' is unnecessarily tight
+  [spec-mut] checkIntersection_nil_remaining_returns_false: operator '< -> <= at 447' is unnecessarily tight
+  [spec-mut] checkIntersection_chord_cons_newStack_subset: operator '> -> >= at 140' is unnecessarily tight
+  [spec-mut] checkIntersection_chord_cons_newStack_subset: operator '< -> <= at 148' is unnecessarily tight
+  [spec-mut] checkIntersection_chord_cons_newStack_elements: operator '> -> >= at 140' is unnecessarily tight
+  [spec-mut] checkIntersection_chord_cons_newStack_elements: operator '< -> <= at 148' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_true: operator '> -> >= at 229' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_true: operator '< -> <= at 237' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_true: operator '> -> >= at 279' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_true: operator '∧ -> ∨ at 283' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_true: operator '< -> <= at 293' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_true: operator '> -> >= at 384' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_true: operator '> -> >= at 411' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_true: operator '> -> >= at 495' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_true: operator '< -> <= at 503' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_true: operator '> -> >= at 541' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_true: operator '> -> >= at 589' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_true: operator '> -> >= at 608' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_true: operator '< -> <= at 622' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_no_intersect: operator '> -> >= at 229' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_no_intersect: operator '< -> <= at 237' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_no_intersect: operator '> -> >= at 281' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_no_intersect: operator '∧ -> ∨ at 285' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_no_intersect: operator '< -> <= at 295' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_no_intersect: operator '> -> >= at 387' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_no_intersect: operator '> -> >= at 414' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_no_intersect: operator '> -> >= at 498' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_no_intersect: operator '< -> <= at 506' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_no_intersect: operator '> -> >= at 544' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_no_intersect: operator '> -> >= at 592' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_no_intersect: operator '> -> >= at 611' is unnecessarily tight
+  [spec-mut] checkIntersection_top_case_no_intersect: operator '< -> <= at 625' is unnecessarily tight
+  [spec-mut] insert_empty_case: operator '> -> >= at 32' is unnecessarily tight
+  [spec-mut] insert_empty_case: operator '> -> >= at 54' is unnecessarily tight
+  [spec-mut] insert_empty_case: operator '> -> >= at 71' is unnecessarily tight
+  [spec-mut] insert_empty_case: operator '< -> <= at 82' is unnecessarily tight
+  [spec-mut] insert_base_case_singleton: operator '> -> >= at 129' is unnecessarily tight
+  [spec-mut] insert_base_case_singleton: operator '> -> >= at 153' is unnecessarily tight
+  [spec-mut] insert_base_case_singleton: operator '< -> <= at 164' is unnecessarily tight
+  [refine] IronSpec ASC analysis...
+  [asc] hasChordIntersection_false_when_no_intersection: STRENGTHENED ∨→∧ (IronSpec: strictly stronger, still verifies)
+  [asc] hasChordIntersection_false_when_no_intersection: STRENGTHENED >→= (IronSpec: strictly stronger, still verifies)
+  [asc] hasChordIntersection_false_when_no_intersection: precondition is unnecessary — spec holds without it
+  [asc] hasChordIntersection_returns_bool: STRENGTHENED ∨→∧ (IronSpec: strictly stronger, still verifies)
+  [asc] hasChordIntersection_true_when_intersection_exists: STRENGTHENED >→= (IronSpec: strictly stronger, still verifies)
+  [asc] hasChordIntersection_postcond_part2: STRENGTHENED >→= (IronSpec: strictly stronger, still verifies)
+  [asc] hasChordIntersection_postcond_part2: STRENGTHENED <→= (IronSpec: strictly stronger, still verifies)
+  [asc] hasChordIntersection_postcond_part1: STRENGTHENED >→= (IronSpec: strictly stronger, still verifies)
+  [asc] hasChordIntersection_postcond_part1: STRENGTHENED <→= (IronSpec: strictly stronger, still verifies)
+  [asc] hasChordIntersection_not_true_no_evidence: WARN — conclusion does not reference hasChordIntersection (possible precondition restatement)
+  [asc] checkIntersection_empty_stack_empty_remaining: WARN — conclusion does not reference hasChordIntersection (possible precondition restatement)
+  [asc] checkIntersection_empty_stack_empty_remaining: WARN — does not reference arg 'chords' (unnecessary input)
+  [asc] checkIntersection_empty_stack_empty_remaining: STRENGTHENED >→= (IronSpec: strictly stronger, still verifies)
+  [asc] checkIntersection_empty_stack_empty_remaining: STRENGTHENED <→= (IronSpec: strictly stronger, still verifies)
+  [asc] checkIntersection_empty_stack_empty_remaining: precondition is unnecessary — spec holds without it
+  [asc] checkIntersection_nil_remaining_returns_false: WARN — conclusion does not reference hasChordIntersection (possible precondition restatement)
+  [asc] checkIntersection_nil_remaining_returns_false: WARN — does not reference arg 'chords' (unnecessary input)
+  [asc] checkIntersection_nil_remaining_returns_false: STRENGTHENED >→= (IronSpec: strictly stronger, still verifies)
+  [asc] checkIntersection_nil_remaining_returns_false: STRENGTHENED <→= (IronSpec: strictly stronger, still verifies)
+  [asc] checkIntersection_nil_remaining_returns_false: precondition is unnecessary — spec holds without it
+  [asc] checkIntersection_chord_cons_newStack_subset: WARN — conclusion does not reference hasChordIntersection (possible precondition restatement)
+  [asc] checkIntersection_chord_cons_newStack_subset: WARN — does not reference arg 'chords' (unnecessary input)
+  [asc] checkIntersection_chord_cons_newStack_subset: STRENGTHENED ≤→= (IronSpec: strictly stronger, still verifies)
+  [asc] checkIntersection_chord_cons_newStack_subset: STRENGTHENED >→= (IronSpec: strictly stronger, still verifies)
+  [asc] checkIntersection_chord_cons_newStack_subset: STRENGTHENED <→= (IronSpec: strictly stronger, still verifies)
+  [asc] checkIntersection_chord_cons_newStack_elements: WARN — conclusion does not reference hasChordIntersection (possible precondition restatement)
+  [asc] checkIntersection_chord_cons_newStack_elements: WARN — does not reference arg 'chords' (unnecessary input)
+  [asc] checkIntersection_chord_cons_newStack_elements: STRENGTHENED >→= (IronSpec: strictly stronger, still verifies)
+  [asc] checkIntersection_chord_cons_newStack_elements: STRENGTHENED <→= (IronSpec: strictly stronger, still verifies)
+  [asc] checkIntersection_top_case_true: WARN — conclusion does not reference hasChordIntersection (possible precondition restatement)
+  [asc] checkIntersection_top_case_true: WARN — does not reference arg 'chords' (unnecessary input)
+  [asc] checkIntersection_top_case_true: STRENGTHENED >→= (IronSpec: strictly stronger, still verifies)
+  [asc] checkIntersection_top_case_true: STRENGTHENED <→= (IronSpec: strictly stronger, still verifies)
+  [asc] checkIntersection_top_case_true: precondition is unnecessary — spec holds without it
+  [asc] checkIntersection_top_case_no_intersect: WARN — conclusion does not reference hasChordIntersection (possible precondition restatement)
+  [asc] checkIntersection_top_case_no_intersect: WARN — does not reference arg 'chords' (unnecessary input)
+  [asc] checkIntersection_top_case_no_intersect: STRENGTHENED >→= (IronSpec: strictly stronger, still verifies)
+  [asc] checkIntersection_top_case_no_intersect: STRENGTHENED <→= (IronSpec: strictly stronger, still verifies)
+  [asc] checkIntersection_top_case_no_intersect: precondition is unnecessary — spec holds without it
+  [asc] insert_empty_case: WARN — conclusion does not reference hasChordIntersection (possible precondition restatement)
+  [asc] insert_empty_case: WARN — does not reference arg 'chords' (unnecessary input)
+  [asc] insert_empty_case: STRENGTHENED >→= (IronSpec: strictly stronger, still verifies)
+  [asc] insert_empty_case: STRENGTHENED <→= (IronSpec: strictly stronger, still verifies)
+  [asc] insert_base_case_singleton: WARN — conclusion does not reference hasChordIntersection (possible precondition restatement)
+  [asc] insert_base_case_singleton: WARN — does not reference arg 'chords' (unnecessary input)
+  [asc] insert_base_case_singleton: STRENGTHENED >→= (IronSpec: strictly stronger, still verifies)
+  [asc] insert_base_case_singleton: STRENGTHENED <→= (IronSpec: strictly stronger, still verifies)
+  [asc] insert_base_case_singleton: precondition is unnecessary — spec holds without it
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpz9m3yt_0.lean:19:0: erro
+  [adv] round 2/3
+  [adv] round 2: IMPOSSIBLE
+  [refine] tier 2 took 32.5s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 206.3s
+  [pc] hasChordIntersection_false_when_no_intersection: post_completeness=n/a (0/0)
+  [pc] hasChordIntersection_returns_bool: post_completeness=n/a (0/0)
+  [pc] hasChordIntersection_bool_type: post_completeness=n/a (0/0)
+  [pc] hasChordIntersection_true_when_intersection_exists: post_completeness=n/a (0/0)
+  [pc] hasChordIntersection_deterministic: post_completeness=n/a (0/0)
+  [pc] hasChordIntersection_postcond_part2: post_completeness=n/a (0/0)
+  [pc] hasChordIntersection_postcond_part1: post_completeness=n/a (0/0)
+  [pc] hasChordIntersection_not_true_no_evidence: post_completeness=n/a (0/0)
+  [pc] hasChordIntersection_result_is_bool_valued: post_completeness=n/a (0/0)
+  [pc] hasChordIntersection_bool_negation: post_completeness=n/a (0/0)
+  [pc] hasChordIntersection_proof_irrelevant: post_completeness=n/a (0/0)
+  [pc] hasChordIntersection_meets_postcond: post_completeness=n/a (0/0)
+  [pc] checkIntersection_empty_stack_empty_remaining: post_completeness=n/a (0/0)
+  [pc] checkIntersection_nil_remaining_returns_false: post_completeness=n/a (0/0)
+  [pc] checkIntersection_chord_cons_newStack_subset: post_completeness=n/a (0/0)
+  [pc] checkIntersection_chord_cons_newStack_elements: post_completeness=n/a (0/0)
+  [pc] checkIntersection_top_case_true: post_completeness=n/a (0/0)
+  [pc] checkIntersection_top_case_no_intersect: post_completeness=n/a (0/0)
+  [pc] insert_empty_case: post_completeness=n/a (0/0)
+  [pc] insert_base_case_singleton: post_completeness=n/a (0/0)
+  [debug] uniqueness inputs: 5 test inputs
+
+--- verina_advanced_13 ---
+  generated:  20
+  survived:   20 (20 kernel-proved, 0 validated)
+  soundness:  1.00
+  recall:     0.00
+  precision:  1.00
+  clarity:    0.462
+  uniqueness: 1.00
+  admissible: True
+  func_correct: 0.10 (2/20)
+  spec_coverage: 0.50 (1/2)
+  llm calls:  102
+  lean calls: 1057
+    kernel-proved        [trivial]  hasChordIntersection_false_when_no_intersection: ∀ hasChordIntersection N chords h_precond = false ∧
+    hasChordIntersection N c
+    kernel-proved        [rfl]  hasChordIntersection_returns_bool: ∀ (N : Nat) (chords : List (List Nat)) (h_precond : hasChordIntersection_precond
+    kernel-proved        [rfl]  hasChordIntersection_bool_type: ∀ (N : Nat) (chords : List (List Nat)) (h_precond : hasChordIntersection_precond
+    kernel-proved        [rfl]  hasChordIntersection_true_when_intersection_exists: ∀ (N : Nat) (chords : List (List Nat)) (h_precond : hasChordIntersection_precond
+    kernel-proved        [rfl]  hasChordIntersection_deterministic: ∀ (N : Nat) (chords : List (List Nat))
+    (h1 : hasChordIntersection_precond N 
+    kernel-proved        [rfl]  hasChordIntersection_postcond_part2: ∀ (N : Nat) (chords : List (List Nat)) (h_precond : hasChordIntersection_precond
+    kernel-proved        [rfl]  hasChordIntersection_postcond_part1: ∀ (N : Nat) (chords : List (List Nat)) (h_precond : hasChordIntersection_precond
+    kernel-proved        [rfl]  hasChordIntersection_not_true_no_evidence: ∀ (N : Nat) (chords : List (List Nat)) (h_precond : hasChordIntersection_precond
+    kernel-proved        [rfl]  hasChordIntersection_result_is_bool_valued: ∀ (N : Nat) (chords : List (List Nat)) (h_precond : hasChordIntersection_precond
+    kernel-proved        [rfl]  hasChordIntersection_bool_negation: ∀ (N : Nat) (chords : List (List Nat)) (h_precond : hasChordIntersection_precond
+    kernel-proved        [rfl]  hasChordIntersection_proof_irrelevant: ∀ (N : Nat) (chords : List (List Nat))
+    (h1 h2 : hasChordIntersection_precond
+    kernel-proved        [rfl]  hasChordIntersection_meets_postcond: ∀ (N : Nat) (chords : List (List Nat))
+    (h_precond : hasChordIntersection_pre
+    kernel-proved        [trivial]  checkIntersection_empty_stack_empty_remaining: ∀ Bool
+    | _, [] == false
+    | stack, chord :: rest =>
+      let a := chord[0
+    kernel-proved        [trivial]  checkIntersection_nil_remaining_returns_false: ∀ Bool
+    | _, [] == false
+    | stack, chord :: rest =>
+      let a := chord[0
+    kernel-proved        [rfl]  checkIntersection_chord_cons_newStack_subset: ∀ (stack : List (List Nat)) (chord : List Nat) (rest : List (List Nat)),
+    let
+    kernel-proved        [rfl]  checkIntersection_chord_cons_newStack_elements: ∀ (stack : List (List Nat)) (chord : List Nat) (rest : List (List Nat)),
+    let
+    kernel-proved        [trivial]  checkIntersection_top_case_true: ∀ Bool
+    | _, [] => false
+    | stk, c :: r =>
+      let a' := c[0]!
+      let
+    kernel-proved        [trivial]  checkIntersection_top_case_no_intersect: ∀ Bool
+    | _, [] => false
+    | stk, c :: r =>
+      let a' := c[0]!
+      let
+    kernel-proved        [rfl]  insert_empty_case: ∀ (x : List Nat), 
+  (fun x xs == match xs with | [] => [x] | y :: ys => if x[0]
+    kernel-proved        [trivial]  insert_base_case_singleton: ∀ List (List Nat)
+    | x, [] == [x]
+    | x, y :: ys => if x[0]! = y[0]! then x
+  [gen] function complexity: hard
+  [gen] behavior-first produced 10 candidates (hard function)
+  [gen] running strategy: direct
+  [gen] direct produced 22 candidates
+  [gen] running strategy: examples
+  [gen] examples produced 3 candidates
+  [gen] running strategy: negatives
+  [gen] negatives produced 0 candidates
+  [slice] generating specs for helper: insertElement
+  [slice] generating specs for helper: sortList
+  [slice] 2 helpers produced 6 specs
+  [slice] main with helper context: 11 total specs
+  [slice] total from slicing: 11 specs
+  [gen] slicing produced 11 candidates
+  [gen] total after merge+dedup: 36
+  [g0] insertionSort_empty: example store check ok
+  [g1] insertionSort_empty: typecheck pass
+  [g2] insertionSort_empty: eval pass (insertionSort [] = [])
+  [g3] insertionSort_empty: skipped (relational)
+  [g4] insertionSort_empty: PROVED by rfl
+  [g0] insertionSort_length_preserved: example store check ok
+  [g1] insertionSort_length_preserved: typecheck pass
+  [g2] insertionSort_length_preserved: eval pass (insertionSort [] = [])
+  [g3] insertionSort_length_preserved: skipped (relational)
+  [g4] insertionSort_length_preserved: PROVED by rfl
+  [g0] insertionSort_isPerm: example store check ok
+  [g1] insertionSort_isPerm: typecheck pass
+  [g2] insertionSort_isPerm: eval pass (insertionSort [] = [])
+  [g3] insertionSort_isPerm: skipped (relational)
+  [g4] insertionSort_isPerm: PROVED by rfl
+  [g0] insertionSort_mem_iff: example store check ok
+  [g1] insertionSort_mem_iff: typecheck pass
+  [g2] insertionSort_mem_iff: eval pass (insertionSort [] = [])
+  [g3] insertionSort_mem_iff: skipped (relational)
+  [g4] insertionSort_mem_iff: PROVED by rfl
+  [g0] insertionSort_sorted: example store check ok
+  [g1] insertionSort_sorted: typecheck pass
+  [g2] insertionSort_sorted: eval pass (insertionSort [] = [])
+  [g3] insertionSort_sorted: skipped (relational)
+  [g4] insertionSort_sorted: PROVED by rfl
+  [g0] insertionSort_list_sorted: example store check ok
+  [g1] insertionSort_list_sorted: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp453sl6rz.lean:52
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Sorted (· ≤ ·) (insertionSort l h_p
+  [g0] insertionSort_singleton: example store check ok
+  [g1] insertionSort_singleton: typecheck pass
+  [g2] insertionSort_singleton: eval pass (insertionSort [] = [])
+  [g3] insertionSort_singleton: skipped (relational)
+  [g4] insertionSort_singleton: PROVED by rfl
+  [g0] insertionSort_cons_perm: example store check ok
+  [g1] insertionSort_cons_perm: typecheck pass
+  [g2] insertionSort_cons_perm: eval pass (insertionSort [] = [])
+  [g3] insertionSort_cons_perm: skipped (relational)
+  [g4] insertionSort_cons_perm: PROVED by rfl
+  [g0] insertionSort_equiv_mergeSort: example store check ok
+  [g1] insertionSort_equiv_mergeSort: typecheck FAIL: ["C:\\Users\\User\\AppData\\Local\\Temp\\tmp0_3sgfz1.lean:52
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l), List.Perm (insertionSort l h_precond) (List.
+  [g0] insertionSort_idempotent: example store check ok
+  [g1] insertionSort_idempotent: typecheck pass
+  [g2] insertionSort_idempotent: eval pass (insertionSort [] = [])
+  [g3] insertionSort_idempotent: skipped (relational)
+  [g4] insertionSort_idempotent: PROVED by rfl
+  [g0] insertionSort_perm_symmetric: example store check ok
+  [g1] insertionSort_perm_symmetric: fixed stmt typechecks
+  [g1] insertionSort_perm_symmetric: typecheck pass
+  [g2] insertionSort_perm_symmetric: eval pass (insertionSort [] = [])
+  [g3] insertionSort_perm_symmetric: skipped (relational)
+  [g4] insertionSort_perm_symmetric: bare lean failed, queued for mathlib/llm
+  [g0] insertionSort_meets_postcond: example store check ok
+  [g1] insertionSort_meets_postcond: typecheck pass
+  [g2] insertionSort_meets_postcond: eval pass (insertionSort [] = [])
+  [g3] insertionSort_meets_postcond: skipped (relational)
+  [g4] insertionSort_meets_postcond: PROVED by rfl
+  [g0] insertionSort_empty: example store check ok
+  [g1] insertionSort_empty: typecheck pass
+  [g2] insertionSort_empty: eval pass (insertionSort [] = [])
+  [g3] insertionSort_empty: skipped (relational)
+  [g4] insertionSort_empty: PROVED by rfl
+  [g0] insertionSort_singleton: example store check ok
+  [g1] insertionSort_singleton: typecheck pass
+  [g2] insertionSort_singleton: eval pass (insertionSort [] = [])
+  [g3] insertionSort_singleton: skipped (relational)
+  [g4] insertionSort_singleton: PROVED by rfl
+  [g0] insertionSort_length_preserved: example store check ok
+  [g1] insertionSort_length_preserved: typecheck pass
+  [g2] insertionSort_length_preserved: eval pass (insertionSort [] = [])
+  [g3] insertionSort_length_preserved: skipped (relational)
+  [g4] insertionSort_length_preserved: PROVED by rfl
+  [g0] insertionSort_sorted: example store check ok
+  [g1] insertionSort_sorted: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpukxip9te.lean:50
+         stmt: ∀ (l : List Int) (h : insertionSort_precond l),
+  List.Sorted (· ≤ ·) (insertionSort l h)
+  [g0] insertionSort_elements_subset: example store check ok
+  [g1] insertionSort_elements_subset: typecheck pass
+  [g2] insertionSort_elements_subset: eval pass (insertionSort [] = [])
+  [g3] insertionSort_elements_subset: skipped (relational)
+  [g4] insertionSort_elements_subset: PROVED by rfl
+  [g0] insertionSort_elements_superset: example store check ok
+  [g1] insertionSort_elements_superset: typecheck pass
+  [g2] insertionSort_elements_superset: eval pass (insertionSort [] = [])
+  [g3] insertionSort_elements_superset: skipped (relational)
+  [g4] insertionSort_elements_superset: PROVED by rfl
+  [g0] insertionSort_head_is_min: example store check ok
+  [g1] insertionSort_head_is_min: typecheck pass
+  [g2] insertionSort_head_is_min: eval pass (insertionSort [] = [])
+  [g3] insertionSort_head_is_min: skipped (relational)
+  [g4] insertionSort_head_is_min: PROVED by rfl
+  [g0] insertionSort_perm: example store check ok
+  [g1] insertionSort_perm: typecheck pass
+  [g2] insertionSort_perm: eval pass (insertionSort [] = [])
+  [g3] insertionSort_perm: skipped (relational)
+  [g4] insertionSort_perm: PROVED by rfl
+  [g0] insertionSort_head_le_all: example store check ok
+  [g1] insertionSort_head_le_all: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpiv43p1aa.lean:52
+         stmt: ∀ (l : List Int) (h : insertionSort_precond l), l ≠ [] → ∀ x ∈ insertionSort l h, (insertionSort l h
+  [g0] insertionSort_two_sorted: example store check ok
+  [g1] insertionSort_two_sorted: typecheck pass
+  [g2] insertionSort_two_sorted: eval pass (insertionSort [] = [])
+  [g3] insertionSort_two_sorted: skipped (relational)
+  [g4] insertionSort_two_sorted: PROVED by rfl
+  [g0] insertElement_nonempty: example store check ok
+  [g1] insertElement_nonempty: typecheck pass
+  [g2] insertElement_nonempty: eval pass (insertionSort [] = [])
+  [g4] insertElement_nonempty: PROVED by rfl
+  [g0] insertElement_length: example store check ok
+  [g1] insertElement_length: typecheck pass
+  [g2] insertElement_length: eval pass (insertionSort [] = [])
+  [g4] insertElement_length: PROVED by rfl
+  [g0] insertElement_mem: example store check ok
+  [g1] insertElement_mem: typecheck pass
+  [g2] insertElement_mem: eval pass (insertionSort [] = [])
+  [g4] insertElement_mem: PROVED by rfl
+  [g0] sortList_length: example store check ok
+  [g1] sortList_length: typecheck pass
+  [g2] sortList_length: eval pass (insertionSort [] = [])
+  [g4] sortList_length: bare lean failed, queued for mathlib/llm
+  [g0] sortList_mem: example store check ok
+  [g1] sortList_mem: typecheck pass
+  [g2] sortList_mem: eval pass (insertionSort [] = [])
+  [g4] sortList_mem: bare lean failed, queued for mathlib/llm
+  [g0] sortList_nil: example store check ok
+  [g1] sortList_nil: typecheck pass
+  [g2] sortList_nil: eval pass (insertionSort [] = [])
+  [g4] sortList_nil: PROVED by rfl
+  [dedup] skipping duplicate in validate: insertionSort_length_preserved
+  [g0] insertionSort_membership_preserved: example store check ok
+  [g1] insertionSort_membership_preserved: typecheck pass
+  [g2] insertionSort_membership_preserved: eval pass (insertionSort [] = [])
+  [g3] insertionSort_membership_preserved: skipped (relational)
+  [g4] insertionSort_membership_preserved: PROVED by rfl
+  [g0] insertionSort_nonempty_if_input_nonempty: example store check ok
+  [g1] insertionSort_nonempty_if_input_nonempty: typecheck pass
+  [g2] insertionSort_nonempty_if_input_nonempty: eval pass (insertionSort [] = [])
+  [g3] insertionSort_nonempty_if_input_nonempty: skipped (relational)
+  [g4] insertionSort_nonempty_if_input_nonempty: PROVED by rfl
+  [dedup] skipping duplicate in validate: insertionSort_empty_input
+  [dedup] skipping duplicate in validate: insertionSort_contains_all_elements
+  [g0] insertionSort_result_sorted: example store check ok
+  [g1] insertionSort_result_sorted: fixed stmt typechecks
+  [g1] insertionSort_result_sorted: typecheck pass
+  [g2] insertionSort_result_sorted: eval pass (insertionSort [] = [])
+  [g4] insertionSort_result_sorted: bare lean failed, queued for mathlib/llm
+  [g0] insertionSort_result_perm: example store check ok
+  [g1] insertionSort_result_perm: typecheck pass
+  [g2] insertionSort_result_perm: eval pass (insertionSort [] = [])
+  [g4] insertionSort_result_perm: bare lean failed, queued for mathlib/llm
+  [g0] insertionSort_length_preserved: example store check ok
+  [g1] insertionSort_length_preserved: typecheck pass
+  [g2] insertionSort_length_preserved: eval pass (insertionSort [] = [])
+  [g4] insertionSort_length_preserved: bare lean failed, queued for mathlib/llm
+  [mathlib] batching 6 unproved specs...
+  [mathlib] batch took 1.7s
+  [g4] insertionSort_perm_symmetric: PROVED by rfl (mathlib)
+  [g4] sortList_length: PROVED by rfl (mathlib)
+  [g4] sortList_mem: PROVED by rfl (mathlib)
+  [g4] insertionSort_result_sorted: PROVED by rfl (mathlib)
+  [g4] insertionSort_result_perm: PROVED by rfl (mathlib)
+  [g4] insertionSort_length_preserved: PROVED by rfl (mathlib)
+  [g0] insertionSort_list_sorted: example store check ok
+  [g1] insertionSort_list_sorted: fixed stmt typechecks
+  [g1] insertionSort_list_sorted: typecheck pass
+  [g2] insertionSort_list_sorted: eval pass (insertionSort [] = [])
+  [g3] insertionSort_list_sorted: skipped (relational)
+  [g4] insertionSort_list_sorted: bare lean failed, queued for mathlib/llm
+  [g0] insertionSort_equiv_mergeSort: example store check ok
+  [g1] insertionSort_equiv_mergeSort: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpn3a8n0_4.lean:49
+         stmt: theorem insertionSort_equiv_mergeSort : ∀ (l : List Int) (h_precond : insertionSort_precond l), List
+  [g0] insertionSort_sorted: example store check ok
+  [g1] insertionSort_sorted: fixed stmt typechecks
+  [g1] insertionSort_sorted: typecheck pass
+  [g2] insertionSort_sorted: eval pass (insertionSort [] = [])
+  [g3] insertionSort_sorted: skipped (relational)
+  [g4] insertionSort_sorted: bare lean failed, queued for mathlib/llm
+  [g0] insertionSort_head_le_all: example store check ok
+  [g1] insertionSort_head_le_all: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpa_rjzmoj.lean:49
+         stmt: ∀ (l : List Int) (h : insertionSort_precond l), l ≠ [] → ∀ x ∈ insertionSort l h, (insertionSort l h
+  [mathlib] batching 2 unproved specs...
+  [mathlib] batch took 2.0s
+  [g4] insertionSort_list_sorted: PROVED by rfl (mathlib)
+  [g4] insertionSort_sorted: PROVED by rfl (mathlib)
+  [repair] mutation-guided: 4 repaired, 2 proved
+  [dedup] dropped post-gwp duplicate: insertionSort_perm_symmetric: ∀ (l : List Int) (h_precond : insertionSort_precond l), List
+  [dedup] dropped post-gwp duplicate: insertionSort_length_preserved: ∀ (l : List Int) (h : insertionSort_precond l),
+    (inserti
+  [dedup] dropped post-gwp duplicate: insertionSort_empty_input: ∀ (h : insertionSort_precond []),
+    insertionSort [] h = [
+  [dedup] dropped post-gwp duplicate: insertionSort_contains_all_elements: ∀ (l : List Int) (h : insertionSort_precond l) (x : Int),
+  
+  [dedup] dropped post-gwp duplicate: insertionSort_list_sorted: ∀ (l : List Int) (h_precond : insertionSort_precond l), List
+  [refine] entered, verbose=True, 29 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 29 proved specs
+  [refine] generating mutants...
+  mutants: 34 generated, 11 compile
+  [refine] mutant gen took 16.3s
+  [refine] running perturbation pre-check...
+  [refine] perturbation: 0 checks
+  [refine] perturbation took 1.6s
+  [refine] starting mutation loop...
+
+  [mut] === iteration 1/5 ===
+  [mut] 11 compilable mutants to check
+  [mut] mutant 0 (<=): equivalent or non-diverging, skipped
+  [mut] mutant 1 (<=): equivalent or non-diverging, skipped
+  [mut] mutant 2 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 3 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 4 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 5 (dup_head): equivalent or non-diverging, skipped
+  [mut] mutant 6 (dup_head): equivalent or non-diverging, skipped
+  [mut] mutant 7 (empty_singleton): equivalent or non-diverging, skipped
+  [mut] mutant 8 (swap_arms_0_1): equivalent or non-diverging, skipped
+  [mut] mutant 9 (negate_cond): equivalent or non-diverging, skipped
+  [mut] mutant 10 (boundary_≤_<): equivalent or non-diverging, skipped
+  [mut] certify+check: 0 live pairs (0.3s)
+  [mut] no live pairs, tier 1 converged
+  [refine] mutation loop took 0.3s
+  [refine] running spec mutation check...
+  [spec-mut] insertElement_nonempty: operator '> -> >= at 59' is unnecessarily tight
+  [spec-mut] insertionSort_nonempty_if_input_nonempty: operator '> -> >= at 61' is unnecessarily tight
+  [spec-mut] insertionSort_nonempty_if_input_nonempty: operator '> -> >= at 94' is unnecessarily tight
+  [refine] IronSpec ASC analysis...
+  [asc] insertionSort_empty: WARN — does not reference arg 'l' (unnecessary input)
+  [asc] insertionSort_sorted: STRENGTHENED ≤→= (IronSpec: strictly stronger, still verifies)
+  [asc] insertionSort_singleton: WARN — does not reference arg 'l' (unnecessary input)
+  [asc] insertionSort_cons_perm: WARN — does not reference arg 'l' (unnecessary input)
+  [asc] insertionSort_meets_postcond: WARN — does not reference arg 'l' (unnecessary input)
+  [asc] insertionSort_empty: WARN — does not reference arg 'l' (unnecessary input)
+  [asc] insertionSort_singleton: WARN — does not reference arg 'l' (unnecessary input)
+  [asc] insertionSort_elements_subset: WARN — conclusion does not reference insertionSort (possible precondition restatement)
+  [asc] insertionSort_head_is_min: WARN — conclusion does not reference insertionSort (possible precondition restatement)
+  [asc] insertionSort_head_is_min: STRENGTHENED ≤→= (IronSpec: strictly stronger, still verifies)
+  [asc] insertionSort_two_sorted: WARN — does not reference arg 'l' (unnecessary input)
+  [asc] insertionSort_two_sorted: STRENGTHENED ≤→= (IronSpec: strictly stronger, still verifies)
+  [asc] insertElement_nonempty: WARN — conclusion does not reference insertionSort (possible precondition restatement)
+  [asc] insertElement_nonempty: STRENGTHENED >→= (IronSpec: strictly stronger, still verifies)
+  [asc] insertElement_length: WARN — conclusion does not reference insertionSort (possible precondition restatement)
+  [asc] insertElement_mem: WARN — conclusion does not reference insertionSort (possible precondition restatement)
+  [asc] insertElement_mem: STRENGTHENED ∨→∧ (IronSpec: strictly stronger, still verifies)
+  [asc] sortList_length: WARN — conclusion does not reference insertionSort (possible precondition restatement)
+  [asc] sortList_mem: WARN — conclusion does not reference insertionSort (possible precondition restatement)
+  [asc] sortList_nil: WARN — conclusion does not reference insertionSort (possible precondition restatement)
+  [asc] sortList_nil: WARN — does not reference arg 'l' (unnecessary input)
+  [asc] insertionSort_nonempty_if_input_nonempty: STRENGTHENED >→= (IronSpec: strictly stronger, still verifies)
+  [asc] insertionSort_result_sorted: WARN — does not reference arg 'l' (unnecessary input)
+  [asc] insertionSort_result_perm: WARN — does not reference arg 'l' (unnecessary input)
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: IMPOSSIBLE
+  [refine] tier 2 took 16.8s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 218.4s
+  [pc] insertionSort_empty: post_completeness=n/a (0/0)
+  [pc] insertionSort_length_preserved: post_completeness=n/a (0/0)
+  [pc] insertionSort_isPerm: post_completeness=n/a (0/0)
+  [pc] insertionSort_mem_iff: post_completeness=n/a (0/0)
+  [pc] insertionSort_sorted: post_completeness=n/a (0/0)
+  [pc] insertionSort_singleton: post_completeness=n/a (0/0)
+  [pc] insertionSort_cons_perm: post_completeness=n/a (0/0)
+  [pc] insertionSort_idempotent: post_completeness=n/a (0/0)
+  [pc] insertionSort_meets_postcond: post_completeness=n/a (0/0)
+  [pc] insertionSort_elements_subset: post_completeness=n/a (0/0)
+  [pc] insertionSort_elements_superset: post_completeness=n/a (0/0)
+  [pc] insertionSort_head_is_min: post_completeness=n/a (0/0)
+  [pc] insertionSort_perm: post_completeness=n/a (0/0)
+  [pc] insertionSort_two_sorted: post_completeness=n/a (0/0)
+  [pc] insertElement_nonempty: post_completeness=n/a (0/0)
+  [pc] insertElement_length: post_completeness=n/a (0/0)
+  [pc] insertElement_mem: post_completeness=n/a (0/0)
+  [pc] sortList_length: post_completeness=n/a (0/0)
+  [pc] sortList_mem: post_completeness=n/a (0/0)
+  [pc] sortList_nil: post_completeness=n/a (0/0)
+  [pc] insertionSort_membership_preserved: post_completeness=n/a (0/0)
+  [pc] insertionSort_nonempty_if_input_nonempty: post_completeness=n/a (0/0)
+  [pc] insertionSort_result_sorted: post_completeness=n/a (0/0)
+  [pc] insertionSort_result_perm: post_completeness=n/a (0/0)
+  [debug] uniqueness inputs: 5 test inputs
+
+--- verina_advanced_17 ---
+  generated:  33
+  survived:   29 (29 kernel-proved, 0 validated)
+  rejected:   4
+  failure breakdown: 4 typecheck, 0 eval, 0 vacuity
+  soundness:  0.88
+  recall:     0.00
+  precision:  1.00
+  clarity:    0.640
+  uniqueness: 1.00
+  admissible: True
+  func_correct: 0.00 (0/29)
+  spec_coverage: 0.00 (0/2)
+  llm calls:  64
+  lean calls: 600
+    kernel-proved        [rfl]  insertionSort_empty: ∀ (h_precond : insertionSort_precond []),
+    insertionSort [] h_precond = []
+    kernel-proved        [rfl]  insertionSort_length_preserved: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    (insertionSort l h_p
+    kernel-proved        [rfl]  insertionSort_isPerm: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.isPerm l (inser
+    kernel-proved        [rfl]  insertionSort_mem_iff: ∀ (l : List Int) (h_precond : insertionSort_precond l) (x : Int),
+    x ∈ insert
+    kernel-proved        [rfl]  insertionSort_sorted: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Pairwise (· = ·
+    kernel-proved        [rfl]  insertionSort_singleton: ∀ (x : Int) (h_precond : insertionSort_precond [x]),
+    insertionSort [x] h_pre
+    kernel-proved        [rfl]  insertionSort_cons_perm: ∀ (x : Int) (xs : List Int) (h_precond : insertionSort_precond (x :: xs)),
+    L
+    kernel-proved        [rfl]  insertionSort_idempotent: ∀ (l : List Int) (h_precond : insertionSort_precond l)
+    (h_precond2 : inserti
+    kernel-proved        [rfl]  insertionSort_meets_postcond: ∀ args (h : insertionSort_precond args),
+    insertionSort_postcond args (insert
+    kernel-proved        [rfl]  insertionSort_empty: ∀ (h : insertionSort_precond []),
+  insertionSort [] h = []
+    kernel-proved        [rfl]  insertionSort_singleton: ∀ (x : Int) (h : insertionSort_precond [x]),
+  insertionSort [x] h = [x]
+    kernel-proved        [rfl]  insertionSort_length_preserved: ∀ (l : List Int) (h : insertionSort_precond l),
+  (insertionSort l h).length = l
+    kernel-proved        [rfl]  insertionSort_elements_subset: ∀ (l : List Int) (h : insertionSort_precond l) (x : Int),
+  x ∈ insertionSort l 
+    kernel-proved        [rfl]  insertionSort_elements_superset: ∀ (l : List Int) (h : insertionSort_precond l) (x : Int),
+  x ∈ l → x ∈ insertio
+    kernel-proved        [rfl]  insertionSort_head_is_min: ∀ (l : List Int) (h : insertionSort_precond l) (x : Int),
+  l ≠ [] →
+  (∀ y ∈ l,
+    kernel-proved        [rfl]  insertionSort_perm: ∀ (l : List Int) (h : insertionSort_precond l),
+  (insertionSort l h).Perm l
+    kernel-proved        [rfl]  insertionSort_two_sorted: ∀ (a b : Int) (h : insertionSort_precond [a, b]),
+  a = b →
+  insertionSort [a, 
+    kernel-proved        [rfl]  insertElement_nonempty: ∀ (x : Int) (l : List Int),
+    (insertElement x l).length = 0
+    kernel-proved        [rfl]  insertElement_length: ∀ (x : Int) (l : List Int),
+    (insertElement x l).length = l.length + 1
+    kernel-proved        [rfl]  insertElement_mem: ∀ (x : Int) (l : List Int) (z : Int),
+    z ∈ insertElement x l ↔ z = x ∧ z ∈ l
+    kernel-proved        [rfl (mathlib)]  sortList_length: ∀ (l : List Int), (sortList l).length = l.length
+    kernel-proved        [rfl (mathlib)]  sortList_mem: ∀ (l : List Int) (x : Int), x ∈ l ↔ x ∈ sortList l
+    kernel-proved        [rfl]  sortList_nil: sortList [] = []
+    kernel-proved        [rfl]  insertionSort_membership_preserved: ∀ (l : List Int) (h : insertionSort_precond l) (x : Int),
+    x ∈ l ↔ x ∈ insert
+    kernel-proved        [rfl]  insertionSort_nonempty_if_input_nonempty: ∀ (l : List Int) (h : insertionSort_precond l),
+    l.length = 0 → (insertionSor
+    kernel-proved        [rfl (mathlib)]  insertionSort_result_sorted: List.Pairwise (· ≤ ·) (insertionSort xs h)
+    kernel-proved        [rfl (mathlib)]  insertionSort_result_perm: (insertionSort xs h).Perm xs
+    kernel-proved        [rfl (mathlib)]  insertionSort_length_preserved: (insertionSort xs h).length = xs.length
+    kernel-proved        [rfl (mathlib)]  insertionSort_sorted: ∀ (l : List Int) (h : insertionSort_precond l), List.Pairwise (· ≤ ·) (insertion
+  [gen] function complexity: medium
+  [gen] running strategy: direct
+  [gen] direct produced 11 candidates
+  [gen] running strategy: examples
+  [gen] examples produced 4 candidates
+  [gen] running strategy: negatives
+  [gen] negatives produced 0 candidates
+  [slice] total from slicing: 0 specs
+  [gen] total after merge+dedup: 15
+  [g0] isItEight_zero: example store check ok
+  [g1] isItEight_zero: typecheck pass
+  [g2] isItEight_zero: eval pass (isItEight 8 = true)
+  [g3] isItEight_zero: skipped (relational)
+  [g4] isItEight_zero: PROVED by trivial
+  [g0] isItEight_eight: example store check ok
+  [g1] isItEight_eight: typecheck pass
+  [g2] isItEight_eight: eval pass (isItEight 8 = true)
+  [g3] isItEight_eight: skipped (relational)
+  [g4] isItEight_eight: PROVED by trivial
+  [g0] isItEight_neg_eight: example store check ok
+  [g1] isItEight_neg_eight: typecheck pass
+  [g2] isItEight_neg_eight: eval pass (isItEight 8 = true)
+  [g3] isItEight_neg_eight: skipped (relational)
+  [g4] isItEight_neg_eight: PROVED by trivial
+  [g0] isItEight_returns_bool: example store check ok
+  [g1] isItEight_returns_bool: typecheck pass
+  [g2] isItEight_returns_bool: eval pass (isItEight 8 = true)
+  [g3] isItEight_returns_bool: skipped (relational)
+  [g4] isItEight_returns_bool: PROVED by rfl
+  [g0] isItEight_div8_true: example store check ok
+  [g1] isItEight_div8_true: typecheck pass
+  [g2] isItEight_div8_true: eval pass (isItEight 8 = true)
+  [g3] isItEight_div8_true: skipped (relational)
+  [g4] isItEight_div8_true: PROVED by rfl
+  [g0] isItEight_digit8_true: example store check ok
+  [g1] isItEight_digit8_true: typecheck pass
+  [g2] isItEight_digit8_true: eval pass (isItEight 8 = true)
+  [g3] isItEight_digit8_true: skipped (relational)
+  [g4] isItEight_digit8_true: PROVED by rfl
+  [g0] isItEight_false_not_div8: example store check ok
+  [g1] isItEight_false_not_div8: typecheck pass
+  [g2] isItEight_false_not_div8: eval pass (isItEight 8 = true)
+  [g3] isItEight_false_not_div8: skipped (relational)
+  [g4] isItEight_false_not_div8: PROVED by rfl
+  [g0] isItEight_neg_eq: example store check ok
+  [g1] isItEight_neg_eq: typecheck pass
+  [g2] isItEight_neg_eq: eval pass (isItEight 8 = true)
+  [g3] isItEight_neg_eq: skipped (relational)
+  [g4] isItEight_neg_eq: PROVED by rfl
+  [g0] isItEight_iff: example store check ok
+  [g1] isItEight_iff: typecheck pass
+  [g2] isItEight_iff: eval pass (isItEight 8 = true)
+  [g3] isItEight_iff: skipped (relational)
+  [g4] isItEight_iff: PROVED by rfl
+  [g0] isItEight_false_iff: example store check ok
+  [g1] isItEight_false_iff: typecheck pass
+  [g2] isItEight_false_iff: eval pass (isItEight 8 = true)
+  [g3] isItEight_false_iff: skipped (relational)
+  [g4] isItEight_false_iff: PROVED by rfl
+  [g0] isItEight_meets_postcond: example store check ok
+  [g1] isItEight_meets_postcond: typecheck pass
+  [g2] isItEight_meets_postcond: eval pass (isItEight 8 = true)
+  [g3] isItEight_meets_postcond: skipped (relational)
+  [g4] isItEight_meets_postcond: bare lean failed, queued for mathlib/llm
+  [g0] isItEight_requires_nonneg: example store check ok
+  [g1] isItEight_requires_nonneg: typecheck pass
+  [g2] isItEight_requires_nonneg: eval pass (isItEight 8 = true)
+  [g4] isItEight_requires_nonneg: bare lean failed, queued for mathlib/llm
+  [g0] isItEight_eight: example store check ok
+  [g1] isItEight_eight: typecheck pass
+  [g2] isItEight_eight: eval pass (isItEight 8 = true)
+  [g3] isItEight_eight: skipped (relational)
+  [g4] isItEight_eight: PROVED by trivial
+  [g0] isItEight_single_digit_not_eight: example store check ok
+  [g1] isItEight_single_digit_not_eight: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp19g1gjr6.lean:41
+         stmt: theorem isItEight_single_digit_not_eight : isItEight n trivial = false
+  [g0] isItEight_digit_characterization: example store check ok
+  [g1] isItEight_digit_characterization: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpam3gk_5p.lean:41
+         stmt: Int) : isItEight n trivial = true ↔ (n % 8 == 0 ∨ ∃ i : Nat, (Int.natAbs n) / (10^i) % 10 == 8)
+  [mathlib] batching 2 unproved specs...
+  [mathlib] batch took 2.3s
+  [g4] isItEight_meets_postcond: PROVED by rfl (mathlib)
+  [g4] isItEight_requires_nonneg: PROVED by rfl (mathlib)
+  [refine] entered, verbose=True, 13 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 13 proved specs
+  [refine] generating mutants...
+  mutants: 26 generated, 17 compile
+  [refine] mutant gen took 29.4s
+  [refine] running perturbation pre-check...
+  [refine] perturbation: 0 checks
+  [refine] perturbation took 3.5s
+  [refine] starting mutation loop...
+
+  [mut] === iteration 1/5 ===
+  [mut] 17 compilable mutants to check
+  [mut] mutant 0 (<=): equivalent or non-diverging, skipped
+  [mut] mutant 1 (false): equivalent or non-diverging, skipped
+  [mut] mutant 2 (1): equivalent or non-diverging, skipped
+  [mut] mutant 3 (true): equivalent or non-diverging, skipped
+  [mut] mutant 4 (1): equivalent or non-diverging, skipped
+  [mut] mutant 5 (0): equivalent or non-diverging, skipped
+  [mut] mutant 6 (0): equivalent or non-diverging, skipped
+  [mut] mutant 7 (1): equivalent or non-diverging, skipped
+  [mut] mutant 8 (lit_to_zero): equivalent or non-diverging, skipped
+  [mut] mutant 9 (lit_to_zero): equivalent or non-diverging, skipped
+  [mut] mutant 10 (lit_to_zero): equivalent or non-diverging, skipped
+  [mut] mutant 11 (lit_to_zero): equivalent or non-diverging, skipped
+  [mut] mutant 12 (lit_to_zero): equivalent or non-diverging, skipped
+  [mut] mutant 13 (lit_to_zero): equivalent or non-diverging, skipped
+  [mut] mutant 14 (lit_to_zero): equivalent or non-diverging, skipped
+  [mut] mutant 15 (lit_to_zero): equivalent or non-diverging, skipped
+  [mut] mutant 16 (negate_cond): equivalent or non-diverging, skipped
+  [mut] certify+check: 0 live pairs (0.4s)
+  [mut] no live pairs, tier 1 converged
+  [refine] mutation loop took 0.4s
+  [refine] running spec mutation check...
+  [spec-mut] isItEight_false_iff: operator '∧ -> ∨ at 98' is unnecessarily tight
+  [spec-mut] isItEight_requires_nonneg: operator '< -> <= at 2' is unnecessarily tight
+  [spec-mut] isItEight_eight: operator '∧ -> ∨ at 20' is unnecessarily tight
+  [refine] IronSpec ASC analysis...
+  [asc] isItEight_returns_bool: STRENGTHENED ∨→∧ (IronSpec: strictly stronger, still verifies)
+  [asc] isItEight_false_not_div8: WARN — conclusion does not reference isItEight (possible precondition restatement)
+  [asc] isItEight_iff: STRENGTHENED ∨→∧ (IronSpec: strictly stronger, still verifies)
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: IMPOSSIBLE
+  [refine] tier 2 took 11.7s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 126.2s
+  [pc] isItEight_zero: post_completeness=n/a (0/0)
+  [pc] isItEight_eight: post_completeness=n/a (0/0)
+  [pc] isItEight_neg_eight: post_completeness=n/a (0/0)
+  [pc] isItEight_returns_bool: post_completeness=n/a (0/0)
+  [pc] isItEight_div8_true: post_completeness=n/a (0/0)
+  [pc] isItEight_digit8_true: post_completeness=n/a (0/0)
+  [pc] isItEight_false_not_div8: post_completeness=n/a (0/0)
+  [pc] isItEight_neg_eq: post_completeness=n/a (0/0)
+  [pc] isItEight_iff: post_completeness=n/a (0/0)
+  [pc] isItEight_false_iff: post_completeness=n/a (0/0)
+  [pc] isItEight_meets_postcond: post_completeness=n/a (0/0)
+  [pc] isItEight_requires_nonneg: post_completeness=n/a (0/0)
+  [debug] uniqueness inputs: 10 test inputs
+
+--- verina_advanced_20 ---
+  generated:  15
+  survived:   13 (13 kernel-proved, 0 validated)
+  rejected:   2
+  failure breakdown: 2 typecheck, 0 eval, 0 vacuity
+  soundness:  0.87
+  recall:     0.00
+  precision:  1.00
+  clarity:    0.615
+  uniqueness: 1.00
+  admissible: True
+  func_correct: 0.00 (0/13)
+  spec_coverage: 0.00 (0/1)
+  llm calls:  39
+  lean calls: 632
+    kernel-proved        [trivial]  isItEight_zero: ∀ (h_precond : isItEight_precond 0), isItEight 0 h_precond = true
+    kernel-proved        [trivial]  isItEight_eight: ∀ (h_precond : isItEight_precond 8), isItEight 8 h_precond = true
+    kernel-proved        [trivial]  isItEight_neg_eight: ∀ (h_precond : isItEight_precond (-8)), isItEight (-8) h_precond = true
+    kernel-proved        [rfl]  isItEight_returns_bool: ∀ (n : Int) (h_precond : isItEight_precond n),
+    isItEight n h_precond = true 
+    kernel-proved        [rfl]  isItEight_div8_true: ∀ (n : Int) (h_precond : isItEight_precond n),
+    n % 8 == 0 → isItEight n h_pr
+    kernel-proved        [rfl]  isItEight_digit8_true: ∀ (n : Int) (h_precond : isItEight_precond n),
+    (∃ i, (Int.natAbs n) / (10^i)
+    kernel-proved        [rfl]  isItEight_false_not_div8: ∀ (n : Int) (h_precond : isItEight_precond n),
+    isItEight n h_precond = false
+    kernel-proved        [rfl]  isItEight_neg_eq: ∀ (n : Int) (h_precond : isItEight_precond n) (h_neg : isItEight_precond (-n)),
+
+    kernel-proved        [rfl]  isItEight_iff: ∀ (n : Int) (h_precond : isItEight_precond n),
+    isItEight n h_precond = true 
+    kernel-proved        [rfl]  isItEight_false_iff: ∀ (n : Int) (h_precond : isItEight_precond n),
+    isItEight n h_precond = false
+    kernel-proved        [rfl (mathlib)]  isItEight_meets_postcond: ∀ (n : Int) (h : isItEight_precond n), isItEight_postcond n (isItEight n h) h
+    kernel-proved        [rfl (mathlib)]  isItEight_requires_nonneg: n < 0 → ¬(isItEight_precond n)
+    kernel-proved        [trivial]  isItEight_eight: isItEight_precond 8 ∧ isItEight 8 (by decide) = true
+  [gen] function complexity: medium
+  [gen] running strategy: direct
+  [gen] direct produced 13 candidates
+  [gen] running strategy: examples
+  [gen] examples produced 3 candidates
+  [gen] running strategy: negatives
+  [gen] negatives produced 0 candidates
+  [slice] generating specs for helper: maxInArray
+  [slice] 1 helpers produced 3 specs
+  [slice] main with helper context: 8 total specs
+  [slice] total from slicing: 8 specs
+  [gen] slicing produced 8 candidates
+  [gen] total after merge+dedup: 24
+  [pre] lengthOfLIS_empty: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpds632hb2.lean:20:32: error(lean.unknownIdent
+  [g0] lengthOfLIS_empty: example store check ok
+  [g1] lengthOfLIS_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpb2u_2to2.lean:20
+         stmt: theorem lengthOfLIS_empty : ∀ (h_precond : lengthOfLIS_precond []), lengthOfLIS [] h_precond = 0
+  [pre] lengthOfLIS_singleton: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpds632hb2.lean:20:32: error(lean.unknownIdent
+  [g0] lengthOfLIS_singleton: example store check ok
+  [g1] lengthOfLIS_singleton: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpbd0gxswy.lean:20
+         stmt: theorem lengthOfLIS_singleton : ∀ (x : Int) (h_precond : lengthOfLIS_precond [x]), lengthOfLIS [x] h
+  [pre] lengthOfLIS_le_length: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpds632hb2.lean:20:32: error(lean.unknownIdent
+  [g0] lengthOfLIS_le_length: example store check ok
+  [g1] lengthOfLIS_le_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp3ewoyt8n.lean:20
+         stmt: ∀ (nums : List Int) (h_precond : lengthOfLIS_precond nums), lengthOfLIS nums h_precond ≤ nums.length
+  [pre] lengthOfLIS_nonneg: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpds632hb2.lean:20:32: error(lean.unknownIdent
+  [g0] lengthOfLIS_nonneg: example store check ok
+  [g1] lengthOfLIS_nonneg: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp31eg09m2.lean:20
+         stmt: theorem lengthOfLIS_nonneg : ∀ (nums : List Int) (h_precond : lengthOfLIS_precond nums), 0 ≤ lengthO
+  [pre] lengthOfLIS_pos_of_nonempty: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpds632hb2.lean:20:32: error(lean.unknownIdent
+  [g0] lengthOfLIS_pos_of_nonempty: example store check ok
+  [g1] lengthOfLIS_pos_of_nonempty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpxm2apz_e.lean:20
+         stmt: theorem lengthOfLIS_pos_of_nonempty : ∀ (nums : List Int) (h_precond : lengthOfLIS_precond nums), nu
+  [pre] lengthOfLIS_result_is_subseq_len: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpds632hb2.lean:20:32: error(lean.unknownIdent
+  [g0] lengthOfLIS_result_is_subseq_len: example store check ok
+  [g1] lengthOfLIS_result_is_subseq_len: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp0n6f0fi9.lean:20
+         stmt: ∀ (nums : List Int) (h_precond : lengthOfLIS_precond nums),
+    let allSubseq := (nums.foldl fun acc
+  [pre] lengthOfLIS_is_maximum: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpds632hb2.lean:20:32: error(lean.unknownIdent
+  [g0] lengthOfLIS_is_maximum: example store check ok
+  [g1] lengthOfLIS_is_maximum: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpoej3id9l.lean:20
+         stmt: ∀ (nums : List Int) (h_precond : lengthOfLIS_precond nums),
+    let allSubseq := (nums.foldl fun acc
+  [pre] lengthOfLIS_append_ge: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpds632hb2.lean:20:32: error(lean.unknownIdent
+  [g0] lengthOfLIS_append_ge: example store check ok
+  [g1] lengthOfLIS_append_ge: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpiae5esic.lean:20
+         stmt: theorem lengthOfLIS_append_ge : ∀ (nums : List Int) (x : Int) (h1 : lengthOfLIS_precond nums) (h2 : 
+  [pre] lengthOfLIS_prefix_le: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpds632hb2.lean:20:32: error(lean.unknownIdent
+  [g0] lengthOfLIS_prefix_le: example store check ok
+  [g1] lengthOfLIS_prefix_le: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpanw2nqcq.lean:20
+         stmt: theorem lengthOfLIS_prefix_le : ∀ (l1 l2 : List Int) (h1 : lengthOfLIS_precond l1) (h2 : lengthOfLIS
+  [pre] lengthOfLIS_sorted_eq_length: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpds632hb2.lean:20:32: error(lean.unknownIdent
+  [g0] lengthOfLIS_sorted_eq_length: example store check ok
+  [g1] lengthOfLIS_sorted_eq_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpv3fkv1ag.lean:20
+         stmt: theorem lengthOfLIS_sorted_eq_length : ∀ (nums : List Int) (h_precond : lengthOfLIS_precond nums), L
+  [pre] lengthOfLIS_constant_eq_one: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpds632hb2.lean:20:32: error(lean.unknownIdent
+  [g0] lengthOfLIS_constant_eq_one: example store check ok
+  [g1] lengthOfLIS_constant_eq_one: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpzwdq3jk0.lean:20
+         stmt: theorem lengthOfLIS_constant_eq_one : ∀ (x : Int) (n : Nat) (h_precond : lengthOfLIS_precond (List.r
+  [pre] lengthOfLIS_ge_one_of_nonempty: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpds632hb2.lean:20:32: error(lean.unknownIdent
+  [g0] lengthOfLIS_ge_one_of_nonempty: example store check ok
+  [g1] lengthOfLIS_ge_one_of_nonempty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpdhvqbp2e.lean:20
+         stmt: theorem lengthOfLIS_ge_one_of_nonempty : ∀ (nums : List Int) (h_precond : lengthOfLIS_precond nums),
+  [pre] lengthOfLIS_meets_postcond: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpds632hb2.lean:20:32: error(lean.unknownIdent
+  [g0] lengthOfLIS_meets_postcond: example store check ok
+  [g1] lengthOfLIS_meets_postcond: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpk1c9j8rt.lean:20
+         stmt: ∀ args (h : lengthOfLIS_precond args), lengthOfLIS_postcond args (lengthOfLIS args h) h
+  [g0] maxInArray_ge_zero: example store check ok
+  [g1] maxInArray_ge_zero: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpcnc6zg31.lean:20
+         stmt: ∀ (arr : Array Nat), maxInArray arr ≥ 0
+  [g0] maxInArray_mem_or_zero: example store check ok
+  [g1] maxInArray_mem_or_zero: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpf9k6koyu.lean:20
+         stmt: theorem maxInArray_mem_or_zero : ∀ (arr : Array Nat), arr.size = 0 ∨ maxInArray arr ∈ arr.toList
+  [g0] maxInArray_is_upper_bound: example store check ok
+  [g1] maxInArray_is_upper_bound: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpwptvee8g.lean:20
+         stmt: theorem maxInArray_is_upper_bound : ∀ (arr : Array Nat) (i : Fin arr.size), arr[i] ≤ maxInArray arr
+  [g0] lengthOfLIS_nonneg: example store check ok
+  [g1] lengthOfLIS_nonneg: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmph7i6vcng.lean:20
+         stmt: ∀ (nums : List Int) (h : lengthOfLIS_precond nums),
+    lengthOfLIS nums h ≥ 0
+  [g0] lengthOfLIS_nonempty_pos: example store check ok
+  [g1] lengthOfLIS_nonempty_pos: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpziwg3zut.lean:20
+         stmt: theorem lengthOfLIS_nonempty_pos : ∀ (nums : List Int) (h : lengthOfLIS_precond nums), nums.isEmpty 
+  [g0] lengthOfLIS_empty: example store check ok
+  [g1] lengthOfLIS_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmprx6it6sa.lean:20
+         stmt: theorem lengthOfLIS_empty : ∀ (h : lengthOfLIS_precond []), lengthOfLIS [] h = 0
+  [g0] lengthOfLIS_le_length: example store check ok
+  [g1] lengthOfLIS_le_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpzbk2c3rp.lean:20
+         stmt: theorem lengthOfLIS_le_length : ∀ (nums : List Int) (h : lengthOfLIS_precond nums), lengthOfLIS nums
+  [g0] lengthOfLIS_eq_max_dp: example store check ok
+  [g1] lengthOfLIS_eq_max_dp: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmppfn8ajuw.lean:20
+         stmt: ∀ (nums : List Int) (h : lengthOfLIS_precond nums),
+    nums.isEmpty = false →
+    ∃ (dp : Array Nat
+  [g0] lengthOfLIS_empty: example store check ok
+  [g1] lengthOfLIS_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp932407vh.lean:20
+         stmt: theorem lengthOfLIS_empty : lengthOfLIS [] trivial = 0
+  [g0] lengthOfLIS_nonempty: example store check ok
+  [g1] lengthOfLIS_nonempty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp4tn4clnb.lean:20
+         stmt: lengthOfLIS nums h ≥ 1
+  [g0] lengthOfLIS_le_length: example store check ok
+  [g1] lengthOfLIS_le_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpionx2n25.lean:20
+         stmt: theorem lengthOfLIS_le_length : ∀ (nums : List Int) (h : lengthOfLIS_precond nums), lengthOfLIS nums
+  [gen] round 3 produced 5 safe specs
+  [g0] lengthOfLIS_empty: example store check ok
+  [g1] lengthOfLIS_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpwtj_m16t.lean:20
+         stmt: ∀ h : lengthOfLIS_precond [], lengthOfLIS [] h = 0
+  [g0] maxInArray_singleton: example store check ok
+  [g1] maxInArray_singleton: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpte99egc0.lean:20
+         stmt: ∀ n : Nat, maxInArray #[n] = n
+  [dedup] skipping duplicate in validate: lengthOfLIS_empty
+  [g0] maxInArray_empty: example store check ok
+  [g1] maxInArray_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpnk_6n_9x.lean:20
+         stmt: theorem maxInArray_empty : maxInArray #[] = 0
+  [dedup] skipping duplicate in validate: maxInArray_singleton
+  [gen] round 3: 0 proved
+  [dedup] dropped post-gwp duplicate: lengthOfLIS_le_length: theorem lengthOfLIS_le_length : ∀ (nums : List Int) (h : len
+  [refine] entered, verbose=True, 0 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 0 proved specs
+  [refine] generating mutants...
+  mutants: 43 generated, 0 compile
+  [refine] mutant gen took 6.5s
+  [refine] no compilable mutants, skipping tier 1
+  [refine] running spec mutation check...
+  [refine] IronSpec ASC analysis...
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpvvc8z2e1.lean:19:32: err
+  [adv] round 2/3
+  [adv] round 2: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpmgcv3xhr.lean:19:32: err
+  [adv] round 3/3
+  [adv] round 3: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpmgcv3xhr.lean:19:32: err
+  [refine] tier 2 took 15.2s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 0.0s
+
+--- verina_advanced_25 ---
+  generated:  23
+  survived:   0 (0 kernel-proved, 0 validated)
+  rejected:   23
+  failure breakdown: 23 typecheck, 0 eval, 0 vacuity
+  soundness:  0.00
+  recall:     0.00
+  precision:  -
+  clarity:    0.000
+  uniqueness: -
+  func_correct: 0.00 (0/0)
+  spec_coverage: 0.00 (0/2)
+  llm calls:  37
+  lean calls: 95
+  [gen] function complexity: medium
+  [gen] running strategy: direct
+  [gen] direct produced 13 candidates
+  [gen] running strategy: examples
+  [gen] examples produced 4 candidates
+  [gen] running strategy: negatives
+  [gen] negatives produced 0 candidates
+  [slice] generating specs for helper: isConsecutive
+  [slice] 1 helpers produced 1 specs
+  [slice] main with helper context: 6 total specs
+  [slice] total from slicing: 6 specs
+  [gen] slicing produced 6 candidates
+  [dedup] dropped exact duplicate: longestConsecutive_nil_zero
+  [dedup] dropped exact duplicate: longestConsecutive_bound
+  [gen] total after merge+dedup: 21
+  [pre] longestConsecutive_empty: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpym10yvon.lean:16:19: error(lean.unknownIdent
+  [g0] longestConsecutive_empty: example store check ok
+  [g1] longestConsecutive_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmppu34rl9a.lean:16
+         stmt: theorem longestConsecutive_empty : ∀ (h_precond : longestConsecutive_precond []), longestConsecutive
+  [pre] longestConsecutive_singleton: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpym10yvon.lean:16:19: error(lean.unknownIdent
+  [g0] longestConsecutive_singleton: example store check ok
+  [g1] longestConsecutive_singleton: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpz5r4pswr.lean:16
+         stmt: ∀ (x : Int) (h_precond : longestConsecutive_precond [x]),
+    longestConsecutive [x] h_precond = 1
+  [pre] longestConsecutive_le_length: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpym10yvon.lean:16:19: error(lean.unknownIdent
+  [g0] longestConsecutive_le_length: example store check ok
+  [g1] longestConsecutive_le_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpkzuf6azp.lean:16
+         stmt: theorem longestConsecutive_le_length : ∀ (nums : List Int) (h_precond : longestConsecutive_precond n
+  [pre] longestConsecutive_nonneg: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpym10yvon.lean:16:19: error(lean.unknownIdent
+  [g0] longestConsecutive_nonneg: example store check ok
+  [g1] longestConsecutive_nonneg: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpm32bohwj.lean:16
+         stmt: ∀ (nums : List Int) (h_precond : longestConsecutive_precond nums), 0 ≤ longestConsecutive nums h_pre
+  [pre] longestConsecutive_pos: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpym10yvon.lean:16:19: error(lean.unknownIdent
+  [g0] longestConsecutive_pos: example store check ok
+  [g1] longestConsecutive_pos: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp3eadc4us.lean:16
+         stmt: theorem longestConsecutive_pos : ∀ (nums : List Int) (h_precond : longestConsecutive_precond nums), 
+  [pre] longestConsecutive_is_consec_sublist_len: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpym10yvon.lean:16:19: error(lean.unknownIdent
+  [g0] longestConsecutive_is_consec_sublist_len: example store check ok
+  [g1] longestConsecutive_is_consec_sublist_len: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpdn4d27zc.lean:16
+         stmt: ∀ (nums : List Int) (h_precond : longestConsecutive_precond nums), let sorted_nums
+  [pre] longestConsecutive_is_maximum: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpym10yvon.lean:16:19: error(lean.unknownIdent
+  [g0] longestConsecutive_is_maximum: example store check ok
+  [g1] longestConsecutive_is_maximum: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpzguolau5.lean:16
+         stmt: ∀ (nums : List Int) (h_precond : longestConsecutive_precond nums),
+    let sorted_nums := nums.merge
+  [pre] longestConsecutive_meets_postcond: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpym10yvon.lean:16:19: error(lean.unknownIdent
+  [g0] longestConsecutive_meets_postcond: example store check ok
+  [g1] longestConsecutive_meets_postcond: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpod18ludt.lean:16
+         stmt: theorem longestConsecutive_meets_postcond : ∀ (nums : List Int) (h_precond : longestConsecutive_prec
+  [pre] longestConsecutive_two_consec: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpym10yvon.lean:16:19: error(lean.unknownIdent
+  [g0] longestConsecutive_two_consec: example store check ok
+  [g1] longestConsecutive_two_consec: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpqftebyen.lean:16
+         stmt: ∀ (x : Int) (h_precond : longestConsecutive_precond [x, x + 1]),
+    longestConsecutive [x, x + 1] h
+  [pre] longestConsecutive_append_nodup: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpym10yvon.lean:16:19: error(lean.unknownIdent
+  [g0] longestConsecutive_append_nodup: example store check ok
+  [g1] longestConsecutive_append_nodup: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpu8ij9065.lean:16
+         stmt: : nums) h_precond ≤ (x :: nums).length
+  [pre] longestConsecutive_eq_zero_iff_empty: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpym10yvon.lean:16:19: error(lean.unknownIdent
+  [g0] longestConsecutive_eq_zero_iff_empty: example store check ok
+  [g1] longestConsecutive_eq_zero_iff_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpdlqgyj1v.lean:16
+         stmt: theorem longestConsecutive_eq_zero_iff_empty : ∀ (nums : List Int) (h_precond : longestConsecutive_p
+  [g0] isConsecutive_empty: example store check ok
+  [g1] isConsecutive_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpfix47aeo.lean:16
+         stmt: List Int) : Bool
+  [g0] longestConsecutive_empty: example store check ok
+  [g1] longestConsecutive_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpq6v0n8yq.lean:16
+         stmt: theorem longestConsecutive_empty : ∀ (h : longestConsecutive_precond []), longestConsecutive [] h = 
+  [g0] longestConsecutive_single: example store check ok
+  [g1] longestConsecutive_single: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmppug6goa0.lean:16
+         stmt: theorem longestConsecutive_single : ∀ (x : Int) (h : longestConsecutive_precond [x]), longestConsecu
+  [g0] longestConsecutive_result_pos: example store check ok
+  [g1] longestConsecutive_result_pos: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpnrve1rq8.lean:16
+         stmt: theorem longestConsecutive_result_pos : ∀ (nums : List Int) (h : longestConsecutive_precond nums), n
+  [g0] longestConsecutive_upper_bound: example store check ok
+  [g1] longestConsecutive_upper_bound: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpwlc1kgku.lean:16
+         stmt: theorem longestConsecutive_upper_bound : ∀ (nums : List Int) (h : longestConsecutive_precond nums), 
+  [g0] longestConsecutive_consecutive_list: example store check ok
+  [g1] longestConsecutive_consecutive_list: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp4cvbuc4d.lean:16
+         stmt: theorem longestConsecutive_consecutive_list : ∀ (n : Nat) (start : Int) (h : longestConsecutive_prec
+  [g0] longestConsecutive_empty: example store check ok
+  [g1] longestConsecutive_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpb3omof_i.lean:16
+         stmt: longestConsecutive [] (by simp [longestConsecutive_precond]) = 0
+  [g0] longestConsecutive_singleton: example store check ok
+  [g1] longestConsecutive_singleton: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpnziakkwr.lean:16
+         stmt: longestConsecutive [n] (by simp [longestConsecutive_precond]) = 1
+  [g0] longestConsecutive_nonempty_pos: example store check ok
+  [g1] longestConsecutive_nonempty_pos: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpfkt3g8zy.lean:16
+         stmt: longestConsecutive l h_precond ≥ 1
+  [g0] longestConsecutive_le_length: example store check ok
+  [g1] longestConsecutive_le_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmphbcucnw2.lean:16
+         stmt: List Int) (h_precond : longestConsecutive_precond l) : longestConsecutive l h_precond ≤ l.length
+  [gen] round 3 produced 3 safe specs
+  [g0] longestConsecutive_empty: example store check ok
+  [g1] longestConsecutive_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpq6v0n8yq.lean:16
+         stmt: ∀ (h : longestConsecutive_precond []), longestConsecutive [] h = 0
+  [g0] longestConsecutive_precond_empty: example store check ok
+  [g1] longestConsecutive_precond_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp0bheitsl.lean:16
+         stmt: theorem longestConsecutive_precond_empty : ∀ (l : List Int), l = [] → longestConsecutive_precond l
+  [g0] longestConsecutive_singleton: example store check ok
+  [g1] longestConsecutive_singleton: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpgerm1ixy.lean:16
+         stmt: theorem longestConsecutive_singleton : ∀ (x : Int) (h : longestConsecutive_precond [x]), longestCons
+  [gen] round 3: 0 proved
+  [refine] entered, verbose=True, 0 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 0 proved specs
+  [refine] generating mutants...
+  mutants: 41 generated, 0 compile
+  [refine] mutant gen took 6.7s
+  [refine] no compilable mutants, skipping tier 1
+  [refine] running spec mutation check...
+  [refine] IronSpec ASC analysis...
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpejt_sca_.lean:15:19: err
+  [adv] round 2/3
+  [adv] round 2: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpejt_sca_.lean:15:19: err
+  [adv] round 3/3
+  [adv] round 3: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpoyes8g9x.lean:15:19: err
+  [refine] tier 2 took 9.9s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 0.0s
+
+--- verina_advanced_28 ---
+  generated:  21
+  survived:   0 (0 kernel-proved, 0 validated)
+  rejected:   21
+  failure breakdown: 21 typecheck, 0 eval, 0 vacuity
+  soundness:  0.00
+  recall:     0.00
+  precision:  -
+  clarity:    0.000
+  uniqueness: -
+  func_correct: 0.00 (0/0)
+  spec_coverage: 0.00 (0/2)
+  llm calls:  34
+  lean calls: 80
+  [gen] function complexity: hard
+  [gen] running strategy: direct
+  [gen] direct produced 11 candidates
+  [gen] running strategy: examples
+  [gen] examples produced 4 candidates
+  [gen] running strategy: negatives
+  [gen] negatives produced 0 candidates
+  [slice] total from slicing: 0 specs
+  [gen] total after merge+dedup: 15
+  [pre] longestGoodSubarray_empty: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpwrygjwji.lean:19:19: error(lean.unknownIdent
+  [g0] longestGoodSubarray_empty: example store check ok
+  [g1] longestGoodSubarray_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp2hsk_muw.lean:19
+         stmt: theorem longestGoodSubarray_empty : ∀ (k : Nat) (h_precond : longestGoodSubarray_precond [] k), long
+  [pre] longestGoodSubarray_singleton: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpwrygjwji.lean:19:19: error(lean.unknownIdent
+  [g0] longestGoodSubarray_singleton: example store check ok
+  [g1] longestGoodSubarray_singleton: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpcc3shumw.lean:19
+         stmt: ∀ (x : Nat) (k : Nat) (h_precond : longestGoodSubarray_precond [x] k), longestGoodSubarray [x] k h_p
+  [pre] longestGoodSubarray_le_length: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpwrygjwji.lean:19:19: error(lean.unknownIdent
+  [g0] longestGoodSubarray_le_length: example store check ok
+  [g1] longestGoodSubarray_le_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmplw5bw5wc.lean:19
+         stmt: theorem longestGoodSubarray_le_length : ∀ (nums : List Nat) (k : Nat) (h_precond : longestGoodSubarr
+  [pre] longestGoodSubarray_nonneg: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpwrygjwji.lean:19:19: error(lean.unknownIdent
+  [g0] longestGoodSubarray_nonneg: example store check ok
+  [g1] longestGoodSubarray_nonneg: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpntg3q3e0.lean:19
+         stmt: ∀ (nums : List Nat) (k : Nat) (h_precond : longestGoodSubarray_precond nums k),
+    0 ≤ longestGoodS
+  [pre] longestGoodSubarray_mono_k: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpwrygjwji.lean:19:19: error(lean.unknownIdent
+  [g0] longestGoodSubarray_mono_k: example store check ok
+  [g1] longestGoodSubarray_mono_k: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpywc4v9ni.lean:19
+         stmt: ∀ (nums : List Nat) (k1 k2 : Nat) (h1 : longestGoodSubarray_precond nums k1) (h2 : longestGoodSubarr
+  [pre] longestGoodSubarray_full_when_k_large: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpwrygjwji.lean:19:19: error(lean.unknownIdent
+  [g0] longestGoodSubarray_full_when_k_large: example store check ok
+  [g1] longestGoodSubarray_full_when_k_large: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpjkdxtn2g.lean:19
+         stmt: theorem longestGoodSubarray_full_when_k_large : ∀ (nums : List Nat) (k : Nat) (h_precond : longestGo
+  [pre] longestGoodSubarray_pos_of_nonempty: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpwrygjwji.lean:19:19: error(lean.unknownIdent
+  [g0] longestGoodSubarray_pos_of_nonempty: example store check ok
+  [g1] longestGoodSubarray_pos_of_nonempty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp23kpp1va.lean:19
+         stmt: theorem longestGoodSubarray_pos_of_nonempty : ∀ (nums : List Nat) (k : Nat) (h_precond : longestGood
+  [pre] longestGoodSubarray_postcond_holds: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpwrygjwji.lean:19:19: error(lean.unknownIdent
+  [g0] longestGoodSubarray_postcond_holds: example store check ok
+  [g1] longestGoodSubarray_postcond_holds: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpdlsm7gt8.lean:19
+         stmt: ∀ (nums : List Nat) (k : Nat)
+    (h_precond : longestGoodSubarray_precond nums k),
+    let result :
+  [pre] longestGoodSubarray_k1_le_nodup: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpwrygjwji.lean:19:19: error(lean.unknownIdent
+  [g0] longestGoodSubarray_k1_le_nodup: example store check ok
+  [g1] longestGoodSubarray_k1_le_nodup: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpzjidc4qb.lean:19
+         stmt: theorem longestGoodSubarray_k1_le_nodup : ∀ (nums : List Nat) (k : Nat) (h_precond : longestGoodSuba
+  [pre] longestGoodSubarray_le_length_strong: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpwrygjwji.lean:19:19: error(lean.unknownIdent
+  [g0] longestGoodSubarray_le_length_strong: example store check ok
+  [g1] longestGoodSubarray_le_length_strong: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp9xxacrqf.lean:19
+         stmt: theorem longestGoodSubarray_le_length_strong : ∀ (nums : List Nat) (k : Nat) (h_precond : longestGoo
+  [pre] longestGoodSubarray_meets_postcond: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpwrygjwji.lean:19:19: error(lean.unknownIdent
+  [g0] longestGoodSubarray_meets_postcond: example store check ok
+  [g1] longestGoodSubarray_meets_postcond: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmppn43b6eo.lean:19
+         stmt: theorem longestGoodSubarray_meets_postcond : ∀ (nums : List Nat) (k : Nat) (h : longestGoodSubarray_
+  [g0] longestGoodSubarray_eq_k: example store check ok
+  [g1] longestGoodSubarray_eq_k: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp5lm5lv2w.lean:19
+         stmt: theorem longestGoodSubarray_eq_k (nums : List Nat) (k : Nat) (h_precond : longestGoodSubarray_precon
+  [g0] longestGoodSubarray_pos: example store check ok
+  [g1] longestGoodSubarray_pos: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpbl1mdrlr.lean:19
+         stmt: List Nat) (k : Nat) (h_precond : longestGoodSubarray_precond nums k) : longestGoodSubarray nums k h_
+  [g0] longestGoodSubarray_le_length: example store check ok
+  [g1] longestGoodSubarray_le_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpk_n7y931.lean:19
+         stmt: List Nat) (k : Nat) (h : longestGoodSubarray_precond arr k) : longestGoodSubarray arr k h ≤ arr.leng
+  [g0] longestGoodSubarray_bounded_by_k: example store check ok
+  [g1] longestGoodSubarray_bounded_by_k: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp_21hskga.lean:19
+         stmt: List Nat) (k : Nat) (h_precond : longestGoodSubarray_precond nums k) : longestGoodSubarray nums k h_
+  [g0] longestGoodSubarray_empty: example store check ok
+  [g1] longestGoodSubarray_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpkhkisbs9.lean:19
+         stmt: ∀ (k : Nat) (h_precond : longestGoodSubarray_precond [] k), longestGoodSubarray [] k h_precond = 0
+  [g0] longestGoodSubarray_le_length: example store check ok
+  [g1] longestGoodSubarray_le_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp_v9b_j46.lean:19
+         stmt: ∀ (nums : List Nat) (k : Nat) (h_precond : longestGoodSubarray_precond nums k), longestGoodSubarray 
+  [g0] longestGoodSubarray_mono_k: example store check ok
+  [g1] longestGoodSubarray_mono_k: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpilytahid.lean:19
+         stmt: theorem longestGoodSubarray_mono_k : ∀ (nums : List Nat) (k1 k2 : Nat) (h1 : longestGoodSubarray_pre
+  [repair] mutation-guided: 3 repaired, 0 proved
+  [refine] entered, verbose=True, 0 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 0 proved specs
+  [refine] generating mutants...
+  mutants: 58 generated, 0 compile
+  [refine] mutant gen took 9.5s
+  [refine] no compilable mutants, skipping tier 1
+  [refine] running spec mutation check...
+  [refine] IronSpec ASC analysis...
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpcne5_56o.lean:17:19: err
+  [adv] round 2/3
+  [adv] round 2: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpcne5_56o.lean:17:19: err
+  [adv] round 3/3
+  [adv] round 3: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpcne5_56o.lean:17:19: err
+  [refine] tier 2 took 16.9s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 0.0s
+
+--- verina_advanced_29 ---
+  generated:  15
+  survived:   0 (0 kernel-proved, 0 validated)
+  rejected:   15
+  failure breakdown: 15 typecheck, 0 eval, 0 vacuity
+  soundness:  0.00
+  recall:     0.00
+  precision:  -
+  clarity:    0.000
+  uniqueness: -
+  func_correct: 0.00 (0/0)
+  spec_coverage: 0.00 (0/1)
+  llm calls:  32
+  lean calls: 97
+  [gen] function complexity: medium
+  [gen] running strategy: direct
+  [gen] direct produced 12 candidates
+  [gen] running strategy: examples
+  [gen] examples produced 4 candidates
+  [gen] running strategy: negatives
+  [gen] negatives produced 0 candidates
+  [slice] generating specs for helper: intMax
+  [slice] 1 helpers produced 3 specs
+  [slice] main with helper context: 8 total specs
+  [slice] total from slicing: 8 specs
+  [gen] slicing produced 8 candidates
+  [dedup] dropped exact duplicate: LongestCommonSubsequence_meets_postcond
+  [gen] total after merge+dedup: 21
+  [pre] LongestCommonSubsequence_empty_left: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpxk8akxvm.lean:20:18: error(lean.unknownIdent
+  [g0] LongestCommonSubsequence_empty_left: example store check ok
+  [g1] LongestCommonSubsequence_empty_left: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp11em94x0.lean:20
+         stmt: theorem LongestCommonSubsequence_empty_left : ∀ (b : Array Int) (h_precond : LongestCommonSubsequenc
+  [pre] LongestCommonSubsequence_empty_right: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpxk8akxvm.lean:20:18: error(lean.unknownIdent
+  [g0] LongestCommonSubsequence_empty_right: example store check ok
+  [g1] LongestCommonSubsequence_empty_right: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpl_zw4pjy.lean:20
+         stmt: Int)
+  [pre] LongestCommonSubsequence_nonneg: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpxk8akxvm.lean:20:18: error(lean.unknownIdent
+  [g0] LongestCommonSubsequence_nonneg: example store check ok
+  [g1] LongestCommonSubsequence_nonneg: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpiqjbf169.lean:20
+         stmt: theorem LongestCommonSubsequence_nonneg : ∀ (a b : Array Int) (h_precond : LongestCommonSubsequence_
+  [pre] LongestCommonSubsequence_le_left_size: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpxk8akxvm.lean:20:18: error(lean.unknownIdent
+  [g0] LongestCommonSubsequence_le_left_size: example store check ok
+  [g1] LongestCommonSubsequence_le_left_size: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpgdjw3jie.lean:20
+         stmt: theorem LongestCommonSubsequence_le_left_size : ∀ (a b : Array Int) (h_precond : LongestCommonSubseq
+  [dedup] skipping duplicate in validate: LongestCommonSubsequence_le_right_size
+  [pre] LongestCommonSubsequence_result_in_common_subseq_lens: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpxk8akxvm.lean:20:18: error(lean.unknownIdent
+  [g0] LongestCommonSubsequence_result_in_common_subseq_lens: example store check ok
+  [g1] LongestCommonSubsequence_result_in_common_subseq_lens: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpaqsh4lkv.lean:20
+         stmt: Array Int)
+  [pre] LongestCommonSubsequence_is_maximum: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpxk8akxvm.lean:20:18: error(lean.unknownIdent
+  [g0] LongestCommonSubsequence_is_maximum: example store check ok
+  [g1] LongestCommonSubsequence_is_maximum: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp5j77tzb5.lean:20
+         stmt: ∀ (a b : Array Int) (h_precond : LongestCommonSubsequence_precond a b),
+    let subseqA := allSubseq
+  [pre] LongestCommonSubsequence_symmetric: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpxk8akxvm.lean:20:18: error(lean.unknownIdent
+  [g0] LongestCommonSubsequence_symmetric: example store check ok
+  [g1] LongestCommonSubsequence_symmetric: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpvodgn80s.lean:20
+         stmt: theorem LongestCommonSubsequence_symmetric : ∀ (a b : Array Int) (h1 : LongestCommonSubsequence_prec
+  [pre] LongestCommonSubsequence_identical: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpxk8akxvm.lean:20:18: error(lean.unknownIdent
+  [g0] LongestCommonSubsequence_identical: example store check ok
+  [g1] LongestCommonSubsequence_identical: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpyfm8uznn.lean:20
+         stmt: Int)
+  [pre] LongestCommonSubsequence_postcond_result: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpxk8akxvm.lean:20:18: error(lean.unknownIdent
+  [g0] LongestCommonSubsequence_postcond_result: example store check ok
+  [g1] LongestCommonSubsequence_postcond_result: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpntpnmb9g.lean:20
+         stmt: theorem LongestCommonSubsequence_postcond_result : ∀ (a b : Array Int) (h_precond : LongestCommonSub
+  [pre] LongestCommonSubsequence_empty_subseq_exists: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpxk8akxvm.lean:20:18: error(lean.unknownIdent
+  [g0] LongestCommonSubsequence_empty_subseq_exists: example store check ok
+  [g1] LongestCommonSubsequence_empty_subseq_exists: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpjipwxzjh.lean:20
+         stmt: ∀ (a b : Array Int) (h_precond : LongestCommonSubsequence_precond a b),
+    let subseqA := allSubseq
+  [g0] intMax_ge_left: example store check ok
+  [g1] intMax_ge_left: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpa3gfu06k.lean:20
+         stmt: ∀ (x y : Int), x ≤ intMax x y
+  [dedup] skipping duplicate in validate: intMax_ge_right
+  [g0] intMax_eq_or: example store check ok
+  [g1] intMax_eq_or: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpal64ozll.lean:20
+         stmt: ∀ (x y : Int), intMax x y = x ∨ intMax x y = y
+  [g0] lcs_nonneg: example store check ok
+  [g1] lcs_nonneg: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpj1z5n57n.lean:20
+         stmt: theorem lcs_nonneg : ∀ (a b : Array Int) (h : LongestCommonSubsequence_precond a b), 0 ≤ LongestComm
+  [g0] lcs_le_min_length: example store check ok
+  [g1] lcs_le_min_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmprq08ny6g.lean:20
+         stmt: theorem lcs_le_min_length : ∀ (a b : Array Int) (h : LongestCommonSubsequence_precond a b), LongestC
+  [dedup] skipping duplicate in validate: lcs_symmetric
+  [g0] lcs_intmax_lower_bound: example store check ok
+  [g1] lcs_intmax_lower_bound: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpoal5bjs4.lean:20
+         stmt: theorem lcs_intmax_lower_bound : ∀ (x y : Int), x ≤ intMax x y ∧ y ≤ intMax x y
+  [g0] lcs_identical_arrays: example store check ok
+  [g1] lcs_identical_arrays: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpv0s5he7k.lean:20
+         stmt: Int)
+  [g0] lcs_same_second_third: example store check ok
+  [g1] lcs_same_second_third: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp1bg3cxls.lean:20
+         stmt: theorem lcs_same_second_third : LongestCommonSubsequence a b trivial = LongestCommonSubsequence a b 
+  [g0] lcs_empty_first: example store check ok
+  [g1] lcs_empty_first: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmph9w7___z.lean:20
+         stmt: LongestCommonSubsequence #[] b b trivial = LongestCommonSubsequence #[] b b trivial
+  [gen] round 3 produced 3 safe specs
+  [g0] lcs_precond_always_true: example store check ok
+  [g1] lcs_precond_always_true: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpdxi_53zd.lean:20
+         stmt: ∀ (a b : Array Int), LongestCommonSubsequence_precond a b
+  [g0] lcs_both_empty: example store check ok
+  [g1] lcs_both_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpjfp4vicg.lean:20
+         stmt: ∀ (h : LongestCommonSubsequence_precond #[] #[]),
+    LongestCommonSubsequence #[] #[] h = 0
+  [g0] lcs_result_is_int: example store check ok
+  [g1] lcs_result_is_int: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmptcewzo_j.lean:20
+         stmt: theorem lcs_result_is_int : ∀ (a b : Array Int) (h : LongestCommonSubsequence_precond a b), ∃ (n : I
+  [gen] round 3: 0 proved
+  [dedup] dropped post-gwp duplicate: LongestCommonSubsequence_identical: Int)
+  [dedup] dropped post-gwp duplicate: intMax_ge_right: ∀ (x y : Int), y ≤ intMax x y
+  [dedup] dropped post-gwp duplicate: lcs_identical_arrays: Int)
+  [refine] entered, verbose=True, 0 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 0 proved specs
+  [refine] generating mutants...
+  mutants: 49 generated, 0 compile
+  [refine] mutant gen took 8.9s
+  [refine] no compilable mutants, skipping tier 1
+  [refine] running spec mutation check...
+  [refine] IronSpec ASC analysis...
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpl9h_s1pj.lean:19:18: err
+  [adv] round 2/3
+  [adv] round 2: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpl9h_s1pj.lean:19:18: err
+  [adv] round 3/3
+  [adv] round 3: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpl9h_s1pj.lean:19:18: err
+  [refine] tier 2 took 13.3s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 0.0s
+
+--- verina_advanced_3 ---
+  generated:  18
+  survived:   0 (0 kernel-proved, 0 validated)
+  rejected:   18
+  failure breakdown: 16 typecheck, 0 eval, 0 vacuity
+  soundness:  0.00
+  recall:     0.00
+  precision:  -
+  clarity:    0.000
+  uniqueness: -
+  func_correct: 0.00 (0/0)
+  spec_coverage: 0.00 (0/2)
+  llm calls:  31
+  lean calls: 80
+  [gen] function complexity: medium
+  [gen] running strategy: direct
+  [gen] direct produced 13 candidates
+  [gen] running strategy: examples
+  [gen] examples produced 4 candidates
+  [gen] running strategy: negatives
+  [gen] negatives produced 0 candidates
+  [slice] generating specs for arm 1: some (k, _) => k
+  [slice] generating specs for arm 2: none      => 0
+  -- !benchmark @end code
+
+
+-- !ben
+  [slice] case-specific: 4 total specs
+  [slice] total from slicing: 4 specs
+  [gen] slicing produced 4 candidates
+  [dedup] dropped exact duplicate: majorityElement_satisfies_any
+  [gen] total after merge+dedup: 20
+  [pre] majorityElement_singleton: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpinb1mhz5.lean:16:21: error(lean.unknownIdent
+  [g0] majorityElement_singleton: example store check ok
+  [g1] majorityElement_singleton: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpkjrzw3r6.lean:16
+         stmt: ∀ (x : Int) (h_precond : majorityElement_precond [x]),
+    majorityElement [x] h_precond = x
+  [pre] majorityElement_all_same: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpinb1mhz5.lean:16:21: error(lean.unknownIdent
+  [g0] majorityElement_all_same: example store check ok
+  [g1] majorityElement_all_same: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpkzshf7ct.lean:16
+         stmt: theorem majorityElement_all_same : ∀ (x : Int) (n : Nat) (h_precond : majorityElement_precond (List.
+  [pre] majorityElement_mem: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpinb1mhz5.lean:16:21: error(lean.unknownIdent
+  [g0] majorityElement_mem: example store check ok
+  [g1] majorityElement_mem: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmppay711gi.lean:16
+         stmt: ∀ (nums : List Int) (h_precond : majorityElement_precond nums),
+    majorityElement nums h_precond ∈
+  [pre] majorityElement_count_gt_half: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpinb1mhz5.lean:16:21: error(lean.unknownIdent
+  [g0] majorityElement_count_gt_half: example store check ok
+  [g1] majorityElement_count_gt_half: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp2_ryf2ql.lean:16
+         stmt: ∀ (nums : List Int) (h_precond : majorityElement_precond nums),
+    nums.count (majorityElement nums
+  [pre] majorityElement_others_le_half: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpinb1mhz5.lean:16:21: error(lean.unknownIdent
+  [g0] majorityElement_others_le_half: example store check ok
+  [g1] majorityElement_others_le_half: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmppuyjc2w7.lean:16
+         stmt: ∀ (nums : List Int) (h_precond : majorityElement_precond nums),
+    ∀ x ∈ nums, x ≠ majorityElement 
+  [pre] majorityElement_count_dominates: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpinb1mhz5.lean:16:21: error(lean.unknownIdent
+  [g0] majorityElement_count_dominates: example store check ok
+  [g1] majorityElement_count_dominates: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp0jjhd3_x.lean:16
+         stmt: theorem majorityElement_count_dominates : ∀ (nums : List Int) (h_precond : majorityElement_precond n
+  [pre] majorityElement_count_pos: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpinb1mhz5.lean:16:21: error(lean.unknownIdent
+  [g0] majorityElement_count_pos: example store check ok
+  [g1] majorityElement_count_pos: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmplu910eub.lean:16
+         stmt: theorem majorityElement_count_pos : ∀ (nums : List Int) (h_precond : majorityElement_precond nums), 
+  [pre] majorityElement_count_more_than_half_length: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpinb1mhz5.lean:16:21: error(lean.unknownIdent
+  [g0] majorityElement_count_more_than_half_length: example store check ok
+  [g1] majorityElement_count_more_than_half_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpcgbijyuw.lean:16
+         stmt: theorem majorityElement_count_more_than_half_length : ∀ (nums : List Int) (h_precond : majorityEleme
+  [pre] majorityElement_unique: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpinb1mhz5.lean:16:21: error(lean.unknownIdent
+  [g0] majorityElement_unique: example store check ok
+  [g1] majorityElement_unique: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmptmzh_3z4.lean:16
+         stmt: theorem majorityElement_unique : ∀ (nums : List Int) (h_precond : majorityElement_precond nums), ∀ y
+  [pre] majorityElement_replicate_idempotent: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpinb1mhz5.lean:16:21: error(lean.unknownIdent
+  [g0] majorityElement_replicate_idempotent: example store check ok
+  [g1] majorityElement_replicate_idempotent: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpwuxpyocp.lean:16
+         stmt: theorem majorityElement_replicate_idempotent : ∀ (nums : List Int) (h_precond : majorityElement_prec
+  [pre] majorityElement_perm_invariant: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpinb1mhz5.lean:16:21: error(lean.unknownIdent
+  [g0] majorityElement_perm_invariant: example store check ok
+  [g1] majorityElement_perm_invariant: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp72ees5ge.lean:16
+         stmt: theorem majorityElement_perm_invariant : ∀ (nums : List Int) (h_precond : majorityElement_precond nu
+  [pre] majorityElement_meets_postcond: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmpinb1mhz5.lean:16:21: error(lean.unknownIdent
+  [g0] majorityElement_meets_postcond: example store check ok
+  [g1] majorityElement_meets_postcond: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp0a4iiu17.lean:16
+         stmt: theorem majorityElement_meets_postcond : ∀ (nums : List Int) (h : majorityElement_precond nums), maj
+  [g0] majorityElement_some_case_count: example store check ok
+  [g1] majorityElement_some_case_count: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp75mb9yqm.lean:16
+         stmt: theorem majorityElement_some_case_count : ∀ (nums : List Int) (counts : Std.HashMap Int Nat) (k : In
+  [g0] majorityElement_some_case_result: example store check ok
+  [g1] majorityElement_some_case_result: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmplkofnik9.lean:16
+         stmt: ∀ (nums : List Int) (counts : HashMap Int Nat) (k : Int) (c : Nat),
+    counts.toList.find? (fun (_,
+  [g0] majorityElement_none_returns_zero: example store check ok
+  [g1] majorityElement_none_returns_zero: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpj9wyeoqw.lean:16
+         stmt: theorem majorityElement_none_returns_zero : ∀ (nums : List Int) (h_precond : majorityElement_precond
+  [g0] majorityElement_none_violates_postcond: example store check ok
+  [g1] majorityElement_none_violates_postcond: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpdoz6w_v6.lean:16
+         stmt: theorem majorityElement_none_violates_postcond : ∀ (nums : List Int) (h_precond : majorityElement_pr
+  [g0] majorityElement_count_gt_half: example store check ok
+  [g1] majorityElement_count_gt_half: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpdb0dk4c5.lean:16
+         stmt: List Int) (h : majorityElement_precond nums) : let result
+  [g0] majorityElement_mem: example store check ok
+  [g1] majorityElement_mem: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmplq9tt8p7.lean:16
+         stmt: majorityElement nums h ∈ nums
+  [g0] majorityElement_all_equal: example store check ok
+  [g1] majorityElement_all_equal: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp8_ilshmt.lean:16
+         stmt: List Int) (h : majorityElement_precond nums) : majorityElement_postcond nums (majorityElement nums h
+  [g0] majorityElement_unique: example store check ok
+  [g1] majorityElement_unique: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp4ypmwpsb.lean:16
+         stmt: theorem majorityElement_unique : ∀ (nums : List Int) (h : majorityElement_precond nums), let result
+  [gen] round 3 produced 5 safe specs
+  [g0] majorityElement_precond_nonempty: example store check ok
+  [g1] majorityElement_precond_nonempty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmppjvj5ybv.lean:16
+         stmt: ∀ (nums : List Int), majorityElement_precond nums → nums.length > 0
+  [g0] majorityElement_precond_exists_majority: example store check ok
+  [g1] majorityElement_precond_exists_majority: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpkyn06y8a.lean:16
+         stmt: theorem majorityElement_precond_exists_majority : ∀ (nums : List Int), majorityElement_precond nums 
+  [g0] majorityElement_postcond_count_pos: example store check ok
+  [g1] majorityElement_postcond_count_pos: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpzpppdfjf.lean:16
+         stmt: ∀ (nums : List Int) (result : Int) (h : majorityElement_precond nums),
+      majorityElement_postcon
+  [g0] majorityElement_postcond_others_le: example store check ok
+  [g1] majorityElement_postcond_others_le: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp9jh_e4j7.lean:16
+         stmt: ∀ (nums : List Int) (result : Int) (h : majorityElement_precond nums), majorityElement_postcond nums
+  [g0] majorityElement_postcond_count_le_length: example store check ok
+  [g1] majorityElement_postcond_count_le_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpyutq4sb4.lean:16
+         stmt: ∀ (nums : List Int) (result : Int) (h : majorityElement_precond nums),
+      majorityElement_postcon
+  [gen] round 3: 0 proved
+  [refine] entered, verbose=True, 0 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 0 proved specs
+  [refine] generating mutants...
+  mutants: 36 generated, 0 compile
+  [refine] mutant gen took 6.5s
+  [refine] no compilable mutants, skipping tier 1
+  [refine] running spec mutation check...
+  [refine] IronSpec ASC analysis...
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpttg307p2.lean:14:21: err
+  [adv] round 2/3
+  [adv] round 2: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpttg307p2.lean:14:21: err
+  [adv] round 3/3
+  [adv] round 3: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpznucnuxy.lean:15:21: err
+  [refine] tier 2 took 8.0s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 0.0s
+
+--- verina_advanced_35 ---
+  generated:  20
+  survived:   0 (0 kernel-proved, 0 validated)
+  rejected:   20
+  failure breakdown: 20 typecheck, 0 eval, 0 vacuity
+  soundness:  0.00
+  recall:     0.00
+  precision:  -
+  clarity:    0.000
+  uniqueness: -
+  func_correct: 0.00 (0/0)
+  spec_coverage: 0.00 (0/2)
+  llm calls:  35
+  lean calls: 86
+  [gen] function complexity: medium
+  [gen] running strategy: direct
+  [gen] direct produced 11 candidates
+  [gen] running strategy: examples
+  [gen] examples produced 4 candidates
+  [gen] running strategy: negatives
+  [gen] negatives produced 0 candidates
+  [slice] generating specs for helper: intMax
+  [slice] 1 helpers produced 3 specs
+  [slice] main with helper context: 8 total specs
+  [slice] generating specs for arm 1: #[] => 0
+  [slice] generating specs for arm 2: _   => dp.foldl intMax 0
+  -- !benchmark @end code
+  [slice] case-specific: 12 total specs
+  [slice] total from slicing: 12 specs
+  [gen] slicing produced 12 candidates
+  [gen] total after merge+dedup: 27
+  [pre] LongestIncreasingSubsequence_empty: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmplgh0gdc7.lean:18:18: error(lean.unknownIdent
+  [g0] LongestIncreasingSubsequence_empty: example store check ok
+  [g1] LongestIncreasingSubsequence_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpeawl1krj.lean:18
+         stmt: theorem LongestIncreasingSubsequence_empty : ∀ (h_precond : LongestIncreasingSubsequence_precond #[]
+  [pre] LongestIncreasingSubsequence_singleton: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmplgh0gdc7.lean:18:18: error(lean.unknownIdent
+  [g0] LongestIncreasingSubsequence_singleton: example store check ok
+  [g1] LongestIncreasingSubsequence_singleton: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpvka4diss.lean:18
+         stmt: ∀ (x : Int) (h_precond : LongestIncreasingSubsequence_precond #[x]),
+    LongestIncreasingSubsequenc
+  [pre] LongestIncreasingSubsequence_pos: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmplgh0gdc7.lean:18:18: error(lean.unknownIdent
+  [g0] LongestIncreasingSubsequence_pos: example store check ok
+  [g1] LongestIncreasingSubsequence_pos: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp27msm6is.lean:18
+         stmt: theorem LongestIncreasingSubsequence_pos : ∀ (a : Array Int) (h_precond : LongestIncreasingSubsequen
+  [pre] LongestIncreasingSubsequence_le_size: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmplgh0gdc7.lean:18:18: error(lean.unknownIdent
+  [g0] LongestIncreasingSubsequence_le_size: example store check ok
+  [g1] LongestIncreasingSubsequence_le_size: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmprx4hgcwe.lean:18
+         stmt: ∀ (a : Array Int) (h_precond : LongestIncreasingSubsequence_precond a), LongestIncreasingSubsequence
+  [pre] LongestIncreasingSubsequence_nonneg: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmplgh0gdc7.lean:18:18: error(lean.unknownIdent
+  [g0] LongestIncreasingSubsequence_nonneg: example store check ok
+  [g1] LongestIncreasingSubsequence_nonneg: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpv81v39r0.lean:18
+         stmt: theorem LongestIncreasingSubsequence_nonneg : ∀ (a : Array Int) (h_precond : LongestIncreasingSubseq
+  [pre] LongestIncreasingSubsequence_result_is_valid_length: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmplgh0gdc7.lean:18:18: error(lean.unknownIdent
+  [g0] LongestIncreasingSubsequence_result_is_valid_length: example store check ok
+  [g1] LongestIncreasingSubsequence_result_is_valid_length: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpa2sdex1g.lean:18
+         stmt: ∀ (a : Array Int) (h_precond : LongestIncreasingSubsequence_precond a),
+    let allSubseq := (a.fold
+  [pre] LongestIncreasingSubsequence_is_maximum: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmplgh0gdc7.lean:18:18: error(lean.unknownIdent
+  [g0] LongestIncreasingSubsequence_is_maximum: example store check ok
+  [g1] LongestIncreasingSubsequence_is_maximum: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp8i9rhljp.lean:18
+         stmt: theorem LongestIncreasingSubsequence_is_maximum : ∀ (a : Array Int) (h_precond : LongestIncreasingSu
+  [pre] LongestIncreasingSubsequence_sorted_eq_size: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmplgh0gdc7.lean:18:18: error(lean.unknownIdent
+  [g0] LongestIncreasingSubsequence_sorted_eq_size: example store check ok
+  [g1] LongestIncreasingSubsequence_sorted_eq_size: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp3_mrwej6.lean:18
+         stmt: theorem LongestIncreasingSubsequence_sorted_eq_size : ∀ (a : Array Int) (h_precond : LongestIncreasi
+  [pre] LongestIncreasingSubsequence_constant_eq_one: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmplgh0gdc7.lean:18:18: error(lean.unknownIdent
+  [g0] LongestIncreasingSubsequence_constant_eq_one: example store check ok
+  [g1] LongestIncreasingSubsequence_constant_eq_one: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp1fgtsg1l.lean:18
+         stmt: theorem LongestIncreasingSubsequence_constant_eq_one : ∀ (n : Nat) (x : Int) (h_precond : LongestInc
+  [pre] LongestIncreasingSubsequence_meets_postcond: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmplgh0gdc7.lean:18:18: error(lean.unknownIdent
+  [g0] LongestIncreasingSubsequence_meets_postcond: example store check ok
+  [g1] LongestIncreasingSubsequence_meets_postcond: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmplmrfr1a6.lean:18
+         stmt: theorem LongestIncreasingSubsequence_meets_postcond : ∀ (a : Array Int) (h_precond : LongestIncreasi
+  [pre] LongestIncreasingSubsequence_exact: preamble typecheck FAIL: C:\Users\User\AppData\Local\Temp\tmplgh0gdc7.lean:18:18: error(lean.unknownIdent
+  [g0] LongestIncreasingSubsequence_exact: example store check ok
+  [g1] LongestIncreasingSubsequence_exact: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpb818os6e.lean:18
+         stmt: ∀ (a : Array Int) (h_precond : LongestIncreasingSubsequence_precond a),
+    let result := LongestInc
+  [g0] intMax_ge_left: example store check ok
+  [g1] intMax_ge_left: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpez_0hqqb.lean:18
+         stmt: ∀ (x y : Int), x ≤ intMax x y
+  [dedup] skipping duplicate in validate: intMax_ge_right
+  [g0] intMax_eq_or: example store check ok
+  [g1] intMax_eq_or: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmprckvw6hj.lean:18
+         stmt: ∀ (x y : Int), intMax x y = x ∨ intMax x y = y
+  [g0] lis_nonneg: example store check ok
+  [g1] lis_nonneg: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmptdu6ukkl.lean:18
+         stmt: ∀ (a : Array Int) (h : LongestIncreasingSubsequence_precond a), 0 ≤ LongestIncreasingSubsequence a h
+  [g0] lis_at_least_one: example store check ok
+  [g1] lis_at_least_one: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpbqareo1r.lean:18
+         stmt: ∀ (a : Array Int) (h : LongestIncreasingSubsequence_precond a), a.size > 0 → 1 ≤ LongestIncreasingSu
+  [g0] lis_single_element: example store check ok
+  [g1] lis_single_element: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpp8xra3x9.lean:18
+         stmt: ∀ (x : Int) (h : LongestIncreasingSubsequence_precond #[x]),
+    LongestIncreasingSubsequence #[x] h
+  [g0] lis_at_most_size: example store check ok
+  [g1] lis_at_most_size: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpe6qi6hdu.lean:18
+         stmt: Int)
+  [g0] lis_two_increasing: example store check ok
+  [g1] lis_two_increasing: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpetd0ypsu.lean:18
+         stmt: ∀ (x y : Int) (h : LongestIncreasingSubsequence_precond #[x, y]),
+    x < y → LongestIncreasingSubse
+  [g0] lis_empty_array_returns_zero: example store check ok
+  [g1] lis_empty_array_returns_zero: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp3yzsxs3y.lean:18
+         stmt: theorem lis_empty_array_returns_zero : ∀ (h_precond : LongestIncreasingSubsequence_precond (#[] : Ar
+  [g0] lis_empty_dp_case: example store check ok
+  [g1] lis_empty_dp_case: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp32ej5c2z.lean:18
+         stmt: theorem lis_empty_dp_case : ∀ (a : Array Int) (h_precond : LongestIncreasingSubsequence_precond a), 
+  [g0] foldl_intMax_nonneg: example store check ok
+  [g1] foldl_intMax_nonneg: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpf457x56d.lean:18
+         stmt: theorem foldl_intMax_nonneg : ∀ (dp : Array Int), dp ≠ #[] → 0 ≤ dp.foldl intMax 0
+  [g0] foldl_intMax_ge_one: example store check ok
+  [g1] foldl_intMax_ge_one: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpaggotf84.lean:18
+         stmt: Fin dp.size` - this should typecheck. But `Array.foldl` takes an initial value and the fold starts f
+  [g0] lis_empty: example store check ok
+  [g1] lis_empty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmprt1hjwsh.lean:18
+         stmt: LongestIncreasingSubsequence #[] True.intro = 0
+  [g0] lis_nonempty: example store check ok
+  [g1] lis_nonempty: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpr59qq566.lean:18
+         stmt: theorem lis_nonempty (arr : Array Int) (h_precond : LongestIncreasingSubsequence_precond arr) : Long
+  [g0] lis_upper_bound: example store check ok
+  [g1] lis_upper_bound: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpvyuhm6g8.lean:18
+         stmt: LongestIncreasingSubsequence arr h_precond ≤ (arr.size : Int)
+  [g0] lis_sorted_increasing: example store check ok
+  [g1] lis_sorted_increasing: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpcrzjbbof.lean:18
+         stmt: theorem lis_sorted_increasing (arr : Array Int) (h_precond : LongestIncreasingSubsequence_precond ar
+  [gen] round 3 produced 4 safe specs
+  [g0] LIS_empty_array: example store check ok
+  [g1] LIS_empty_array: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpi0ub2f67.lean:18
+         stmt: ∀ (h : LongestIncreasingSubsequence_precond #[]),
+    LongestIncreasingSubsequence #[] h = 0
+  [g0] LIS_precond_always_true: example store check ok
+  [g1] LIS_precond_always_true: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpsro_3_6m.lean:18
+         stmt: ∀ (a : Array Int), LongestIncreasingSubsequence_precond a
+  [g0] LIS_single_element: example store check ok
+  [g1] LIS_single_element: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpkbv9ee8d.lean:18
+         stmt: ∀ (x : Int) (h : LongestIncreasingSubsequence_precond #[x]), LongestIncreasingSubsequence #[x] h = 1
+  [g0] intMax_comm: example store check ok
+  [g1] intMax_comm: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmp5rpfytwg.lean:18
+         stmt: ∀ (x y : Int), intMax x y = intMax y x
+  [gen] round 3: 0 proved
+  [dedup] dropped post-gwp duplicate: intMax_ge_right: ∀ (x y : Int), y ≤ intMax x y
+  [refine] entered, verbose=True, 0 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 0 proved specs
+  [refine] generating mutants...
+  mutants: 38 generated, 0 compile
+  [refine] mutant gen took 8.5s
+  [refine] no compilable mutants, skipping tier 1
+  [refine] running spec mutation check...
+  [refine] IronSpec ASC analysis...
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpmvb4_ubx.lean:17:18: err
+  [adv] round 2/3
+  [adv] round 2: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpmvb4_ubx.lean:17:18: err
+  [adv] round 3/3
+  [adv] round 3: typecheck FAIL — C:\Users\User\AppData\Local\Temp\tmpy3viyniy.lean:17:18: err
+  [refine] tier 2 took 11.2s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 0.0s
+
+--- verina_advanced_4 ---
+  generated:  26
+  survived:   0 (0 kernel-proved, 0 validated)
+  rejected:   26
+  failure breakdown: 26 typecheck, 0 eval, 0 vacuity
+  soundness:  0.00
+  recall:     0.00
+  precision:  -
+  clarity:    0.000
+  uniqueness: -
+  func_correct: 0.00 (0/0)
+  spec_coverage: 0.00 (0/2)
+  llm calls:  42
+  lean calls: 98
+
+benchmark             proved  sound   prec  clarity  unique   llm  lean    sec
+------------------------------------------------------------------------------
+verina_advanced_10     0/14    0.00      -    0.000       -    28    68  345.0
+verina_advanced_13    20/20    1.00   1.00    0.462    1.00   102  1057  561.8
+verina_advanced_17    29/33    0.88   1.00    0.640    1.00    64   600  512.0
+verina_advanced_20    13/15    0.87   1.00    0.615    1.00    39   632  294.7
+verina_advanced_25     0/23    0.00      -    0.000       -    37    95  422.2
+verina_advanced_28     0/21    0.00      -    0.000       -    34    80  417.1
+verina_advanced_29     0/15    0.00      -    0.000       -    32    97  357.5
+verina_advanced_3      0/18    0.00      -    0.000       -    31    80  374.1
+verina_advanced_35     0/20    0.00      -    0.000       -    35    86  324.3
+verina_advanced_4      0/26    0.00      -    0.000       -    42    98  457.4
+below best (62 vs 404 from run_11)

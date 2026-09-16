@@ -1,0 +1,126 @@
+{
+  "name": "rust_identity",
+  "generated_count": 14,
+  "proved_count": 11,
+  "validated_count": 1,
+  "rejected_count": 2,
+  "soundness": 0.7857142857142857,
+  "precision": null,
+  "avg_clarity": 0.5834877228589118,
+  "impl_independence": null,
+  "avg_uniqueness": null,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "0"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 44,
+  "lean_calls": 177,
+  "elapsed_seconds": 950.7492091655731,
+  "specs": [
+    {
+      "name": "identity_zero",
+      "stmt": "theorem identity_zero : \u2200 (v : U32), v = (0 : U32) \u2192 identity v = ok (0 : U32)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "identity_one",
+      "stmt": "theorem identity_one : identity (1 : Std.U32) = ok (1 : Std.U32)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8064516129032259
+    },
+    {
+      "name": "identity_always_ok",
+      "stmt": "\u2200 (v : Std.U32), \u2203 r, identity v = ok r",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.5300353356890459
+    },
+    {
+      "name": "identity_result_exists",
+      "stmt": "\u2200 (v : Std.U32), identity v \u2260 fail .panic",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.6607929515418502
+    },
+    {
+      "name": "identity_preserves_value",
+      "stmt": "\u2200 (v : Std.U32), identity v = ok v",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.6607929515418502
+    },
+    {
+      "name": "identity_output_eq_input",
+      "stmt": "\u2200 (v : Std.U32), \u2203 r, identity v = ok r \u2227 r = v",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.5084745762711864
+    },
+    {
+      "name": "identity_nonneg",
+      "stmt": "\u2200 (v : Std.U32), \u2203 r, identity v = ok r \u2227 r.val \u2265 0",
+      "status": "proved",
+      "method": "l1:aesop",
+      "clarity_score": 0.5084745762711864
+    },
+    {
+      "name": "identity_bounded",
+      "stmt": "\u2200 (v : Std.U32), \u2203 r, identity v = ok r \u2227 r.val < 2^32",
+      "status": "validated",
+      "method": "",
+      "clarity_score": 0.5084745762711864
+    },
+    {
+      "name": "identity_succ_rel",
+      "stmt": "\u2200 (v : Std.U32), \u2203 r, identity v = ok r \u2227 r.val = v.val",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.5084745762711864
+    },
+    {
+      "name": "identity_eq_id",
+      "stmt": "\u2200 (v : Std.U32), identity v = ok (id v)",
+      "status": "proved",
+      "method": "l1:tauto",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "identity_idempotent",
+      "stmt": "\u2200 (v : Std.U32), \n  (do let r \u2190 identity v; identity r) = identity v",
+      "status": "proved",
+      "method": "l3:decompose",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "identity_involution",
+      "stmt": "\u2200 (v : Std.U32), \n  (do let r \u2190 identity v; identity r) = ok v",
+      "status": "proved",
+      "method": "l3:decompose_repaired",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "identity_deterministic",
+      "stmt": "\u2200 (v w : Std.U32), v = w \u2192 identity v = identity w",
+      "status": "proved",
+      "method": "l1:simp",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "identity_inj",
+      "stmt": "\u2200 (v w : Std.U32), identity v = ok w \u2192 v = w",
+      "status": "proved",
+      "method": "l1:simp [identity]",
+      "clarity_score": 0.6198347107438017
+    }
+  ],
+  "functional_correctness": {
+    "score": null
+  },
+  "spec_coverage": {
+    "score": null
+  }
+}

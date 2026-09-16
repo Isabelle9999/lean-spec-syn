@@ -1,0 +1,145 @@
+{
+  "name": "verina_advanced_27",
+  "generated_count": 14,
+  "proved_count": 14,
+  "validated_count": 0,
+  "rejected_count": 0,
+  "soundness": 1.0,
+  "precision": 1.0,
+  "avg_clarity": 0.5652653897434756,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": false,
+    "witness_input": null
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 28,
+  "lean_calls": 381,
+  "elapsed_seconds": 292.2821524143219,
+  "specs": [
+    {
+      "name": "longestCommonSubsequence_empty_left",
+      "stmt": "\u2200 (s1 : String) (s2 : String) (h_precond : longestCommonSubsequence_precond s1 s2),\n    s1 = \"\" \u2192 longestCommonSubsequence s1 s2 h_precond = \"\"",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5639097744360902
+    },
+    {
+      "name": "longestCommonSubsequence_empty_right",
+      "stmt": "\u2200 (s1 : String) (s2 : String) (h_precond : longestCommonSubsequence_precond s1 s2),\n    s2 = \"\" \u2192 longestCommonSubsequence s1 s2 h_precond = \"\"",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5639097744360902
+    },
+    {
+      "name": "longestCommonSubsequence_length_le_left",
+      "stmt": "\u2200 (s1 : String) (s2 : String) (h_precond : longestCommonSubsequence_precond s1 s2),\n    (longestCommonSubsequence s1 s2 h_precond).length = s1.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "longestCommonSubsequence_length_le_right",
+      "stmt": "\u2200 (s1 : String) (s2 : String) (h_precond : longestCommonSubsequence_precond s1 s2),\n    (longestCommonSubsequence s1 s2 h_precond).length = s2.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "longestCommonSubsequence_result_chars_in_s1",
+      "stmt": "\u2200 (s1 : String) (s2 : String) (h_precond : longestCommonSubsequence_precond s1 s2),\n    \u2200 c \u2208 (longestCommonSubsequence s1 s2 h_precond).toList,\n    c \u2208 s1.toList",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.4746835443037975
+    },
+    {
+      "name": "longestCommonSubsequence_is_common_subseq",
+      "stmt": "\u2200 (s1 : String) (s2 : String) (h_precond : longestCommonSubsequence_precond s1 s2),\n    let result := longestCommonSubsequence s1 s2 h_precond\n    let allSubseq (arr : List Char) := (arr.foldl fun acc x == acc ++ acc.map (fun sub => x :: sub)) [[]] |>.map List.reverse\n    (allSubseq s1.toList).filter (fun l => (allSubseq s2.toList).contains l) |>.contains result.toList",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.41782729805013924
+    },
+    {
+      "name": "longestCommonSubsequence_length_symmetric",
+      "stmt": "\u2200 (s1 : String) (s2 : String) (h_precond : longestCommonSubsequence_precond s1 s2)\n    (h_precond2 : longestCommonSubsequence_precond s2 s1),\n    (longestCommonSubsequence s1 s2 h_precond).length =\n    (longestCommonSubsequence s2 s1 h_precond2).length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.539568345323741
+    },
+    {
+      "name": "longestCommonSubsequence_is_longest",
+      "stmt": "\u2200 (s1 : String) (s2 : String) (h_precond : longestCommonSubsequence_precond s1 s2),\n    let result := longestCommonSubsequence s1 s2 h_precond\n    let allSubseq (arr : List Char) := (arr.foldl fun acc x == acc ++ acc.map (fun sub => x :: sub)) [[]] |>.map List.reverse\n    let commonSubseq := (allSubseq s1.toList).filter (fun l => (allSubseq s2.toList).contains l)\n    commonSubseq.all (fun l => l.length = result.length)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.391644908616188
+    },
+    {
+      "name": "longestCommonSubsequence_self",
+      "stmt": "\u2200 (s1 : String) (h_precond : longestCommonSubsequence_precond s1 s1),\n    (longestCommonSubsequence s1 s1 h_precond).length = s1.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "longestCommonSubsequence_meets_postcond",
+      "stmt": "\u2200 (s1 : String) (s2 : String) (h_precond : longestCommonSubsequence_precond s1 s2),\n    longestCommonSubsequence_postcond s1 s2 (longestCommonSubsequence s1 s2 h_precond) h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "lcsAux_empty_left",
+      "stmt": "\u2200 (ys : List Char), lcsAux [] ys = []",
+      "status": "proved",
+      "method": "llm-gen-with-proof",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "lcsAux_empty_right",
+      "stmt": "\u2200 (xs : List Char), lcsAux xs [] = []",
+      "status": "proved",
+      "method": "llm-gen-with-proof",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "lcsAux_length_le_left",
+      "stmt": "\u2200 (xs ys : List Char), (lcsAux xs ys).length \u2264 xs.length",
+      "status": "proved",
+      "method": "llm-gen-with-proof",
+      "clarity_score": 0.6437768240343348
+    },
+    {
+      "name": "lcsAux_length_le_right",
+      "stmt": "\u2200 (xs ys : List Char), (lcsAux xs ys).length \u2264 ys.length",
+      "status": "proved",
+      "method": "llm-gen-with-proof",
+      "clarity_score": 0.6437768240343348
+    }
+  ],
+  "functional_correctness": {
+    "matched": 2,
+    "total_proved": 14,
+    "score": 0.14285714285714285,
+    "matches": [
+      {
+        "generated": "longestCommonSubsequence_is_common_subseq",
+        "ground_truth": "let allSubseq (arr : List Char) := (arr.foldl fun acc x => acc ++ acc.map (fun s",
+        "method": "kw_overlap"
+      },
+      {
+        "generated": "longestCommonSubsequence_is_longest",
+        "ground_truth": "let allSubseq (arr : List Char) := (arr.foldl fun acc x => acc ++ acc.map (fun s",
+        "method": "kw_overlap"
+      }
+    ]
+  },
+  "spec_coverage": {
+    "covered": 1,
+    "total_ground_truth": 2,
+    "score": 0.5,
+    "covered_specs": [
+      "let allSubseq (arr : List Char) := (arr.foldl fun acc x => acc ++ acc.map (fun s"
+    ]
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "name": "verina_advanced_10",
+  "generated_count": 14,
+  "proved_count": 0,
+  "validated_count": 0,
+  "rejected_count": 14,
+  "soundness": 0.0,
+  "precision": null,
+  "avg_clarity": 0.0,
+  "impl_independence": null,
+  "avg_uniqueness": null,
+  "admissibility": null,
+  "convergence_iterations": 0,
+  "llm_calls": 28,
+  "lean_calls": 68,
+  "elapsed_seconds": 345.0208315849304,
+  "specs": [
+    {
+      "name": "findExponents_length",
+      "stmt": "\u2200 (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes), (findExponents n primes h_precond).length = primes.length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "findExponents_primes_covered",
+      "stmt": "\u2200 (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes),\n    primes.all (fun p => (findExponents n primes h_precond).any (fun pair => pair.1 = p))",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5338078291814947
+    },
+    {
+      "name": "findExponents_keys_in_primes",
+      "stmt": "\u2200 (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes),\n    (findExponents n primes h_precond).all (fun (p, _) => p \u2208 primes)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5514705882352942
+    },
+    {
+      "name": "findExponents_product_eq",
+      "stmt": "theorem findExponents_product_eq : \u2200 (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes), n = (findExponents n primes h_precond).foldl (fun acc (p, e) => acc * p ^ e) 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5016722408026756
+    },
+    {
+      "name": "findExponents_keys_perm",
+      "stmt": "\u2200 (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes),\n    List.Perm ((findExponents n primes h_precond).map Prod.first) primes",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "findExponents_keys_nodup",
+      "stmt": "\u2200 (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes), List.Nodup ((findExponents n primes h_precond).map Prod.fst)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "findExponents_nonempty",
+      "stmt": "\u2200 (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes),\n    (findExponents n primes h_precond).length > 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "findExponents_exponents_nonneg",
+      "stmt": "theorem findExponents_exponents_nonneg : \u2200 (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes), (findExponents n primes h_precond).all (fun pair => pair.2 \u2265 0)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.539568345323741
+    },
+    {
+      "name": "findExponents_fst_eq_primes",
+      "stmt": "\u2200 (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes), (findExponents n primes h_precond).map Prod.fst = primes",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "findExponents_factorization",
+      "stmt": "theorem findExponents_factorization : \u2200 (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes), let result",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "findExponents_one_zero_exponents",
+      "stmt": "\u2200 (primes : List Nat) (h_precond : findExponents_precond 1 primes),\n    (findExponents 1 primes h_precond).all (fun (_, e) => e = 0)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "findExponents_single_prime",
+      "stmt": "theorem findExponents_single_prime : \u2200 (n : Nat) (p : Nat) (h_precond : findExponents_precond n [p]), (findExponents n [p] h_precond).length = 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "findExponents_keys_prime",
+      "stmt": "\u2200 (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes),\n    (findExponents n primes h_precond).all (fun (p, _) => Nat.Prime p)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5576208178438662
+    },
+    {
+      "name": "findExponents_meets_postcond",
+      "stmt": "\u2200 (n : Nat) (primes : List Nat) (h_precond : findExponents_precond n primes),\n    findExponents_postcond n primes (findExponents n primes h_precond) h_precond",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.570342205323194
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 0,
+    "score": 0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 3,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

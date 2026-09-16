@@ -1,0 +1,139 @@
+{
+  "name": "verina_advanced_30",
+  "generated_count": 15,
+  "proved_count": 13,
+  "validated_count": 0,
+  "rejected_count": 2,
+  "soundness": 0.8666666666666667,
+  "precision": 1.0,
+  "avg_clarity": 0.6540713744913382,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "[1, 2, 3, 2, 4, 5, 6]"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 93,
+  "lean_calls": 1199,
+  "elapsed_seconds": 596.3188576698303,
+  "specs": [
+    {
+      "name": "longestIncreasingStreak_empty",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestIncreasingStreak_precond nums),\n    nums = [] \u2192 longestIncreasingStreak nums h_precond = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "longestIncreasingStreak_singleton",
+      "stmt": "\u2200 (x : Int) (h_precond : longestIncreasingStreak_precond [x]),\n    longestIncreasingStreak [x] h_precond = 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "longestIncreasingStreak_le_length",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestIncreasingStreak_precond nums),\n    longestIncreasingStreak nums h_precond = nums.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "longestIncreasingStreak_nonneg",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestIncreasingStreak_precond nums),\n    0 = longestIncreasingStreak nums h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "longestIncreasingStreak_nonempty_pos",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestIncreasingStreak_precond nums),\n    nums \u2260 [] \u2192 longestIncreasingStreak nums h_precond = 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "longestIncreasingStreak_empty_zero",
+      "stmt": "\u2200 (h_precond : longestIncreasingStreak_precond []),\n    longestIncreasingStreak [] h_precond = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "longestIncreasingStreak_two_increasing",
+      "stmt": "\u2200 (a b : Int) (h_precond : longestIncreasingStreak_precond [a, b]),\n    a = b \u2192 longestIncreasingStreak [a, b] h_precond = 2",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "longestIncreasingStreak_two_nonincreasing",
+      "stmt": "\u2200 (a b : Int) (h_precond : longestIncreasingStreak_precond [a, b]),\n    \u00ac(a = b) \u2192 longestIncreasingStreak [a, b] h_precond = 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "longestIncreasingStreak_result_pos_iff_nonempty",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestIncreasingStreak_precond nums),\n    (longestIncreasingStreak nums h_precond = 0) \u2194 (nums = [])",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "longestIncreasingStreak_postcond_empty",
+      "stmt": "\u2200 (h_precond : longestIncreasingStreak_precond []),\n    longestIncreasingStreak_postcond [] (longestIncreasingStreak [] h_precond) h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6437768240343348
+    },
+    {
+      "name": "longestIncreasingStreak_meets_postcond",
+      "stmt": "\u2200 (args : List Int) (h : longestIncreasingStreak_precond args),\n    longestIncreasingStreak_postcond args (longestIncreasingStreak args h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "longestIncreasingStreak_empty",
+      "stmt": "longestIncreasingStreak [] (by trivial) = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.8928571428571428
+    },
+    {
+      "name": "longestIncreasingStreak_constant",
+      "stmt": "Nat) (n : Int) : longestIncreasingStreak (List.replicate k n) trivial = 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8064516129032259
+    },
+    {
+      "name": "longestIncreasingStreak_lower_bound",
+      "stmt": "List Int) (h : longestIncreasingStreak_precond l) (h_nonempty : l \u2260 []) : longestIncreasingStreak l h \u2265 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7462686567164178
+    },
+    {
+      "name": "longestIncreasingStreak_empty",
+      "stmt": "longestIncreasingStreak [] trivial = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.9090909090909091
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 13,
+    "score": 0.0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 3,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

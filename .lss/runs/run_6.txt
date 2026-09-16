@@ -1,0 +1,237 @@
+  [gen] running strategy: direct
+  [gen] direct produced 11 candidates
+  [gen] running strategy: examples
+  [gen] examples produced 4 candidates
+  [gen] running strategy: negatives
+  [gen] negatives produced 0 candidates
+  [dedup] dropped exact duplicate: insertionSort_pairwise
+  [gen] total after merge+dedup: 14
+  [g0] insertionSort_empty: example store check ok
+  [g1] insertionSort_empty: typecheck pass
+  [g2] insertionSort_empty: eval pass (insertionSort [] = [])
+  [g3] insertionSort_empty: #eval decide = Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command. for wrong=default
+  [g3] insertionSort_empty: #eval decide = Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command. for wrong=default
+  [g3] insertionSort_empty: #eval decide = Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command. for wrong=default
+  [g3] insertionSort_empty: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (h_precond : insertionSort_precond []),
+    insertionSort [] h_precond = []
+  [g0] insertionSort_singleton: example store check ok
+  [g1] insertionSort_singleton: typecheck pass
+  [g2] insertionSort_singleton: eval pass (insertionSort [] = [])
+  [g3] insertionSort_singleton: #eval decide = Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command. for wrong=default
+  [g3] insertionSort_singleton: #eval decide = Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command. for wrong=default
+  [g3] insertionSort_singleton: #eval decide = Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command. for wrong=default
+  [g3] insertionSort_singleton: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (x : Int) (h_precond : insertionSort_precond [x]),
+    insertionSort [x] h_precond = [x]
+  [g0] insertionSort_length_preserved: example store check ok
+  [g1] insertionSort_length_preserved: typecheck pass
+  [g2] insertionSort_length_preserved: eval pass (insertionSort [] = [])
+  [g3] insertionSort_length_preserved: #eval decide = C:\Users\User\AppData\Local\Temp\tmpo8_s3aaj.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_length_preserved: #eval decide = C:\Users\User\AppData\Local\Temp\tmp8cplhyzb.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_length_preserved: #eval decide = C:\Users\User\AppData\Local\Temp\tmptoqzwoz_.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_length_preserved: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    (insertionSort l h_precond).length = l.l
+  [g0] insertionSort_isPerm: example store check ok
+  [g1] insertionSort_isPerm: typecheck pass
+  [g2] insertionSort_isPerm: eval pass (insertionSort [] = [])
+  [g3] insertionSort_isPerm: #eval decide = C:\Users\User\AppData\Local\Temp\tmpttlprg84.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_isPerm: #eval decide = C:\Users\User\AppData\Local\Temp\tmpqemxw20_.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_isPerm: #eval decide = C:\Users\User\AppData\Local\Temp\tmp25581_x7.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_isPerm: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.isPerm l (insertionSort l h_precond
+  [g0] insertionSort_mem_iff: example store check ok
+  [g1] insertionSort_mem_iff: typecheck pass
+  [g2] insertionSort_mem_iff: eval pass (insertionSort [] = [])
+  [g3] insertionSort_mem_iff: #eval decide = C:\Users\User\AppData\Local\Temp\tmp37oqra2a.lean:49:14: error(lean.unknownIdentifier): Unknown identifier `x` for wrong=default
+  [g3] insertionSort_mem_iff: #eval decide = C:\Users\User\AppData\Local\Temp\tmplu9p79o0.lean:49:14: error(lean.unknownIdentifier): Unknown identifier `x` for wrong=default
+  [g3] insertionSort_mem_iff: #eval decide = C:\Users\User\AppData\Local\Temp\tmp4g5ebwkn.lean:49:14: error(lean.unknownIdentifier): Unknown identifier `x` for wrong=default
+  [g3] insertionSort_mem_iff: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l) (x : Int),
+    x ∈ insertionSort l h_precond 
+  [g0] insertionSort_sorted: example store check ok
+  [g1] insertionSort_sorted: typecheck pass
+  [g2] insertionSort_sorted: eval pass (insertionSort [] = [])
+  [g3] insertionSort_sorted: #eval decide = C:\Users\User\AppData\Local\Temp\tmps485psxu.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_sorted: #eval decide = C:\Users\User\AppData\Local\Temp\tmpb47h__yi.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_sorted: #eval decide = C:\Users\User\AppData\Local\Temp\tmpei6ld_ce.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_sorted: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Pairwise (· ≤ ·) (insertionSort l h
+  [g0] insertionSort_cons_perm: example store check ok
+  [g1] insertionSort_cons_perm: typecheck pass
+  [g2] insertionSort_cons_perm: eval pass (insertionSort [] = [])
+  [g3] insertionSort_cons_perm: #eval decide = C:\Users\User\AppData\Local\Temp\tmpzzwenzwd.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_cons_perm: #eval decide = C:\Users\User\AppData\Local\Temp\tmpxj19y07q.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_cons_perm: #eval decide = C:\Users\User\AppData\Local\Temp\tmp42fvvucr.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_cons_perm: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (x : Int) (xs : List Int)
+    (h_precond : insertionSort_precond (x :: xs)),
+    List.isPerm (x ::
+  [g0] insertionSort_eq_list_insertionSort: example store check ok
+  [g1] insertionSort_eq_list_insertionSort: typecheck pass
+  [g2] insertionSort_eq_list_insertionSort: eval pass (insertionSort [] = [])
+  [g3] insertionSort_eq_list_insertionSort: #eval decide = C:\Users\User\AppData\Local\Temp\tmpaw0u5dxm.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_eq_list_insertionSort: #eval decide = C:\Users\User\AppData\Local\Temp\tmp1wt0ftze.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_eq_list_insertionSort: #eval decide = C:\Users\User\AppData\Local\Temp\tmpok4yasxk.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_eq_list_insertionSort: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Perm l (insertionSort l h_precond)
+  [g0] insertionSort_idempotent: example store check ok
+  [g1] insertionSort_idempotent: typecheck pass
+  [g2] insertionSort_idempotent: eval pass (insertionSort [] = [])
+  [g3] insertionSort_idempotent: #eval decide = C:\Users\User\AppData\Local\Temp\tmp3jqyic4e.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_idempotent: #eval decide = C:\Users\User\AppData\Local\Temp\tmph8hvpw6v.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_idempotent: #eval decide = C:\Users\User\AppData\Local\Temp\tmpf4f1gsrr.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_idempotent: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l)
+    (h_precond2 : insertionSort_precond (inse
+  [g0] insertionSort_meets_postcond: example store check ok
+  [g1] insertionSort_meets_postcond: typecheck pass
+  [g2] insertionSort_meets_postcond: eval pass (insertionSort [] = [])
+  [g3] insertionSort_meets_postcond: #eval decide = C:\Users\User\AppData\Local\Temp\tmpyajfubp4.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_meets_postcond: #eval decide = C:\Users\User\AppData\Local\Temp\tmpxv7x6fn8.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_meets_postcond: #eval decide = C:\Users\User\AppData\Local\Temp\tmpl5z2zepc.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_meets_postcond: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (args : List Int) (h : insertionSort_precond args),
+    insertionSort_postcond args (insertionSort
+  [g0] insertionSort_sorted: example store check ok
+  [g1] insertionSort_sorted: fixed stmt typechecks
+  [g1] insertionSort_sorted: typecheck pass
+  [g2] insertionSort_sorted: eval pass (insertionSort [] = [])
+  [g3] insertionSort_sorted: #eval decide = C:\Users\User\AppData\Local\Temp\tmpsgfcf9ay.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_sorted: #eval decide = C:\Users\User\AppData\Local\Temp\tmpcjvlwwn7.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_sorted: #eval decide = C:\Users\User\AppData\Local\Temp\tmp3jm5y12f.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_sorted: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: List.Pairwise (· ≤ ·) (insertionSort xs h)
+  [g0] insertionSort_perm: example store check ok
+  [g1] insertionSort_perm: typecheck pass
+  [g2] insertionSort_perm: eval pass (insertionSort [] = [])
+  [g3] insertionSort_perm: #eval decide = C:\Users\User\AppData\Local\Temp\tmpdll_5o62.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_perm: #eval decide = C:\Users\User\AppData\Local\Temp\tmp6w0c634a.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_perm: #eval decide = C:\Users\User\AppData\Local\Temp\tmp16lhrrey.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_perm: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: (insertionSort xs h).Perm xs
+  [g0] insertionSort_length: example store check ok
+  [g1] insertionSort_length: typecheck pass
+  [g2] insertionSort_length: eval pass (insertionSort [] = [])
+  [g3] insertionSort_length: #eval decide = C:\Users\User\AppData\Local\Temp\tmplbuo16e7.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_length: #eval decide = C:\Users\User\AppData\Local\Temp\tmpex2qtbug.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_length: #eval decide = C:\Users\User\AppData\Local\Temp\tmpxo7q6q60.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_length: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: (insertionSort xs h).length = xs.length
+  [g0] insertionSort_mem: example store check ok
+  [g1] insertionSort_mem: typecheck pass
+  [g2] insertionSort_mem: eval pass (insertionSort [] = [])
+  [g3] insertionSort_mem: #eval decide = C:\Users\User\AppData\Local\Temp\tmp3ur5pk8d.lean:49:14: error(lean.unknownIdentifier): Unknown identifier `x` for wrong=default
+  [g3] insertionSort_mem: #eval decide = C:\Users\User\AppData\Local\Temp\tmp7v8w0isz.lean:49:14: error(lean.unknownIdentifier): Unknown identifier `x` for wrong=default
+  [g3] insertionSort_mem: #eval decide = C:\Users\User\AppData\Local\Temp\tmpraddx0ny.lean:49:14: error(lean.unknownIdentifier): Unknown identifier `x` for wrong=default
+  [g3] insertionSort_mem: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: x ∈ insertionSort xs h ↔ x ∈ xs
+  [gen] round 3 produced 5 safe specs
+  [g0] insertionSort_empty: example store check ok
+  [g1] insertionSort_empty: typecheck pass
+  [g2] insertionSort_empty: eval pass (insertionSort [] = [])
+  [g3] insertionSort_empty: #eval decide = Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command. for wrong=default
+  [g3] insertionSort_empty: #eval decide = Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command. for wrong=default
+  [g3] insertionSort_empty: #eval decide = Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command. for wrong=default
+  [g3] insertionSort_empty: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (h : insertionSort_precond []), insertionSort [] h = []
+  [g0] insertionSort_length_preserved: example store check ok
+  [g1] insertionSort_length_preserved: typecheck pass
+  [g2] insertionSort_length_preserved: eval pass (insertionSort [] = [])
+  [g3] insertionSort_length_preserved: #eval decide = C:\Users\User\AppData\Local\Temp\tmpnjt6nqe6.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_length_preserved: #eval decide = C:\Users\User\AppData\Local\Temp\tmpvr82u63a.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_length_preserved: #eval decide = C:\Users\User\AppData\Local\Temp\tmpayqwum4x.lean:50:0: error: unexpected end of input; expected ')', ',' or ':' for wrong=default
+  [g3] insertionSort_length_preserved: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h : insertionSort_precond l),
+    (insertionSort l h).length = l.length
+  [g0] insertionSort_precond_true: example store check ok
+  [g1] insertionSort_precond_true: typecheck pass
+  [g2] insertionSort_precond_true: eval pass (insertionSort [] = [])
+  [g3] insertionSort_precond_true: #eval decide = true for wrong=default
+  [g3] insertionSort_precond_true: #eval decide = true for wrong=default
+  [g3] insertionSort_precond_true: #eval decide = true for wrong=default
+  [g3] insertionSort_precond_true: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int), insertionSort_precond l = True
+  [g0] insertionSort_singleton: example store check ok
+  [g1] insertionSort_singleton: typecheck pass
+  [g2] insertionSort_singleton: eval pass (insertionSort [] = [])
+  [g3] insertionSort_singleton: #eval decide = Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command. for wrong=default
+  [g3] insertionSort_singleton: #eval decide = Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command. for wrong=default
+  [g3] insertionSort_singleton: #eval decide = Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command. for wrong=default
+  [g3] insertionSort_singleton: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (x : Int) (h : insertionSort_precond [x]),
+    insertionSort [x] h = [x]
+  [g0] insertionSort_nil_result: example store check ok
+  [g1] insertionSort_nil_result: typecheck pass
+  [g2] insertionSort_nil_result: eval pass (insertionSort [] = [])
+  [g3] insertionSort_nil_result: skipped vacuity (relational)
+  [g4] insertionSort_nil_result: PROVED by rfl
+  [gen] round 3: 1 proved
+  [refine] entered, verbose=True, 2 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 2 proved specs
+  [refine] generating mutants...
+  mutants: 34 generated, 11 compile
+  [refine] mutant gen took 19.3s
+  [refine] running perturbation pre-check...
+  [refine] perturbation: 0 checks
+  [refine] perturbation took 1.7s
+  [refine] starting mutation loop...
+
+  [mut] === iteration 1/5 ===
+  [mut] 11 compilable mutants to check
+  [mut] mutant 0 (<=): equivalent or non-diverging, skipped
+  [mut] mutant 1 (<=): equivalent or non-diverging, skipped
+  [mut] mutant 2 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 3 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 4 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 5 (dup_head): equivalent or non-diverging, skipped
+  [mut] mutant 6 (dup_head): equivalent or non-diverging, skipped
+  [mut] mutant 7 (empty_singleton): equivalent or non-diverging, skipped
+  [mut] mutant 8 (swap_arms_0_1): equivalent or non-diverging, skipped
+  [mut] mutant 9 (negate_cond): equivalent or non-diverging, skipped
+  [mut] mutant 10 (boundary_≤_<): equivalent or non-diverging, skipped
+  [mut] certify+check: 0 live pairs (0.3s)
+  [mut] no live pairs, tier 1 converged
+  [refine] mutation loop took 0.3s
+  [refine] running spec mutation check...
+  [spec-mut] insertionSort_nil_result: operator '∧ -> ∨ at 62' is unnecessarily tight
+  [refine] IronSpec ASC analysis...
+  [asc] insertElement_length: WARN — conclusion does not reference insertionSort (possible precondition restatement)
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: spec satisfaction FAIL on insertElement_length
+  [adv] round 2/3
+  [adv] round 2: spec satisfaction FAIL on insertElement_length
+  [adv] round 3/3
+  [adv] round 3: spec satisfaction FAIL on insertElement_length
+  [refine] tier 2 took 9.8s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 20.6s
+  [pc] insertionSort_nil_result: post_completeness=n/a (0/0)
+  [pc] insertElement_length: post_completeness=n/a (0/0)
+  [debug] uniqueness inputs: 5 test inputs
+
+--- verina_advanced_17 ---
+  generated:  16
+  survived:   2 (2 kernel-proved, 0 validated)
+  rejected:   14
+  failure breakdown: 0 typecheck, 0 eval, 14 vacuity
+  soundness:  0.12
+  recall:     0.00
+  precision:  1.00
+  clarity:    0.741
+  uniqueness: 1.00
+  admissible: True
+  func_correct: 0.00 (0/2)
+  spec_coverage: 0.00 (0/2)
+  llm calls:  23
+  lean calls: 298
+    kernel-proved        [rfl]  insertionSort_nil_result: ∀ (h : insertionSort_precond []),
+    insertionSort [] h = [] ∧ (insertionSort [
+    kernel-proved        [llm-gen-with-proof]  insertElement_length: (insertElement x l).length = l.length + 1
+below best (2 vs 4 from run_4)

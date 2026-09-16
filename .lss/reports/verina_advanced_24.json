@@ -1,0 +1,146 @@
+{
+  "name": "verina_advanced_24",
+  "generated_count": 16,
+  "proved_count": 13,
+  "validated_count": 0,
+  "rejected_count": 3,
+  "soundness": 0.8125,
+  "precision": 1.0,
+  "avg_clarity": 0.6531570688387123,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "[10, 9, 2, 5, 3, 7, 101, 18]"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 41,
+  "lean_calls": 472,
+  "elapsed_seconds": 427.1750783920288,
+  "specs": [
+    {
+      "name": "lengthOfLIS_empty",
+      "stmt": "\u2200 (h_precond : lengthOfLIS_precond []),\n    lengthOfLIS [] h_precond = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "lengthOfLIS_singleton",
+      "stmt": "\u2200 (x : Int) (h_precond : lengthOfLIS_precond [x]),\n    lengthOfLIS [x] h_precond = 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "lengthOfLIS_nonneg",
+      "stmt": "\u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums),\n    lengthOfLIS nums h_precond = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "lengthOfLIS_le_length",
+      "stmt": "\u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums),\n    lengthOfLIS nums h_precond = nums.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "lengthOfLIS_pos_of_nonempty",
+      "stmt": "\u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums),\n    nums \u2260 [] \u2192 lengthOfLIS nums h_precond = 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "lengthOfLIS_result_in_allIncreasing",
+      "stmt": "theorem lengthOfLIS_result_in_allIncreasing : \u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums), (lengthOfLIS_postcond nums (lengthOfLIS nums h_precond) h_precond)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "lengthOfLIS_is_maximum",
+      "stmt": "List Int \u2192 Bool",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.9259259259259258
+    },
+    {
+      "name": "lengthOfLIS_append_large",
+      "stmt": "\u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums)\n    (x : Int) (hx : \u2200 n \u2208 nums, n = x)\n    (h_precond2 : lengthOfLIS_precond (nums ++ [x])),\n    lengthOfLIS (nums ++ [x]) h_precond2 = lengthOfLIS nums h_precond + 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.41208791208791207
+    },
+    {
+      "name": "lengthOfLIS_sorted_eq_length",
+      "stmt": "theorem lengthOfLIS_sorted_eq_length : \u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums), List.Pairwise (\u00b7 < \u00b7) nums \u2192 lengthOfLIS nums h_precond = nums.length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5576208178438662
+    },
+    {
+      "name": "lengthOfLIS_meets_postcond",
+      "stmt": "\u2200 (args : List Int) (h : lengthOfLIS_precond args),\n    lengthOfLIS_postcond args (lengthOfLIS args h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "lengthOfLIS_perm_invariant",
+      "stmt": "\u2200 (nums1 nums2 : List Int)\n    (h1 : lengthOfLIS_precond nums1) (h2 : lengthOfLIS_precond nums2),\n    nums1 = nums2 \u2192 lengthOfLIS nums1 h1 = lengthOfLIS nums2 h2",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5454545454545455
+    },
+    {
+      "name": "lengthOfLIS_eq_zero_iff_empty",
+      "stmt": "\u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums),\n    lengthOfLIS nums h_precond = 0 \u2194 nums = []",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "lengthOfLIS_is_nat_cast",
+      "stmt": "\u2200 (nums : List Int) (h_precond : lengthOfLIS_precond nums),\n    \u2203 n : Nat, lengthOfLIS nums h_precond = n",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.49342105263157904
+    },
+    {
+      "name": "lis_pos",
+      "stmt": "lengthOfLIS xs h \u2265 1",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "lis_le_length",
+      "stmt": "lengthOfLIS xs h \u2264 xs.length",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "lis_strictly_increasing",
+      "stmt": "lengthOfLIS xs h = xs.length",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 13,
+    "score": 0.0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 2,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

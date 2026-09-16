@@ -1,0 +1,5 @@
+loaded 16 rust functions from /home/user9999/rust_benchmarks
+
+--- rust_swap (carried forward, 12 specs) ---
+
+incremental: 0 re-verified, 1 carried forward

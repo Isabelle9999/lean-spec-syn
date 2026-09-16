@@ -1,0 +1,168 @@
+loaded 16 rust functions from /home/user9999/rust_benchmarks
+  [gen] function complexity: hard
+  [gen] running strategy: direct
+  [gen] direct produced 13 candidates
+  [g0] swap_identity_pair: example store check ok
+  [g1] swap_identity_pair: typecheck pass
+  [g4] swap_identity_pair: proved (l1) by l1:tauto
+  [g0] swap_always_ok: example store check ok
+  [g1] swap_always_ok: typecheck pass
+  [g4] swap_always_ok: proved (l1) by l1:tauto
+  [g0] swap_first_becomes_second: example store check ok
+  [g1] swap_first_becomes_second: typecheck pass
+  [g4] swap_first_becomes_second: proved (l1) by l1:tauto
+  [g0] swap_second_becomes_first: example store check ok
+  [g1] swap_second_becomes_first: typecheck pass
+  [g4] swap_second_becomes_first: proved (l1) by l1:tauto
+  [g0] swap_correct: example store check ok
+  [g1] swap_correct: typecheck pass
+  [g4] swap_correct: proved (l1) by l1:tauto
+  [g0] swap_first_field: example store check ok
+  [g1] swap_first_field: typecheck pass
+  [g4] swap_first_field: proved (l1) by l1:simp [records.swap]
+  [g0] swap_second_field: example store check ok
+  [g1] swap_second_field: typecheck pass
+  [g4] swap_second_field: proved (l1) by l1:simp [records.swap]
+  [g0] swap_equiv_flip: example store check ok
+  [g1] swap_equiv_flip: typecheck pass
+  [g4] swap_equiv_flip: proved (l1) by l1:tauto
+  [g0] swap_involution: example store check ok
+  [g1] swap_involution: typecheck pass
+  [g3] swap_involution: skipped (relational)
+  [g4] swap_involution: proved (l1) by l1:tauto
+  [g0] swap_double_is_identity: example store check ok
+  [g1] swap_double_is_identity: typecheck pass
+  [g3] swap_double_is_identity: skipped (relational)
+  [g4] swap_double_is_identity: proved (l1) by l1:simp [records.swap]
+  [g0] swap_result_is_pair: example store check ok
+  [g1] swap_result_is_pair: typecheck pass
+  [g4] swap_result_is_pair: proved (l1) by l1:tauto
+  [g0] swap_fields_swapped: example store check ok
+  [g1] swap_fields_swapped: typecheck pass
+  [g4] swap_fields_swapped: proved (l1) by l1:simp [records.swap]
+  [g0] swap_self_inverse: example store check ok
+  [g1] swap_self_inverse: typecheck pass
+  [g3] swap_self_inverse: skipped (relational)
+  [g4] swap_self_inverse: proved (l1) by l1:tauto
+  [refine] entered, verbose=True, 13 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 13 proved specs
+  [refine] generating mutants...
+  mutants: 7 generated, 7 compile
+  [refine] mutant gen took 41.2s
+  [refine] running perturbation pre-check...
+  [refine] perturbation: 0 checks
+  [refine] perturbation took 0.0s
+  [refine] starting mutation loop...
+
+  [mut] === iteration 1/5 ===
+  [mut] 7 compilable mutants to check
+  [mut] mutant 0 (struct_val_swap): equivalent or non-diverging, skipped
+  [mut] mutant 1 (struct_dup_first): equivalent or non-diverging, skipped
+  [mut] mutant 2 (struct_dup_second): equivalent or non-diverging, skipped
+  [mut] mutant 3 (field_src_swap): equivalent or non-diverging, skipped
+  [mut] mutant 4 (llm_rewrite): equivalent or non-diverging, skipped
+  [mut] mutant 5 (llm_rewrite): equivalent or non-diverging, skipped
+  [mut] mutant 6 (llm_rewrite): equivalent or non-diverging, skipped
+  [mut] certify+check: 0 live pairs (0.0s)
+  [mut] no live pairs, tier 1 converged
+  [refine] mutation loop took 0.0s
+  [refine] running spec mutation check...
+  [spec-mut] swap_first_becomes_second: operator '∧ -> ∨ at 49' is unnecessarily tight
+  [spec-mut] swap_second_becomes_first: operator '∧ -> ∨ at 49' is unnecessarily tight
+  [spec-mut] swap_involution: operator '∧ -> ∨ at 49' is unnecessarily tight
+  [spec-mut] swap_fields_swapped: operator '∧ -> ∨ at 84' is unnecessarily tight
+  [refine] IronSpec ASC analysis...
+  [asc] swap_first_field: WARN — conclusion does not reference records.swap (possible precondition restatement)
+  [asc] swap_second_field: WARN — conclusion does not reference records.swap (possible precondition restatement)
+  [asc] swap_fields_swapped: WARN — conclusion does not reference records.swap (possible precondition restatement)
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] adv_full:
+import Aeneas
+import FeatureSuite.Code.Funs
+import FeatureSuite.Code.Types
+open Aeneas Aeneas.Std Result ControlFlow Error
+open FeatureSuite
+def swap_adv0 (pair : records.Pair) : Result records.Pair := pair.first }
+  [adv] full error: /home/user9999/rust_benchmarks/tmpjzt24dvi.lean:6:61: error: Type mismatch
+/home/user9999/rust_benchmarks/tmpjzt24dvi.lean:6:72: error: unexpected token '}'; expected command
+  [adv] round 1: typecheck FAIL — /home/user9999/rust_benchmarks/tmpjzt24dvi.lean:6:61: error:
+  [adv] round 1: typecheck FAIL — /home/user9999/rust_benchmarks/tmpdmvu2_t6.lean:6:61: error:
+  [adv] divergence check unavailable: signature unparsed or unsupported type
+  [adv] round 2/3
+  [adv] adv_full:
+import Aeneas
+import FeatureSuite.Code.Funs
+import FeatureSuite.Code.Types
+open Aeneas Aeneas.Std Result ControlFlow Error
+open FeatureSuite
+def swap_adv1 (pair : records.Pair) : Result records.Pair := pair.first }
+  [adv] full error: /home/user9999/rust_benchmarks/tmpz6oqyk35.lean:6:61: error: Type mismatch
+/home/user9999/rust_benchmarks/tmpz6oqyk35.lean:6:72: error: unexpected token '}'; expected command
+  [adv] round 2: typecheck FAIL — /home/user9999/rust_benchmarks/tmpz6oqyk35.lean:6:61: error:
+  [adv] round 2: typecheck FAIL — /home/user9999/rust_benchmarks/tmpl34iymvb.lean:6:61: error:
+  [adv] divergence check unavailable: signature unparsed or unsupported type
+  [adv] round 3/3
+  [adv] adv_full:
+import Aeneas
+import FeatureSuite.Code.Funs
+import FeatureSuite.Code.Types
+open Aeneas Aeneas.Std Result ControlFlow Error
+open FeatureSuite
+def swap_adv2 (pair : records.Pair) : Result records.Pair := pair.first }
+  [adv] full error: /home/user9999/rust_benchmarks/tmpyvwpri6f.lean:6:61: error: Type mismatch
+/home/user9999/rust_benchmarks/tmpyvwpri6f.lean:6:72: error: unexpected token '}'; expected command
+  [adv] round 3: typecheck FAIL — /home/user9999/rust_benchmarks/tmpyvwpri6f.lean:6:61: error:
+  [adv] round 3: typecheck FAIL — /home/user9999/rust_benchmarks/tmplz1b7le4.lean:6:61: error:
+  [adv] divergence check unavailable: signature unparsed or unsupported type
+  [refine] tier 2 took 589.0s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 113.8s
+  [pc] swap_identity_pair: post_completeness=n/a (0/0)
+  [pc] swap_always_ok: post_completeness=n/a (0/0)
+  [pc] swap_first_becomes_second: post_completeness=n/a (0/0)
+  [pc] swap_second_becomes_first: post_completeness=n/a (0/0)
+  [pc] swap_correct: post_completeness=n/a (0/0)
+  [pc] swap_first_field: post_completeness=n/a (0/0)
+  [pc] swap_second_field: post_completeness=n/a (0/0)
+  [pc] swap_equiv_flip: post_completeness=n/a (0/0)
+  [pc] swap_involution: post_completeness=n/a (0/0)
+  [pc] swap_double_is_identity: post_completeness=n/a (0/0)
+  [pc] swap_result_is_pair: post_completeness=n/a (0/0)
+  [pc] swap_fields_swapped: post_completeness=n/a (0/0)
+  [pc] swap_self_inverse: post_completeness=n/a (0/0)
+  [debug] uniqueness inputs: 0 test inputs
+
+--- rust_swap ---
+  generated:  13
+  survived:   13 (13 kernel-proved, 0 validated)
+  soundness:  1.00
+  recall:     0.00
+  precision:  1.00
+  mutants:    4 total, 1 killed, 0 survived, 0 equiv, 0 inconclusive, 0 stillborn (score 1/1)
+  clarity:    0.561
+  uniqueness: -
+  admissible: True
+  func_correct: - (no ground truth)
+  spec_coverage: - (no ground truth)
+  llm calls:  25
+  lean calls: 209
+    kernel-proved        [l1:tauto]  swap_identity_pair: ∀ (v : Std.U32), records.swap { first := v, second := v } = ok { first := v, sec
+    kernel-proved        [l1:tauto]  swap_always_ok: ∀ (p : records.Pair), ∃ r, records.swap p = ok r
+    kernel-proved        [l1:tauto]  swap_first_becomes_second: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ r.second = p.first
+    kernel-proved        [l1:tauto]  swap_second_becomes_first: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ r.first = p.second
+    kernel-proved        [l1:tauto]  swap_correct: ∀ (p : records.Pair), records.swap p = ok { first := p.second, second := p.first
+    kernel-proved        [l1:simp [records.swap]]  swap_first_field: ∀ (p : records.Pair) (r : records.Pair), records.swap p = ok r → r.first = p.sec
+    kernel-proved        [l1:simp [records.swap]]  swap_second_field: ∀ (p : records.Pair) (r : records.Pair), records.swap p = ok r → r.second = p.fi
+    kernel-proved        [l1:tauto]  swap_equiv_flip: ∀ (a b : Std.U32), records.swap { first := a, second := b } = ok { first := b, s
+    kernel-proved        [l1:tauto]  swap_involution: ∀ (p : records.Pair), ∃ r, records.swap p = ok r ∧ records.swap r = ok p
+    kernel-proved        [l1:simp [records.swap]]  swap_double_is_identity: ∀ (p : records.Pair) (r : records.Pair), records.swap p = ok r → records.swap r 
+    kernel-proved        [l1:tauto]  swap_result_is_pair: ∀ (p : records.Pair), ∃ (r : records.Pair), records.swap p = ok r
+    kernel-proved        [l1:simp [records.swap]]  swap_fields_swapped: ∀ (p : records.Pair) (r : records.Pair), records.swap p = ok r → r.first = p.sec
+    kernel-proved        [l1:tauto]  swap_self_inverse: ∀ (p : records.Pair), records.swap p >>= records.swap = ok p
+  divergent: none detected
+  trait detection (records.swap): no traits found
+
+incremental: 1 re-verified, 0 carried forward
+below best (13 vs 404 from run_11)

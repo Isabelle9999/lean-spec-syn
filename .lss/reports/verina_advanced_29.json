@@ -1,0 +1,136 @@
+{
+  "name": "verina_advanced_29",
+  "generated_count": 15,
+  "proved_count": 0,
+  "validated_count": 0,
+  "rejected_count": 15,
+  "soundness": 0.0,
+  "precision": null,
+  "avg_clarity": 0.0,
+  "impl_independence": null,
+  "avg_uniqueness": null,
+  "admissibility": null,
+  "convergence_iterations": 0,
+  "llm_calls": 32,
+  "lean_calls": 97,
+  "elapsed_seconds": 357.4628252983093,
+  "specs": [
+    {
+      "name": "longestGoodSubarray_empty",
+      "stmt": "theorem longestGoodSubarray_empty : \u2200 (k : Nat) (h_precond : longestGoodSubarray_precond [] k), longestGoodSubarray [] k h_precond = 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "longestGoodSubarray_singleton",
+      "stmt": "\u2200 (x : Nat) (k : Nat) (h_precond : longestGoodSubarray_precond [x] k), longestGoodSubarray [x] k h_precond = 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "longestGoodSubarray_le_length",
+      "stmt": "theorem longestGoodSubarray_le_length : \u2200 (nums : List Nat) (k : Nat) (h_precond : longestGoodSubarray_precond nums k), longestGoodSubarray nums k h_precond \u2264 nums.length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5639097744360902
+    },
+    {
+      "name": "longestGoodSubarray_nonneg",
+      "stmt": "\u2200 (nums : List Nat) (k : Nat) (h_precond : longestGoodSubarray_precond nums k),\n    0 \u2264 longestGoodSubarray nums k h_precond",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "longestGoodSubarray_mono_k",
+      "stmt": "\u2200 (nums : List Nat) (k1 k2 : Nat) (h1 : longestGoodSubarray_precond nums k1) (h2 : longestGoodSubarray_precond nums k2), k1 \u2264 k2 \u2192 longestGoodSubarray nums k1 h1 \u2264 longestGoodSubarray nums k2 h2",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5067567567567568
+    },
+    {
+      "name": "longestGoodSubarray_full_when_k_large",
+      "stmt": "theorem longestGoodSubarray_full_when_k_large : \u2200 (nums : List Nat) (k : Nat) (h_precond : longestGoodSubarray_precond nums k), (\u2200 x, nums.count x \u2264 k) \u2192 longestGoodSubarray nums k h_precond = nums.length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.44510385756676557
+    },
+    {
+      "name": "longestGoodSubarray_pos_of_nonempty",
+      "stmt": "theorem longestGoodSubarray_pos_of_nonempty : \u2200 (nums : List Nat) (k : Nat) (h_precond : longestGoodSubarray_precond nums k), nums \u2260 [] \u2192 longestGoodSubarray nums k h_precond \u2265 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.539568345323741
+    },
+    {
+      "name": "longestGoodSubarray_postcond_holds",
+      "stmt": "\u2200 (nums : List Nat) (k : Nat)\n    (h_precond : longestGoodSubarray_precond nums k),\n    let result := longestGoodSubarray nums k h_precond\n    let subArrays := List.range (nums.length + 1) |>.flatMap (fun start =>\n      List.range (nums.length - start + 1) |>.map (fun len =>\n        nums.drop start |>.take len))\n    let subArrayFreqs := subArrays.map (fun arr => arr.map (fun x => arr.count x))\n    let validSubArrays := subArrayFreqs.filter (fun arr => arr.all (fun x => x \u2264 k))\n    validSubArrays.all (fun arr => arr.length \u2264 result)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.3432494279176201
+    },
+    {
+      "name": "longestGoodSubarray_k1_le_nodup",
+      "stmt": "theorem longestGoodSubarray_k1_le_nodup : \u2200 (nums : List Nat) (k : Nat) (h_precond : longestGoodSubarray_precond nums k), k = 1 \u2192 longestGoodSubarray nums k h_precond \u2264 nums.length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.539568345323741
+    },
+    {
+      "name": "longestGoodSubarray_le_length_strong",
+      "stmt": "theorem longestGoodSubarray_le_length_strong : \u2200 (nums : List Nat) (k : Nat) (h_precond : longestGoodSubarray_precond nums k), longestGoodSubarray nums k h_precond \u2264 nums.toArray.size",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5639097744360902
+    },
+    {
+      "name": "longestGoodSubarray_meets_postcond",
+      "stmt": "theorem longestGoodSubarray_meets_postcond : \u2200 (nums : List Nat) (k : Nat) (h : longestGoodSubarray_precond nums k), longestGoodSubarray_postcond nums k (longestGoodSubarray nums k h) h",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5514705882352942
+    },
+    {
+      "name": "longestGoodSubarray_eq_k",
+      "stmt": "theorem longestGoodSubarray_eq_k (nums : List Nat) (k : Nat) (h_precond : longestGoodSubarray_precond nums k) : longestGoodSubarray_postcond nums k (longestGoodSubarray nums k h_precond) h_precond",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.684931506849315
+    },
+    {
+      "name": "longestGoodSubarray_pos",
+      "stmt": "List Nat) (k : Nat) (h_precond : longestGoodSubarray_precond nums k) : longestGoodSubarray nums k h_precond > 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7462686567164178
+    },
+    {
+      "name": "longestGoodSubarray_le_length",
+      "stmt": "List Nat) (k : Nat) (h : longestGoodSubarray_precond arr k) : longestGoodSubarray arr k h \u2264 arr.length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7462686567164178
+    },
+    {
+      "name": "longestGoodSubarray_bounded_by_k",
+      "stmt": "List Nat) (k : Nat) (h_precond : longestGoodSubarray_precond nums k) : longestGoodSubarray nums k h_precond \u2264 k",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7462686567164178
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 0,
+    "score": 0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 1,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

@@ -1,0 +1,3 @@
+  [gen] running strategy: direct
+  [gen] direct produced 12 candidates
+  [gen] running strategy: examples

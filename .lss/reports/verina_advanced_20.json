@@ -1,0 +1,139 @@
+{
+  "name": "verina_advanced_20",
+  "generated_count": 15,
+  "proved_count": 13,
+  "validated_count": 0,
+  "rejected_count": 2,
+  "soundness": 0.8666666666666667,
+  "precision": 1.0,
+  "avg_clarity": 0.6153456169644475,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "8"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 39,
+  "lean_calls": 632,
+  "elapsed_seconds": 294.7390592098236,
+  "specs": [
+    {
+      "name": "isItEight_zero",
+      "stmt": "\u2200 (h_precond : isItEight_precond 0), isItEight 0 h_precond = true",
+      "status": "proved",
+      "method": "trivial",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "isItEight_eight",
+      "stmt": "\u2200 (h_precond : isItEight_precond 8), isItEight 8 h_precond = true",
+      "status": "proved",
+      "method": "trivial",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "isItEight_neg_eight",
+      "stmt": "\u2200 (h_precond : isItEight_precond (-8)), isItEight (-8) h_precond = true",
+      "status": "proved",
+      "method": "trivial",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "isItEight_returns_bool",
+      "stmt": "\u2200 (n : Int) (h_precond : isItEight_precond n),\n    isItEight n h_precond = true \u2227 isItEight n h_precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "isItEight_div8_true",
+      "stmt": "\u2200 (n : Int) (h_precond : isItEight_precond n),\n    n % 8 == 0 \u2192 isItEight n h_precond = true",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "isItEight_digit8_true",
+      "stmt": "\u2200 (n : Int) (h_precond : isItEight_precond n),\n    (\u2203 i, (Int.natAbs n) / (10^i) % 10 == 8) \u2192 isItEight n h_precond = true",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.46583850931677023
+    },
+    {
+      "name": "isItEight_false_not_div8",
+      "stmt": "\u2200 (n : Int) (h_precond : isItEight_precond n),\n    isItEight n h_precond = false \u2192 \u00ac(n % 8 == 0)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "isItEight_neg_eq",
+      "stmt": "\u2200 (n : Int) (h_precond : isItEight_precond n) (h_neg : isItEight_precond (-n)),\n    isItEight n h_precond = isItEight (-n) h_neg",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "isItEight_iff",
+      "stmt": "\u2200 (n : Int) (h_precond : isItEight_precond n),\n    isItEight n h_precond = true \u2194 (n % 8 == 0 \u2227 \u2203 i, (Int.natAbs n) / (10^i) % 10 == 8)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.4411764705882353
+    },
+    {
+      "name": "isItEight_false_iff",
+      "stmt": "\u2200 (n : Int) (h_precond : isItEight_precond n),\n    isItEight n h_precond = false \u2194 (\u00ac(n % 8 == 0) \u2227 \u2200 i, \u00ac((Int.natAbs n) / (10^i) % 10 == 8))",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.4411764705882353
+    },
+    {
+      "name": "isItEight_meets_postcond",
+      "stmt": "\u2200 (n : Int) (h : isItEight_precond n), isItEight_postcond n (isItEight n h) h",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "isItEight_requires_nonneg",
+      "stmt": "n < 0 \u2192 \u00ac(isItEight_precond n)",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.8928571428571428
+    },
+    {
+      "name": "isItEight_eight",
+      "stmt": "isItEight_precond 8 \u2227 isItEight 8 (by decide) = true",
+      "status": "proved",
+      "method": "trivial",
+      "clarity_score": 0.8474576271186441
+    },
+    {
+      "name": "isItEight_single_digit_not_eight",
+      "stmt": "theorem isItEight_single_digit_not_eight : isItEight n trivial = false",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8620689655172414
+    },
+    {
+      "name": "isItEight_digit_characterization",
+      "stmt": "Int) : isItEight n trivial = true \u2194 (n % 8 == 0 \u2228 \u2203 i : Nat, (Int.natAbs n) / (10^i) % 10 == 8)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.539568345323741
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 13,
+    "score": 0.0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 1,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

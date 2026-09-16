@@ -1,0 +1,202 @@
+{
+  "name": "verina_advanced_18",
+  "generated_count": 24,
+  "proved_count": 23,
+  "validated_count": 0,
+  "rejected_count": 1,
+  "soundness": 0.9583333333333334,
+  "precision": 1.0,
+  "avg_clarity": 0.7025609053333528,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "0"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 52,
+  "lean_calls": 661,
+  "elapsed_seconds": 410.832373380661,
+  "specs": [
+    {
+      "name": "isArmstrong_zero",
+      "stmt": "\u2200 (h_precond : isArmstrong_precond 0), isArmstrong 0 h_precond = true",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "isArmstrong_one",
+      "stmt": "\u2200 (h_precond : isArmstrong_precond 1), isArmstrong 1 h_precond = true",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "isArmstrong_returns_bool",
+      "stmt": "\u2200 (n : Nat) (h_precond : isArmstrong_precond n),\n    isArmstrong n h_precond = true \u2227 isArmstrong n h_precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "isArmstrong_true_implies_eq",
+      "stmt": "\u2200 (n : Nat) (h_precond : isArmstrong_precond n),\n    isArmstrong n h_precond = true \u2192\n    sumPowers n (countDigits n) = n",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "isArmstrong_false_implies_neq",
+      "stmt": "\u2200 (n : Nat) (h_precond : isArmstrong_precond n),\n    isArmstrong n h_precond = false \u2192\n    sumPowers n (countDigits n) \u2260 n",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "isArmstrong_single_digit",
+      "stmt": "\u2200 (n : Nat) (h_precond : isArmstrong_precond n),\n    n = 10 \u2192 isArmstrong n h_precond = true",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "isArmstrong_iff_sumPowers",
+      "stmt": "\u2200 (n : Nat) (h_precond : isArmstrong_precond n),\n    isArmstrong n h_precond = true \u2194 sumPowers n (countDigits n) = n",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "isArmstrong_eq_decide",
+      "stmt": "\u2200 (n : Nat) (h_precond : isArmstrong_precond n),\n    isArmstrong n h_precond = decide (sumPowers n (countDigits n) = n)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "isArmstrong_idempotent",
+      "stmt": "\u2200 (n : Nat) (h_precond : isArmstrong_precond n),\n    isArmstrong n h_precond = isArmstrong n h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "isArmstrong_153",
+      "stmt": "\u2200 (h_precond : isArmstrong_precond 153), isArmstrong 153 h_precond = true",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "isArmstrong_10_false",
+      "stmt": "\u2200 (h_precond : isArmstrong_precond 10), isArmstrong 10 h_precond = false",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "isArmstrong_false_iff",
+      "stmt": "\u2200 (n : Nat) (h_precond : isArmstrong_precond n),\n    isArmstrong n h_precond = false \u2194 sumPowers n (countDigits n) \u2260 n",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "isArmstrong_meets_postcond",
+      "stmt": "\u2200 (args : Nat) (h : isArmstrong_precond args),\n    isArmstrong_postcond args (isArmstrong args h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "isArmstrong_true_iff",
+      "stmt": "theorem isArmstrong_true_iff : isArmstrong n h = true \u2194 ((Nat.digits 10 n).map (fun d => d ^ (Nat.digits 10 n).length)).sum = n",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6944444444444444
+    },
+    {
+      "name": "isArmstrong_153",
+      "stmt": "\u2200 h : isArmstrong_precond 153, isArmstrong 153 h = true",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "isArmstrong_not_10",
+      "stmt": "\u2200 h : isArmstrong_precond 10, isArmstrong 10 h = false",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "isArmstrong_single_digit",
+      "stmt": "isArmstrong n h = true",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "isArmstrong_true_iff",
+      "stmt": "\u2200 (n : Nat) (h : isArmstrong_precond n), isArmstrong n h = true \u2194 sumPowers n (countDigits n) = n",
+      "status": "proved",
+      "method": "unfold isArmstrong; simp_all [countDigits, isArmstrong_precond, sumPowers, isArmstrong_postcond]",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "countDigits_zero",
+      "stmt": "countDigits 0 = 1",
+      "status": "proved",
+      "method": "llm-gen-with-proof",
+      "clarity_score": 0.9259259259259258
+    },
+    {
+      "name": "sumPowers_zero",
+      "stmt": "sumPowers 0 k = 0",
+      "status": "proved",
+      "method": "llm-gen-with-proof",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "isArmstrong_zero",
+      "stmt": "isArmstrong 0 True.intro = true",
+      "status": "proved",
+      "method": "llm-gen-with-proof",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "isArmstrong_one",
+      "stmt": "isArmstrong 1 True.intro = true",
+      "status": "proved",
+      "method": "llm-gen-with-proof",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "isArmstrong_153",
+      "stmt": "isArmstrong 153 True.intro = true",
+      "status": "proved",
+      "method": "llm-gen-with-proof",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "isArmstrong_postcond_zero",
+      "stmt": "isArmstrong_postcond 0 (isArmstrong 0 True.intro) True.intro",
+      "status": "proved",
+      "method": "llm-gen-with-proof",
+      "clarity_score": 0.8928571428571428
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 23,
+    "score": 0.0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 2,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

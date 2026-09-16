@@ -1,0 +1,265 @@
+{
+  "name": "verina_advanced_17",
+  "generated_count": 33,
+  "proved_count": 29,
+  "validated_count": 0,
+  "rejected_count": 4,
+  "soundness": 0.8787878787878788,
+  "precision": 1.0,
+  "avg_clarity": 0.6399108195543508,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "[]"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 64,
+  "lean_calls": 600,
+  "elapsed_seconds": 511.97800374031067,
+  "specs": [
+    {
+      "name": "insertionSort_empty",
+      "stmt": "\u2200 (h_precond : insertionSort_precond []),\n    insertionSort [] h_precond = []",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "insertionSort_length_preserved",
+      "stmt": "\u2200 (l : List Int) (h_precond : insertionSort_precond l),\n    (insertionSort l h_precond).length = l.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "insertionSort_isPerm",
+      "stmt": "\u2200 (l : List Int) (h_precond : insertionSort_precond l),\n    List.isPerm l (insertionSort l h_precond)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "insertionSort_mem_iff",
+      "stmt": "\u2200 (l : List Int) (h_precond : insertionSort_precond l) (x : Int),\n    x \u2208 insertionSort l h_precond \u2194 x \u2208 l",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "insertionSort_sorted",
+      "stmt": "\u2200 (l : List Int) (h_precond : insertionSort_precond l),\n    List.Pairwise (\u00b7 = \u00b7) (insertionSort l h_precond)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "insertionSort_list_sorted",
+      "stmt": "\u2200 (l : List Int) (h_precond : insertionSort_precond l),\n    List.Sorted (\u00b7 \u2264 \u00b7) (insertionSort l h_precond)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "insertionSort_singleton",
+      "stmt": "\u2200 (x : Int) (h_precond : insertionSort_precond [x]),\n    insertionSort [x] h_precond = [x]",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "insertionSort_cons_perm",
+      "stmt": "\u2200 (x : Int) (xs : List Int) (h_precond : insertionSort_precond (x :: xs)),\n    List.isPerm (x :: xs) (insertionSort (x :: xs) h_precond)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5576208178438662
+    },
+    {
+      "name": "insertionSort_equiv_mergeSort",
+      "stmt": "\u2200 (l : List Int) (h_precond : insertionSort_precond l), List.Perm (insertionSort l h_precond) (List.mergeSort (\u00b7 \u2264 \u00b7) l)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "insertionSort_idempotent",
+      "stmt": "\u2200 (l : List Int) (h_precond : insertionSort_precond l)\n    (h_precond2 : insertionSort_precond (insertionSort l h_precond)),\n    insertionSort (insertionSort l h_precond) h_precond2 = insertionSort l h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5514705882352942
+    },
+    {
+      "name": "insertionSort_meets_postcond",
+      "stmt": "\u2200 args (h : insertionSort_precond args),\n    insertionSort_postcond args (insertionSort args h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6355932203389831
+    },
+    {
+      "name": "insertionSort_empty",
+      "stmt": "\u2200 (h : insertionSort_precond []),\n  insertionSort [] h = []",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "insertionSort_singleton",
+      "stmt": "\u2200 (x : Int) (h : insertionSort_precond [x]),\n  insertionSort [x] h = [x]",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "insertionSort_length_preserved",
+      "stmt": "\u2200 (l : List Int) (h : insertionSort_precond l),\n  (insertionSort l h).length = l.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "insertionSort_sorted",
+      "stmt": "\u2200 (l : List Int) (h : insertionSort_precond l),\n  List.Sorted (\u00b7 \u2264 \u00b7) (insertionSort l h)",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "insertionSort_elements_subset",
+      "stmt": "\u2200 (l : List Int) (h : insertionSort_precond l) (x : Int),\n  x \u2208 insertionSort l h \u2192 x \u2208 l",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "insertionSort_elements_superset",
+      "stmt": "\u2200 (l : List Int) (h : insertionSort_precond l) (x : Int),\n  x \u2208 l \u2192 x \u2208 insertionSort l h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "insertionSort_head_is_min",
+      "stmt": "\u2200 (l : List Int) (h : insertionSort_precond l) (x : Int),\n  l \u2260 [] \u2192\n  (\u2200 y \u2208 l, x = y) \u2192\n  x \u2208 l \u2192\n  (insertionSort l h).head? = some x \u2192 True",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.41899441340782123
+    },
+    {
+      "name": "insertionSort_perm",
+      "stmt": "\u2200 (l : List Int) (h : insertionSort_precond l),\n  (insertionSort l h).Perm l",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "insertionSort_head_le_all",
+      "stmt": "\u2200 (l : List Int) (h : insertionSort_precond l), l \u2260 [] \u2192 \u2200 x \u2208 insertionSort l h, (insertionSort l h).head? = some ((insertionSort l h).head (by simp [List.ne_nil_iff_length_pos]; omega)) \u2192 (insertionSort l h).head (by simp [List.ne_nil_iff_length_pos]; omega) \u2264 x",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.4021447721179625
+    },
+    {
+      "name": "insertionSort_two_sorted",
+      "stmt": "\u2200 (a b : Int) (h : insertionSort_precond [a, b]),\n  a = b \u2192\n  insertionSort [a, b] h = [a, b]",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "insertElement_nonempty",
+      "stmt": "\u2200 (x : Int) (l : List Int),\n    (insertElement x l).length = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "insertElement_length",
+      "stmt": "\u2200 (x : Int) (l : List Int),\n    (insertElement x l).length = l.length + 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "insertElement_mem",
+      "stmt": "\u2200 (x : Int) (l : List Int) (z : Int),\n    z \u2208 insertElement x l \u2194 z = x \u2227 z \u2208 l",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5514705882352942
+    },
+    {
+      "name": "sortList_length",
+      "stmt": "\u2200 (l : List Int), (sortList l).length = l.length",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.6607929515418502
+    },
+    {
+      "name": "sortList_mem",
+      "stmt": "\u2200 (l : List Int) (x : Int), x \u2208 l \u2194 x \u2208 sortList l",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "sortList_nil",
+      "stmt": "sortList [] = []",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.9259259259259258
+    },
+    {
+      "name": "insertionSort_membership_preserved",
+      "stmt": "\u2200 (l : List Int) (h : insertionSort_precond l) (x : Int),\n    x \u2208 l \u2194 x \u2208 insertionSort l h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "insertionSort_nonempty_if_input_nonempty",
+      "stmt": "\u2200 (l : List Int) (h : insertionSort_precond l),\n    l.length = 0 \u2192 (insertionSort l h).length > 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "insertionSort_result_sorted",
+      "stmt": "List.Pairwise (\u00b7 \u2264 \u00b7) (insertionSort xs h)",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.8771929824561403
+    },
+    {
+      "name": "insertionSort_result_perm",
+      "stmt": "(insertionSort xs h).Perm xs",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9259259259259258
+    },
+    {
+      "name": "insertionSort_length_preserved",
+      "stmt": "(insertionSort xs h).length = xs.length",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "insertionSort_sorted",
+      "stmt": "\u2200 (l : List Int) (h : insertionSort_precond l), List.Pairwise (\u00b7 \u2264 \u00b7) (insertionSort l h)",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.6048387096774194
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 29,
+    "score": 0.0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 2,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

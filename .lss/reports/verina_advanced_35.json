@@ -1,0 +1,171 @@
+{
+  "name": "verina_advanced_35",
+  "generated_count": 20,
+  "proved_count": 0,
+  "validated_count": 0,
+  "rejected_count": 20,
+  "soundness": 0.0,
+  "precision": null,
+  "avg_clarity": 0.0,
+  "impl_independence": null,
+  "avg_uniqueness": null,
+  "admissibility": null,
+  "convergence_iterations": 0,
+  "llm_calls": 35,
+  "lean_calls": 86,
+  "elapsed_seconds": 324.3016400337219,
+  "specs": [
+    {
+      "name": "majorityElement_singleton",
+      "stmt": "\u2200 (x : Int) (h_precond : majorityElement_precond [x]),\n    majorityElement [x] h_precond = x",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "majorityElement_all_same",
+      "stmt": "theorem majorityElement_all_same : \u2200 (x : Int) (n : Nat) (h_precond : majorityElement_precond (List.replicate (n + 1) x)), majorityElement (List.replicate (n + 1) x) h_precond = x",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5338078291814947
+    },
+    {
+      "name": "majorityElement_mem",
+      "stmt": "\u2200 (nums : List Int) (h_precond : majorityElement_precond nums),\n    majorityElement nums h_precond \u2208 nums",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "majorityElement_count_gt_half",
+      "stmt": "\u2200 (nums : List Int) (h_precond : majorityElement_precond nums),\n    nums.count (majorityElement nums h_precond) > nums.length / 2",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "majorityElement_others_le_half",
+      "stmt": "\u2200 (nums : List Int) (h_precond : majorityElement_precond nums),\n    \u2200 x \u2208 nums, x \u2260 majorityElement nums h_precond \u2192\n    nums.count x \u2264 nums.length / 2",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.46153846153846156
+    },
+    {
+      "name": "majorityElement_count_dominates",
+      "stmt": "theorem majorityElement_count_dominates : \u2200 (nums : List Int) (h_precond : majorityElement_precond nums), \u2200 x \u2208 nums, x \u2260 majorityElement nums h_precond \u2192 nums.count x < nums.count (majorityElement nums h_precond)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.44510385756676557
+    },
+    {
+      "name": "majorityElement_count_pos",
+      "stmt": "theorem majorityElement_count_pos : \u2200 (nums : List Int) (h_precond : majorityElement_precond nums), nums.count (majorityElement nums h_precond) > 0",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "majorityElement_count_more_than_half_length",
+      "stmt": "theorem majorityElement_count_more_than_half_length : \u2200 (nums : List Int) (h_precond : majorityElement_precond nums), 2 * nums.count (majorityElement nums h_precond) > nums.length",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "majorityElement_unique",
+      "stmt": "theorem majorityElement_unique : \u2200 (nums : List Int) (h_precond : majorityElement_precond nums), \u2200 y : Int, nums.count y > nums.length / 2 \u2192 y = majorityElement nums h_precond",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.44910179640718567
+    },
+    {
+      "name": "majorityElement_replicate_idempotent",
+      "stmt": "theorem majorityElement_replicate_idempotent : \u2200 (nums : List Int) (h_precond : majorityElement_precond nums), let r",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "majorityElement_perm_invariant",
+      "stmt": "theorem majorityElement_perm_invariant : \u2200 (nums : List Int) (h_precond : majorityElement_precond nums) (nums' : List Int) (h_perm : List.Perm nums nums') (h_precond' : majorityElement_precond nums'), majorityElement nums h_precond = majorityElement nums' h_precond'",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5067567567567568
+    },
+    {
+      "name": "majorityElement_meets_postcond",
+      "stmt": "theorem majorityElement_meets_postcond : \u2200 (nums : List Int) (h : majorityElement_precond nums), majorityElement_postcond nums (majorityElement nums h) h",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "majorityElement_some_case_count",
+      "stmt": "theorem majorityElement_some_case_count : \u2200 (nums : List Int) (counts : Std.HashMap Int Nat) (k : Int) (c : Nat), counts.toList.find? (fun (_, c) => c > nums.length / 2) = some (k, c) \u2192 c > nums.length / 2",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.47318611987381703
+    },
+    {
+      "name": "majorityElement_some_case_result",
+      "stmt": "\u2200 (nums : List Int) (counts : HashMap Int Nat) (k : Int) (c : Nat),\n    counts.toList.find? (fun (_, cv) => cv > nums.length / 2) = some (k, c) \u2192\n    (match counts.toList.find? (fun (_, cv) => cv > nums.length / 2) with\n     | some (k, _) => k\n     | none => 0) = k",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.410958904109589
+    },
+    {
+      "name": "majorityElement_none_returns_zero",
+      "stmt": "theorem majorityElement_none_returns_zero : \u2200 (nums : List Int) (h_precond : majorityElement_precond nums) (counts : Std.HashMap Int Nat), counts.toList.find? (fun (_, c) => c > nums.length / 2) = none \u2192 (match counts.toList.find? (fun (_, c) => c > nums.length / 2) with | some (k, _) => k | none => 0) = 0",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.41436464088397784
+    },
+    {
+      "name": "majorityElement_none_violates_postcond",
+      "stmt": "theorem majorityElement_none_violates_postcond : \u2200 (nums : List Int) (h_precond : majorityElement_precond nums) (counts : Std.HashMap Int Nat), counts.toList.find? (fun (_, c) => c > nums.length / 2) = none \u2192 (match counts.toList.find? (fun (_, c) => c > nums.length / 2) with | some (k, _) => k | none => 0) = 0 \u2192 \u2203 x \u2208 nums, nums.count x > nums.length / 2",
+      "status": "rejected",
+      "method": null,
+      "clarity_score": 0.3370786516853933
+    },
+    {
+      "name": "majorityElement_count_gt_half",
+      "stmt": "List Int) (h : majorityElement_precond nums) : let result",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8474576271186441
+    },
+    {
+      "name": "majorityElement_mem",
+      "stmt": "majorityElement nums h \u2208 nums",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "majorityElement_all_equal",
+      "stmt": "List Int) (h : majorityElement_precond nums) : majorityElement_postcond nums (majorityElement nums h) h",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7936507936507936
+    },
+    {
+      "name": "majorityElement_unique",
+      "stmt": "theorem majorityElement_unique : \u2200 (nums : List Int) (h : majorityElement_precond nums), let result",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6198347107438017
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 0,
+    "score": 0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 2,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

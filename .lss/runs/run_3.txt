@@ -1,0 +1,61 @@
+  [gen] running strategy: direct
+  [gen] direct produced 11 candidates
+  [gen] running strategy: examples
+  [gen] examples produced 4 candidates
+  [gen] running strategy: negatives
+  [gen] negatives produced 0 candidates
+  [gen] total after merge+dedup: 15
+  [g0] insertionSort_empty: example store check ok
+  [g1] insertionSort_empty: typecheck pass
+  [g2] insertionSort_empty: eval pass (insertionSort [] = [])
+  [g3] insertionSort_empty: vacuity FAIL (accepts all wrong outputs)
+         stmt: ∀ (h_precond : insertionSort_precond []),
+    insertionSort [] h_precond = []
+  [g0] insertionSort_length_preserved: example store check ok
+  [g1] insertionSort_length_preserved: typecheck pass
+  [g2] insertionSort_length_preserved: eval pass (insertionSort [] = [])
+  [g3] insertionSort_length_preserved: vacuity FAIL (accepts all wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    (insertionSort l h_precond).length = l.l
+  [g0] insertionSort_mem_iff: example store check ok
+  [g1] insertionSort_mem_iff: typecheck pass
+  [g2] insertionSort_mem_iff: eval pass (insertionSort [] = [])
+  [g3] insertionSort_mem_iff: vacuity FAIL (accepts all wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l) (x : Int),
+    x ∈ insertionSort l h_precond 
+  [g0] insertionSort_isPerm: example store check ok
+  [g1] insertionSort_isPerm: typecheck pass
+  [g2] insertionSort_isPerm: eval pass (insertionSort [] = [])
+  [g3] insertionSort_isPerm: vacuity FAIL (accepts all wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.isPerm l (insertionSort l h_precond
+  [g0] insertionSort_sorted: example store check ok
+  [g1] insertionSort_sorted: typecheck pass
+  [g2] insertionSort_sorted: eval pass (insertionSort [] = [])
+  [g3] insertionSort_sorted: vacuity FAIL (accepts all wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Pairwise (· ≤ ·) (insertionSort l h
+  [g0] insertionSort_list_sorted: example store check ok
+  CRASH on verina_advanced_17: name 'func_source' is not defined
+Traceback (most recent call last):
+  File "C:\Users\User\projects\sps-bootstrapping-semantics\isabelle-v2\run.py", line 303, in main
+    _, report = run_bench(bm, args, llm, checker, store, args.baseline, project_dir=rust_project_dir, func_source=bm.get("func_source"))
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\User\projects\sps-bootstrapping-semantics\isabelle-v2\run.py", line 135, in run_bench
+    specs, timed_out = _with_timeout(_synth, timeout)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\User\projects\sps-bootstrapping-semantics\isabelle-v2\run.py", line 100, in _with_timeout
+    raise exc[0]
+  File "C:\Users\User\projects\sps-bootstrapping-semantics\isabelle-v2\run.py", line 85, in worker
+    result[0] = fn()
+                ^^^^
+  File "C:\Users\User\projects\sps-bootstrapping-semantics\isabelle-v2\run.py", line 126, in _synth
+    s = synthesize(lean_code, ti, tpl, llm, checker, store, func_name=fn, verbose=vb, debug_dir=debug_dir, postcond_defs=postcond_defs, project_dir=project_dir, func_source=func_source)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\User\projects\sps-bootstrapping-semantics\isabelle-v2\synth.py", line 2314, in synthesize
+    specs = validate(specs, lean_code, test_inputs, lean_checker,
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\User\projects\sps-bootstrapping-semantics\isabelle-v2\synth.py", line 1234, in validate
+    f"Function it is about:\n{func_source if func_source else lean_code}\n\n"
+                                             ^^^^^^^^^^^
+NameError: name 'func_source' is not defined

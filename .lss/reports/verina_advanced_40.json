@@ -1,0 +1,174 @@
+{
+  "name": "verina_advanced_40",
+  "generated_count": 20,
+  "proved_count": 19,
+  "validated_count": 0,
+  "rejected_count": 1,
+  "soundness": 0.95,
+  "precision": 1.0,
+  "avg_clarity": 0.6329239220538662,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "[1, 2, 3]"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 35,
+  "lean_calls": 416,
+  "elapsed_seconds": 315.29058599472046,
+  "specs": [
+    {
+      "name": "maxOfList_singleton",
+      "stmt": "\u2200 (x : Nat) (h_precond : maxOfList_precond [x]),\n    maxOfList [x] h_precond = x",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "maxOfList_two_first_larger",
+      "stmt": "\u2200 (x y : Nat) (h : x = y) (h_precond : maxOfList_precond [x, y]),\n    maxOfList [x, y] h_precond = x",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "maxOfList_mem",
+      "stmt": "\u2200 (lst : List Nat) (h_precond : maxOfList_precond lst),\n    maxOfList lst h_precond \u2208 lst",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "maxOfList_result_in_list",
+      "stmt": "\u2200 (lst : List Nat) (h_precond : maxOfList_precond lst),\n    \u2203 i, lst.get i = maxOfList lst h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.4983388704318937
+    },
+    {
+      "name": "maxOfList_upper_bound",
+      "stmt": "\u2200 (lst : List Nat) (h_precond : maxOfList_precond lst),\n    \u2200 x \u2208 lst, x = maxOfList lst h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.49342105263157904
+    },
+    {
+      "name": "maxOfList_ge_head",
+      "stmt": "\u2200 (lst : List Nat) (h_precond : maxOfList_precond lst),\n    lst.head (by exact h_precond) = maxOfList lst h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "maxOfList_cons_ge_tail",
+      "stmt": "\u2200 (x : Nat) (xs : List Nat) (h_precond : maxOfList_precond (x :: xs)) (h_xs : maxOfList_precond xs),\n    maxOfList (x :: xs) h_precond = maxOfList xs h_xs",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5338078291814947
+    },
+    {
+      "name": "maxOfList_cons_ge_head",
+      "stmt": "\u2200 (x : Nat) (xs : List Nat) (h_precond : maxOfList_precond (x :: xs)),\n    x = maxOfList (x :: xs) h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "maxOfList_eq_maximum",
+      "stmt": "\u2200 (lst : List Nat) (h_precond : maxOfList_precond lst),\n    (lst.maximum) = some (maxOfList lst h_precond)",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "maxOfList_eq_foldl",
+      "stmt": "\u2200 (lst : List Nat) (h_precond : maxOfList_precond lst),\n    maxOfList lst h_precond = lst.foldl Nat.max 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "maxOfList_constant_list",
+      "stmt": "\u2200 (x : Nat) (n : Nat) (h : n = 0) (h_precond : maxOfList_precond (List.replicate n x)),\n    maxOfList (List.replicate n x) h_precond = x",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5454545454545455
+    },
+    {
+      "name": "maxOfList_append_ge",
+      "stmt": "\u2200 (lst : List Nat) (x : Nat) (h_precond : maxOfList_precond lst) (h_precond2 : maxOfList_precond (lst ++ [x])),\n    maxOfList lst h_precond = maxOfList (lst ++ [x]) h_precond2 \u2227\n    maxOfList (lst ++ [x]) h_precond2 = x",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.49180327868852464
+    },
+    {
+      "name": "maxOfList_perm_eq",
+      "stmt": "\u2200 (lst1 lst2 : List Nat) (h : lst1.Perm lst2)\n    (h_precond1 : maxOfList_precond lst1) (h_precond2 : maxOfList_precond lst2),\n    maxOfList lst1 h_precond1 = maxOfList lst2 h_precond2",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5454545454545455
+    },
+    {
+      "name": "maxOfList_meets_postcond",
+      "stmt": "\u2200 (lst : List Nat) (h : maxOfList_precond lst),\n    maxOfList_postcond lst (maxOfList lst h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "maxOfList_ge_all",
+      "stmt": "x \u2264 maxOfList l h",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "maxOfList_mem",
+      "stmt": "maxOfList l h \u2208 l",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "maxOfList_singleton",
+      "stmt": "maxOfList [n] h = n",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "maxOfList_uniform",
+      "stmt": "maxOfList l h = n",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "maxOfList_eq_maximum",
+      "stmt": "\u2200 (lst : List Nat) (h_precond : maxOfList_precond lst),\n    maxOfList_postcond lst (maxOfList lst h_precond) h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "maxOfList_eq_maximum",
+      "stmt": "\u2200 (lst : List Nat) (h_precond : maxOfList_precond lst),\n    maxOfList lst h_precond \u2208 lst \u2227 \u2200 x \u2208 lst, x = maxOfList lst h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.46583850931677023
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 19,
+    "score": 0.0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 2,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

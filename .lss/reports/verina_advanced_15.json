@@ -1,0 +1,144 @@
+{
+  "name": "verina_advanced_15",
+  "generated_count": 13,
+  "proved_count": 13,
+  "validated_count": 0,
+  "rejected_count": 0,
+  "soundness": 1.0,
+  "precision": 1.0,
+  "avg_clarity": 0.6184359458161542,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "[1, 2, 3]"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 46,
+  "lean_calls": 730,
+  "elapsed_seconds": 322.83517050743103,
+  "specs": [
+    {
+      "name": "increasingTriplet_empty",
+      "stmt": "\u2200 (h_precond : increasingTriplet_precond []),\n    increasingTriplet [] h_precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "increasingTriplet_singleton",
+      "stmt": "\u2200 (x : Int) (h_precond : increasingTriplet_precond [x]),\n    increasingTriplet [x] h_precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "increasingTriplet_two_elements",
+      "stmt": "\u2200 (x y : Int) (h_precond : increasingTriplet_precond [x, y]),\n    increasingTriplet [x, y] h_precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "increasingTriplet_lt3_false",
+      "stmt": "\u2200 (nums : List Int) (h_precond : increasingTriplet_precond nums),\n    nums.length = 3 \u2192 increasingTriplet nums h_precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "increasingTriplet_result_is_bool",
+      "stmt": "\u2200 (nums : List Int) (h_precond : increasingTriplet_precond nums),\n    increasingTriplet nums h_precond = true \u2227 increasingTriplet nums h_precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.576923076923077
+    },
+    {
+      "name": "increasingTriplet_true_implies_triplet",
+      "stmt": "\u2200 (nums.zipIdx).any (fun (x, i) ==\n      (nums.zipIdx).any (fun (y, j) =>\n        (nums.zipIdx).any (fun (z, k) =>\n          i = j \u2227 j < k \u2227 x < y \u2227 y < z\n        )\n      )\n    )",
+      "status": "proved",
+      "method": "trivial",
+      "clarity_score": 0.49668874172185423
+    },
+    {
+      "name": "increasingTriplet_false_implies_no_triplet",
+      "stmt": "\u2200 (nums.zipIdx).all (fun (x, i) ==\n      (nums.zipIdx).all (fun (y, j) =>\n        (nums.zipIdx).all (fun (z, k) =>\n          i = j \u2227 j \u2265 k \u2228 x \u2265 y \u2228 y \u2265 z\n        )\n      )\n    )",
+      "status": "proved",
+      "method": "trivial",
+      "clarity_score": 0.49668874172185423
+    },
+    {
+      "name": "increasingTriplet_iff_triplet_exists",
+      "stmt": "\u2200 (nums : List Int) (h_precond : increasingTriplet_precond nums),\n    increasingTriplet nums h_precond = true \u2194\n    (nums.zipIdx).any (fun (x, i) ==\n      (nums.zipIdx).any (fun (y, j) =>\n        (nums.zipIdx).any (fun (z, k) =>\n          i = j \u2227 j < k \u2227 x < y \u2227 y < z\n        )\n      )\n    )",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.436046511627907
+    },
+    {
+      "name": "increasingTriplet_deterministic",
+      "stmt": "\u2200 (nums : List Int)\n    (h1 h2 : increasingTriplet_precond nums),\n    increasingTriplet nums h1 = increasingTriplet nums h2",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "increasingTriplet_meets_postcond",
+      "stmt": "\u2200 args (h : increasingTriplet_precond args),\n    increasingTriplet_postcond args (increasingTriplet args h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6355932203389831
+    },
+    {
+      "name": "increasingTriplet_true_iff_exists_triplet",
+      "stmt": "increasingTriplet arr h = true \u2194\n    \u2203 i j k : Fin arr.length, i.val = j.val \u2227 j.val < k.val \u2227\n    arr.get i < arr.get j \u2227 arr.get j < arr.get k",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5067567567567568
+    },
+    {
+      "name": "increasingTriplet_false_on_decreasing",
+      "stmt": "increasingTriplet arr h = false",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "increasingTriplet_true_of_subsequence",
+      "stmt": "increasingTriplet arr h = true",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    }
+  ],
+  "functional_correctness": {
+    "matched": 3,
+    "total_proved": 13,
+    "score": 0.23076923076923078,
+    "matches": [
+      {
+        "generated": "increasingTriplet_true_implies_triplet",
+        "ground_truth": "let nums' := nums.zipIdx\n  (result \u2192\n    nums'.any (fun (x, i) =>\n      nums'.an",
+        "method": "kw_overlap"
+      },
+      {
+        "generated": "increasingTriplet_false_implies_no_triplet",
+        "ground_truth": "let nums' := nums.zipIdx\n  (result \u2192\n    nums'.any (fun (x, i) =>\n      nums'.an",
+        "method": "kw_overlap"
+      },
+      {
+        "generated": "increasingTriplet_iff_triplet_exists",
+        "ground_truth": "let nums' := nums.zipIdx\n  (result \u2192\n    nums'.any (fun (x, i) =>\n      nums'.an",
+        "method": "kw_overlap"
+      }
+    ]
+  },
+  "spec_coverage": {
+    "covered": 2,
+    "total_ground_truth": 2,
+    "score": 1.0,
+    "covered_specs": [
+      "let nums' := nums.zipIdx\n  (result \u2192\n    nums'.any (fun (x, i) =>\n      nums'.an",
+      "\u00ac result \u2192 nums'.all (fun (x, i) =>\n    nums'.all (fun (y, j) =>\n      nums'.all"
+    ]
+  }
+}

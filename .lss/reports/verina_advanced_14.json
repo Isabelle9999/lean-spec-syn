@@ -1,0 +1,146 @@
+{
+  "name": "verina_advanced_14",
+  "generated_count": 16,
+  "proved_count": 15,
+  "validated_count": 0,
+  "rejected_count": 1,
+  "soundness": 0.9375,
+  "precision": 1.0,
+  "avg_clarity": 0.6298479675299276,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "0"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 34,
+  "lean_calls": 676,
+  "elapsed_seconds": 333.49255657196045,
+  "specs": [
+    {
+      "name": "ifPowerOfFour_zero",
+      "stmt": "\u2200 (n : Nat) (h_precond : ifPowerOfFour_precond n),\n    n = 0 \u2192 ifPowerOfFour n h_precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "ifPowerOfFour_one",
+      "stmt": "\u2200 (n : Nat) (h_precond : ifPowerOfFour_precond n),\n    n = 1 \u2192 ifPowerOfFour n h_precond = true",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "ifPowerOfFour_four",
+      "stmt": "\u2200 (n : Nat) (h_precond : ifPowerOfFour_precond n),\n    n = 4 \u2192 ifPowerOfFour n h_precond = true",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "ifPowerOfFour_mul_four",
+      "stmt": "\u2200 (n : Nat) (h_precond : ifPowerOfFour_precond n)\n    (h_precond2 : ifPowerOfFour_precond (4 * n)),\n    n = 0 \u2192 (ifPowerOfFour (4 * n) h_precond2 = ifPowerOfFour n h_precond)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5338078291814947
+    },
+    {
+      "name": "ifPowerOfFour_true_iff",
+      "stmt": "\u2200 (n : Nat) (h_precond : ifPowerOfFour_precond n),\n    ifPowerOfFour n h_precond = true \u2194 \u2203 m : Nat, n = 4 ^ m",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.4702194357366772
+    },
+    {
+      "name": "ifPowerOfFour_false_iff",
+      "stmt": "\u2200 (n : Nat) (h_precond : ifPowerOfFour_precond n),\n    ifPowerOfFour n h_precond = false \u2194 \u00ac\u2203 m : Nat, n = 4 ^ m",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.4702194357366772
+    },
+    {
+      "name": "ifPowerOfFour_returns_bool",
+      "stmt": "\u2200 (n : Nat) (h_precond : ifPowerOfFour_precond n),\n    ifPowerOfFour n h_precond = true \u2227 ifPowerOfFour n h_precond = false",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "ifPowerOfFour_implies_nonzero",
+      "stmt": "\u2200 (n : Nat) (h_precond : ifPowerOfFour_precond n),\n    ifPowerOfFour n h_precond = true \u2192 n = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "ifPowerOfFour_deterministic",
+      "stmt": "\u2200 (n : Nat) (h1 h2 : ifPowerOfFour_precond n),\n    ifPowerOfFour n h1 = ifPowerOfFour n h2",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6048387096774194
+    },
+    {
+      "name": "ifPowerOfFour_meets_postcond",
+      "stmt": "\u2200 (args : Nat) (h : ifPowerOfFour_precond args),\n    ifPowerOfFour_postcond args (ifPowerOfFour args h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "ifPowerOfFour_one",
+      "stmt": "ifPowerOfFour 1 h = true",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "ifPowerOfFour_iff_power_of_four",
+      "stmt": "\u2115) (h : ifPowerOfFour_precond n) : ifPowerOfFour n h = true \u2194 \u2203 k : \u2115, n = 4 ^ k",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "ifPowerOfFour_false",
+      "stmt": "ifPowerOfFour n h = false",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "ifPowerOfFour_four",
+      "stmt": "\u2200 (h : ifPowerOfFour_precond 4), ifPowerOfFour 4 h = true",
+      "status": "proved",
+      "method": "llm-gen-with-proof",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "ifPowerOfFour_sixteen",
+      "stmt": "\u2200 (h : ifPowerOfFour_precond 16), ifPowerOfFour 16 h = true",
+      "status": "proved",
+      "method": "llm-gen-with-proof",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "ifPowerOfFour_sixtyfour",
+      "stmt": "\u2200 (h : ifPowerOfFour_precond 64), ifPowerOfFour 64 h = true",
+      "status": "proved",
+      "method": "llm-gen-with-proof",
+      "clarity_score": 0.6521739130434783
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 15,
+    "score": 0.0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 1,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}

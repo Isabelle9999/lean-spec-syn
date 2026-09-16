@@ -1,0 +1,176 @@
+{
+  "name": "verina_advanced_26",
+  "generated_count": 17,
+  "proved_count": 16,
+  "validated_count": 0,
+  "rejected_count": 1,
+  "soundness": 0.9411764705882353,
+  "precision": 1.0,
+  "avg_clarity": 0.5791224579962566,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": ""
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 80,
+  "lean_calls": 696,
+  "elapsed_seconds": 441.8153660297394,
+  "specs": [
+    {
+      "name": "letterCombinations_empty",
+      "stmt": "\u2200 (h_precond : letterCombinations_precond \"\"), \n    letterCombinations \"\" h_precond = []",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "letterCombinations_invalid_digit",
+      "stmt": "\u2200 (digits : String) (h_precond : letterCombinations_precond digits),\n    digits.toList.any (fun c == digitToLetters c == []) = true \u2192\n    letterCombinations digits h_precond = []",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5514705882352942
+    },
+    {
+      "name": "letterCombinations_nonempty",
+      "stmt": "\u2200 (digits : String) (h_precond : letterCombinations_precond digits),\n    \u00acdigits.isEmpty \u2192\n    digits.toList.all (fun c == c \u2208 ['2','3','4','5','6','7','8','9']) \u2192\n    (letterCombinations digits h_precond).length > 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5576208178438662
+    },
+    {
+      "name": "letterCombinations_length",
+      "stmt": "\u2200 (letterCombinations digits h_precond).length = \n    (digits.toList.map digitToLetters |>.foldl (fun acc ls => acc.flatMap (fun s => ls.map (fun c => s ++ String.singleton c))) [\"\"]).length",
+      "status": "proved",
+      "method": "trivial",
+      "clarity_score": 0.5454545454545455
+    },
+    {
+      "name": "letterCombinations_output_mem_expected",
+      "stmt": "\u2200 let expected := digits.toList.map digitToLetters |>.foldl (fun acc ls => acc.flatMap (fun s => ls.map (fun c => s ++ String.singleton c))) [\"\"]\n    (letterCombinations digits h_precond).all (fun s => s \u2208 expected)",
+      "status": "proved",
+      "method": "trivial",
+      "clarity_score": 0.5016722408026756
+    },
+    {
+      "name": "letterCombinations_expected_mem_output",
+      "stmt": "\u2200 let expected := digits.toList.map digitToLetters |>.foldl (fun acc ls => acc.flatMap (fun s => ls.map (fun c => s ++ String.singleton c))) [\"\"]\n    expected.all (fun s => s \u2208 letterCombinations digits h_precond)",
+      "status": "proved",
+      "method": "trivial",
+      "clarity_score": 0.5016722408026756
+    },
+    {
+      "name": "letterCombinations_string_length",
+      "stmt": "\u2200 (digits : String) (h_precond : letterCombinations_precond digits),\n    \u00acdigits.isEmpty \u2192\n    \u00acdigits.toList.any (fun c == \u00ac(c \u2208 ['2','3','4','5','6','7','8','9'])) \u2192\n    (letterCombinations digits h_precond).all (fun s => s.length = digits.length)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5338078291814947
+    },
+    {
+      "name": "letterCombinations_nodup",
+      "stmt": "\u2200 (digits : String) (h_precond : letterCombinations_precond digits),\n    (letterCombinations digits h_precond).Nodup",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6437768240343348
+    },
+    {
+      "name": "letterCombinations_perm_expected",
+      "stmt": "\u2200 let expected := digits.toList.map digitToLetters |>.foldl (fun acc ls => acc.flatMap (fun s => ls.map (fun c => s ++ String.singleton c))) [\"\"]\n    List.Perm (letterCombinations digits h_precond) expected",
+      "status": "proved",
+      "method": "trivial",
+      "clarity_score": 0.5226480836236934
+    },
+    {
+      "name": "letterCombinations_invalid_returns_empty",
+      "stmt": "\u2200 (digits : String) (h_precond : letterCombinations_precond digits),\n    digits.toList.any (fun c == \u00ac(c \u2208 ['2','3','4','5','6','7','8','9'])) \u2192\n    letterCombinations digits h_precond = []",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.570342205323194
+    },
+    {
+      "name": "letterCombinations_meets_postcond",
+      "stmt": "\u2200 (args : String) (h : letterCombinations_precond args), \n    letterCombinations_postcond args (letterCombinations args h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "letterCombinations_length_product",
+      "stmt": "(letterCombinations digits h).length = \n    digits.toList.foldl (fun acc c == acc * (if c = '7' \u2227 c = '9' then 4 else 3)) 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6756756756756757
+    },
+    {
+      "name": "letterCombinations_empty",
+      "stmt": "\u2200 h : letterCombinations_precond \"\",\n    letterCombinations \"\" h = []",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "letterCombinations_single_digit_strlen",
+      "stmt": "theorem letterCombinations_single_digit_strlen : \u2200 (digits : String) (h : letterCombinations_precond digits), digits.length = 1 \u2192 \u2200 s \u2208 letterCombinations digits h, s.length = 1",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.46583850931677023
+    },
+    {
+      "name": "letterCombinations_result_strlen",
+      "stmt": "\u2200 s \u2208 letterCombinations digits h_precond, s.length = digits.length",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.6607929515418502
+    },
+    {
+      "name": "letterCombinations_single_digit_strlen",
+      "stmt": "\u2200 (digits : String) (h : letterCombinations_precond digits), digits.length = 1 \u2192 (\u2200 s \u2208 letterCombinations digits h, s.length = 1)",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.47923322683706077
+    },
+    {
+      "name": "letterCombinations_single_digit_strlen",
+      "stmt": "\u2200 (digits : String) (h : letterCombinations_precond digits), digits.isEmpty = true \u2192 letterCombinations digits h = []",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.5976095617529881
+    }
+  ],
+  "functional_correctness": {
+    "matched": 4,
+    "total_proved": 16,
+    "score": 0.25,
+    "matches": [
+      {
+        "generated": "letterCombinations_length",
+        "ground_truth": "if digits.isEmpty then\n    result = []\n  else if digits.toList.any (\u03bb c => \u00ac(c \u2208",
+        "method": "kw_overlap"
+      },
+      {
+        "generated": "letterCombinations_output_mem_expected",
+        "ground_truth": "if digits.isEmpty then\n    result = []\n  else if digits.toList.any (\u03bb c => \u00ac(c \u2208",
+        "method": "kw_overlap"
+      },
+      {
+        "generated": "letterCombinations_expected_mem_output",
+        "ground_truth": "if digits.isEmpty then\n    result = []\n  else if digits.toList.any (\u03bb c => \u00ac(c \u2208",
+        "method": "kw_overlap"
+      },
+      {
+        "generated": "letterCombinations_perm_expected",
+        "ground_truth": "if digits.isEmpty then\n    result = []\n  else if digits.toList.any (\u03bb c => \u00ac(c \u2208",
+        "method": "kw_overlap"
+      }
+    ]
+  },
+  "spec_coverage": {
+    "covered": 1,
+    "total_ground_truth": 3,
+    "score": 0.3333333333333333,
+    "covered_specs": [
+      "if digits.isEmpty then\n    result = []\n  else if digits.toList.any (\u03bb c => \u00ac(c \u2208"
+    ]
+  }
+}

@@ -1,0 +1,199 @@
+  [gen] running strategy: direct
+  [gen] direct produced 11 candidates
+  [gen] running strategy: examples
+  [gen] examples produced 4 candidates
+  [gen] running strategy: negatives
+  [gen] negatives produced 0 candidates
+  [gen] total after merge+dedup: 15
+  [g0] insertionSort_empty: example store check ok
+  [g1] insertionSort_empty: typecheck pass
+  [g2] insertionSort_empty: eval pass (insertionSort [] = [])
+  [g3] insertionSort_empty: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (h_precond : insertionSort_precond []),
+    insertionSort [] h_precond = []
+  [g0] insertionSort_singleton: example store check ok
+  [g1] insertionSort_singleton: typecheck pass
+  [g2] insertionSort_singleton: eval pass (insertionSort [] = [])
+  [g3] insertionSort_singleton: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (x : Int) (h_precond : insertionSort_precond [x]),
+    insertionSort [x] h_precond = [x]
+  [g0] insertionSort_length_preserved: example store check ok
+  [g1] insertionSort_length_preserved: typecheck pass
+  [g2] insertionSort_length_preserved: eval pass (insertionSort [] = [])
+  [g3] insertionSort_length_preserved: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    (insertionSort l h_precond).length = l.l
+  [g0] insertionSort_isPerm: example store check ok
+  [g1] insertionSort_isPerm: typecheck pass
+  [g2] insertionSort_isPerm: eval pass (insertionSort [] = [])
+  [g3] insertionSort_isPerm: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.isPerm l (insertionSort l h_precond
+  [g0] insertionSort_mem_iff: example store check ok
+  [g1] insertionSort_mem_iff: typecheck pass
+  [g2] insertionSort_mem_iff: eval pass (insertionSort [] = [])
+  [g3] insertionSort_mem_iff: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l) (a : Int),
+    a ∈ insertionSort l h_precond 
+  [g0] insertionSort_sorted: example store check ok
+  [g1] insertionSort_sorted: typecheck pass
+  [g2] insertionSort_sorted: eval pass (insertionSort [] = [])
+  [g3] insertionSort_sorted: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Pairwise (· ≤ ·) (insertionSort l h
+  [g0] insertionSort_pairwise_le: example store check ok
+  [g1] insertionSort_pairwise_le: typecheck pass
+  [g2] insertionSort_pairwise_le: eval pass (insertionSort [] = [])
+  [g3] insertionSort_pairwise_le: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Pairwise (fun a b => a ≤ b) (insert
+  [g0] insertionSort_cons_perm: example store check ok
+  [g1] insertionSort_cons_perm: typecheck pass
+  [g2] insertionSort_cons_perm: eval pass (insertionSort [] = [])
+  [g3] insertionSort_cons_perm: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (x : Int) (xs : List Int)
+    (h_precond : insertionSort_precond (x :: xs)),
+    List.isPerm (x ::
+  [g0] insertionSort_result_sorted_equiv: example store check ok
+  [g1] insertionSort_result_sorted_equiv: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpzlov80gr.lean:52
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Sorted (· ≤ ·) (insertionSort l h_p
+  [g0] insertionSort_idempotent: example store check ok
+  [g1] insertionSort_idempotent: typecheck pass
+  [g2] insertionSort_idempotent: eval pass (insertionSort [] = [])
+  [g3] insertionSort_idempotent: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l)
+    (h_precond2 : insertionSort_precond (inse
+  [g0] insertionSort_meets_postcond: example store check ok
+  [g1] insertionSort_meets_postcond: typecheck pass
+  [g2] insertionSort_meets_postcond: eval pass (insertionSort [] = [])
+  [g3] insertionSort_meets_postcond: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (args : List Int) (h : insertionSort_precond args),
+    insertionSort_postcond args (insertionSort
+  [g0] insertionSort_output_sorted: example store check ok
+  [g1] insertionSort_output_sorted: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpc1wvdxml.lean:49
+         stmt: theorem insertionSort_output_sorted (l : List Int) (h_precond : insertionSort_precond l) : List.Pair
+  [g0] insertionSort_output_perm: example store check ok
+  [g1] insertionSort_output_perm: typecheck FAIL: ["C:\\Users\\User\\AppData\\Local\\Temp\\tmp_hntipfw.lean:49
+         stmt: theorem insertionSort_output_perm : ∀ (l : List Int) (h_precond : insertionSort_precond l), List.isP
+  [g0] insertionSort_length_preserved: example store check ok
+  [g1] insertionSort_length_preserved: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpk4y0r5ph.lean:49
+         stmt: List Int) (h_precond : insertionSort_precond l) : (insertionSort l h_precond).length = l.length
+  [g0] insertionSort_mem_iff: example store check ok
+  [g1] insertionSort_mem_iff: typecheck FAIL: ['C:\\Users\\User\\AppData\\Local\\Temp\\tmpe_9gtkv_.lean:49
+         stmt: List Int) (h_precond : insertionSort_precond l) : x ∈ insertionSort l h_precond ↔ x ∈ l
+  [gen] round 2 produced 5 replacement specs
+  [g0] insertionSort_output_sorted: example store check ok
+  [g1] insertionSort_output_sorted: typecheck pass
+  [g2] insertionSort_output_sorted: eval pass (insertionSort [] = [])
+  [g3] insertionSort_output_sorted: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Pairwise (· ≤ ·) (insertionSort l h
+  [g0] insertionSort_output_perm: example store check ok
+  [g1] insertionSort_output_perm: typecheck pass
+  [g2] insertionSort_output_perm: eval pass (insertionSort [] = [])
+  [g3] insertionSort_output_perm: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    (insertionSort l h_precond).length = l.l
+  [dedup] skipping duplicate in validate: insertionSort_length_preserved
+  [g0] insertionSort_mem_iff: example store check ok
+  [g1] insertionSort_mem_iff: typecheck pass
+  [g2] insertionSort_mem_iff: eval pass (insertionSort [] = [])
+  [g3] insertionSort_mem_iff: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l) (x : Int),
+    x ∈ insertionSort l h_precond 
+  [g0] insertionSort_result_sorted_equiv: example store check ok
+  [g1] insertionSort_result_sorted_equiv: typecheck pass
+  [g2] insertionSort_result_sorted_equiv: eval pass (insertionSort [] = [])
+  [g3] insertionSort_result_sorted_equiv: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h_precond : insertionSort_precond l),
+    List.Pairwise (· ≤ ·) (insertionSort l h
+  [gen] round 2: 0 proved
+  [gen] round 3 produced 5 safe specs
+  [g0] insertionSort_empty: example store check ok
+  [g1] insertionSort_empty: typecheck pass
+  [g2] insertionSort_empty: eval pass (insertionSort [] = [])
+  [g3] insertionSort_empty: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (h : insertionSort_precond []), insertionSort [] h = []
+  [g0] insertionSort_length_preserved: example store check ok
+  [g1] insertionSort_length_preserved: typecheck pass
+  [g2] insertionSort_length_preserved: eval pass (insertionSort [] = [])
+  [g3] insertionSort_length_preserved: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h : insertionSort_precond l),
+      (insertionSort l h).length = l.length
+  [g0] insertionSort_precond_trivial: example store check ok
+  [g1] insertionSort_precond_trivial: typecheck pass
+  [g2] insertionSort_precond_trivial: eval pass (insertionSort [] = [])
+  [g3] insertionSort_precond_trivial: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int), insertionSort_precond l
+  [g0] insertionSort_singleton: example store check ok
+  [g1] insertionSort_singleton: typecheck pass
+  [g2] insertionSort_singleton: eval pass (insertionSort [] = [])
+  [g3] insertionSort_singleton: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (x : Int) (h : insertionSort_precond [x]), insertionSort [x] h = [x]
+  [g0] insertionSort_returns_list: example store check ok
+  [g1] insertionSort_returns_list: typecheck pass
+  [g2] insertionSort_returns_list: eval pass (insertionSort [] = [])
+  [g3] insertionSort_returns_list: vacuity FAIL (accepts all 1 wrong outputs)
+         stmt: ∀ (l : List Int) (h : insertionSort_precond l),
+      ∃ (result : List Int), insertionSort l h = res
+  [gen] round 3: 0 proved
+  [refine] entered, verbose=True, 1 proved specs
+  [refine] no gate0 flags
+  [refine] starting refinement, 1 proved specs
+  [refine] generating mutants...
+  mutants: 34 generated, 10 compile
+  [refine] mutant gen took 16.9s
+  [refine] running perturbation pre-check...
+  [refine] perturbation: 0 checks
+  [refine] perturbation took 1.6s
+  [refine] starting mutation loop...
+
+  [mut] === iteration 1/5 ===
+  [mut] 10 compilable mutants to check
+  [mut] mutant 0 (<=): equivalent or non-diverging, skipped
+  [mut] mutant 1 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 2 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 3 (drop_head): equivalent or non-diverging, skipped
+  [mut] mutant 4 (dup_head): equivalent or non-diverging, skipped
+  [mut] mutant 5 (dup_head): equivalent or non-diverging, skipped
+  [mut] mutant 6 (empty_singleton): equivalent or non-diverging, skipped
+  [mut] mutant 7 (swap_arms_0_1): equivalent or non-diverging, skipped
+  [mut] mutant 8 (negate_cond): equivalent or non-diverging, skipped
+  [mut] mutant 9 (boundary_≤_<): equivalent or non-diverging, skipped
+  [mut] certify+check: 0 live pairs (0.3s)
+  [mut] no live pairs, tier 1 converged
+  [refine] mutation loop took 0.3s
+  [refine] running spec mutation check...
+  [refine] IronSpec ASC analysis...
+  [asc] insertElement_length: WARN — conclusion does not reference insertionSort (possible precondition restatement)
+  [refine] starting tier 2 (adversarial, body-locked)...
+  [adv] round 1/3
+  [adv] round 1: spec satisfaction FAIL on insertElement_length
+  [adv] round 2/3
+  [adv] round 2: spec satisfaction FAIL on insertElement_length
+  [adv] round 3/3
+  [adv] round 3: spec satisfaction FAIL on insertElement_length
+  [refine] tier 2 took 18.6s
+  [refine] starting tier 3 (entailment)...
+  [refine] tier 3 took 8.3s
+  [pc] insertElement_length: post_completeness=n/a (0/0)
+  [debug] uniqueness inputs: 5 test inputs
+
+--- verina_advanced_17 ---
+  generated:  16
+  survived:   1 (1 kernel-proved, 0 validated)
+  rejected:   15
+  failure breakdown: 5 typecheck, 0 eval, 10 vacuity
+  soundness:  0.06
+  recall:     0.00
+  precision:  1.00
+  clarity:    0.877
+  uniqueness: 1.00
+  admissible: True
+  func_correct: 0.00 (0/1)
+  spec_coverage: 0.00 (0/2)
+  llm calls:  27
+  lean calls: 307
+    kernel-proved        [llm-gen-with-proof]  insertElement_length: (insertElement x l).length = l.length + 1
+below best (1 vs 4 from run_4)

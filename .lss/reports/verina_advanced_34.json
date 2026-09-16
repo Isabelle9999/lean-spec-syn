@@ -1,0 +1,173 @@
+{
+  "name": "verina_advanced_34",
+  "generated_count": 18,
+  "proved_count": 16,
+  "validated_count": 0,
+  "rejected_count": 2,
+  "soundness": 0.8888888888888888,
+  "precision": 1.0,
+  "avg_clarity": 0.6315381468858021,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "[10, 9, 2, 5, 3, 7, 101, 18]"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 49,
+  "lean_calls": 583,
+  "elapsed_seconds": 1327.226734638214,
+  "specs": [
+    {
+      "name": "longestIncreasingSubsequence_empty",
+      "stmt": "\u2200 (h_precond : longestIncreasingSubsequence_precond []),\n    longestIncreasingSubsequence [] h_precond = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6521739130434783
+    },
+    {
+      "name": "longestIncreasingSubsequence_singleton",
+      "stmt": "\u2200 (x : Int) (h_precond : longestIncreasingSubsequence_precond [x]),\n    longestIncreasingSubsequence [x] h_precond = 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6276150627615062
+    },
+    {
+      "name": "longestIncreasingSubsequence_nonneg",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestIncreasingSubsequence_precond nums),\n    longestIncreasingSubsequence nums h_precond = 0",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6198347107438017
+    },
+    {
+      "name": "longestIncreasingSubsequence_le_length",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestIncreasingSubsequence_precond nums),\n    longestIncreasingSubsequence nums h_precond = Int.ofNat nums.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "longestIncreasingSubsequence_pos_of_nonempty",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestIncreasingSubsequence_precond nums),\n    nums \u2260 [] \u2192\n    longestIncreasingSubsequence nums h_precond = 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "longestIncreasingSubsequence_result_is_valid_subseq_len",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestIncreasingSubsequence_precond nums),\n    let allSubseq := (nums.foldl fun acc x == acc ++ acc.map (fun sub => x :: sub)) [[]] |>.map List.reverse\n    let increasingSubseqLens := allSubseq.filter (fun l => List.Pairwise (\u00b7 = \u00b7) l) |>.map (\u00b7.length)\n    increasingSubseqLens.contains (longestIncreasingSubsequence nums h_precond)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.4398826979472141
+    },
+    {
+      "name": "longestIncreasingSubsequence_is_maximum",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestIncreasingSubsequence_precond nums),\n    let allSubseq := (nums.foldl fun acc x == acc ++ acc.map (fun sub => x :: sub)) [[]] |>.map List.reverse\n    let increasingSubseqLens := allSubseq.filter (fun l => List.Pairwise (\u00b7 = \u00b7) l) |>.map (\u00b7.length)\n    increasingSubseqLens.all (\u00b7 = longestIncreasingSubsequence nums h_precond)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.4322766570605187
+    },
+    {
+      "name": "longestIncreasingSubsequence_monotone_length",
+      "stmt": "\u2200 (nums : List Int) (x : Int) (h1 : longestIncreasingSubsequence_precond nums)\n      (h2 : longestIncreasingSubsequence_precond (nums ++ [x])),\n    longestIncreasingSubsequence nums h1 = longestIncreasingSubsequence (nums ++ [x]) h2",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5338078291814947
+    },
+    {
+      "name": "longestIncreasingSubsequence_append_le",
+      "stmt": "\u2200 (nums : List Int) (x : Int) (h1 : longestIncreasingSubsequence_precond nums)\n      (h2 : longestIncreasingSubsequence_precond (nums ++ [x])),\n    longestIncreasingSubsequence (nums ++ [x]) h2 = longestIncreasingSubsequence nums h1 + 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5226480836236934
+    },
+    {
+      "name": "longestIncreasingSubsequence_postcond_first",
+      "stmt": "= (nums.foldl fun acc x => acc ++ acc.map (fun sub => x :: sub)) [[]] |>.map List.reverse; let increasingSubseqLens",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.7142857142857143
+    },
+    {
+      "name": "longestIncreasingSubsequence_postcond_second",
+      "stmt": "theorem longestIncreasingSubsequence_postcond_second : \u2200 (nums : List Int) (h_precond : longestIncreasingSubsequence_precond nums), (longestIncreasingSubsequence_postcond nums (longestIncreasingSubsequence nums h_precond) h_precond).2",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.5905511811023623
+    },
+    {
+      "name": "longestIncreasingSubsequence_meets_postcond",
+      "stmt": "\u2200 (args : List Int) (h : longestIncreasingSubsequence_precond args),\n    longestIncreasingSubsequence_postcond args (longestIncreasingSubsequence args h) h",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "lis_single_element",
+      "stmt": "longestIncreasingSubsequence [x] h = 1",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "lis_lower_bound",
+      "stmt": "longestIncreasingSubsequence l h \u2265 1",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "lis_upper_bound",
+      "stmt": "longestIncreasingSubsequence l h \u2264 l.length",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.9090909090909091
+    },
+    {
+      "name": "longestIncreasingSubsequence_postcond_second",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestIncreasingSubsequence_precond nums),\n    longestIncreasingSubsequence nums h_precond = 0 \u2227\n    (nums = [] \u2192 longestIncreasingSubsequence nums h_precond = 0)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5514705882352942
+    },
+    {
+      "name": "longestIncreasingSubsequence_postcond_first",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestIncreasingSubsequence_precond nums), longestIncreasingSubsequence_postcond nums (longestIncreasingSubsequence nums h_precond) h_precond",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.6122448979591837
+    },
+    {
+      "name": "longestIncreasingSubsequence_postcond_second",
+      "stmt": "\u2200 (nums : List Int) (h_precond : longestIncreasingSubsequence_precond nums),\n    longestIncreasingSubsequence nums h_precond = 0 \u2227\n    longestIncreasingSubsequence nums h_precond = Int.ofNat nums.length",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.570342205323194
+    }
+  ],
+  "functional_correctness": {
+    "matched": 2,
+    "total_proved": 16,
+    "score": 0.125,
+    "matches": [
+      {
+        "generated": "longestIncreasingSubsequence_result_is_valid_subseq_len",
+        "ground_truth": "let allSubseq := (nums.foldl fun acc x => acc ++ acc.map (fun sub => x :: sub)) ",
+        "method": "kw_overlap"
+      },
+      {
+        "generated": "longestIncreasingSubsequence_is_maximum",
+        "ground_truth": "let allSubseq := (nums.foldl fun acc x => acc ++ acc.map (fun sub => x :: sub)) ",
+        "method": "kw_overlap"
+      }
+    ]
+  },
+  "spec_coverage": {
+    "covered": 1,
+    "total_ground_truth": 2,
+    "score": 0.5,
+    "covered_specs": [
+      "let allSubseq := (nums.foldl fun acc x => acc ++ acc.map (fun sub => x :: sub)) "
+    ]
+  }
+}

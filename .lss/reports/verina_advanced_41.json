@@ -1,0 +1,132 @@
+{
+  "name": "verina_advanced_41",
+  "generated_count": 14,
+  "proved_count": 12,
+  "validated_count": 0,
+  "rejected_count": 2,
+  "soundness": 0.8571428571428571,
+  "precision": 1.0,
+  "avg_clarity": 0.5787091249592938,
+  "impl_independence": null,
+  "avg_uniqueness": 1.0,
+  "admissibility": {
+    "admissible": true,
+    "witness_input": "3 2 1 2 1"
+  },
+  "convergence_iterations": 0,
+  "llm_calls": 38,
+  "lean_calls": 403,
+  "elapsed_seconds": 297.2698051929474,
+  "specs": [
+    {
+      "name": "maxOfThree_equal_args",
+      "stmt": "\u2200 (a : Int) (h_precond : maxOfThree_precond a a a),\n    maxOfThree a a a h_precond = a",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5976095617529881
+    },
+    {
+      "name": "maxOfThree_first_largest",
+      "stmt": "\u2200 (a b c : Int) (h_precond : maxOfThree_precond a b c),\n    a == b \u2192 a >= c \u2192 maxOfThree a b c h_precond = a",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5338078291814947
+    },
+    {
+      "name": "maxOfThree_result_is_input",
+      "stmt": "\u2200 (a b c : Int) (h_precond : maxOfThree_precond a b c),\n    maxOfThree a b c h_precond = a \u2227 maxOfThree a b c h_precond = b \u2228 maxOfThree a b c h_precond = c",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.49180327868852464
+    },
+    {
+      "name": "maxOfThree_ge_a",
+      "stmt": "\u2200 (a b c : Int) (h_precond : maxOfThree_precond a b c),\n    maxOfThree a b c h_precond == a",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5836575875486382
+    },
+    {
+      "name": "maxOfThree_ge_all",
+      "stmt": "\u2200 (a b c : Int) (h_precond : maxOfThree_precond a b c),\n    maxOfThree a b c h_precond == a \u2227 maxOfThree a b c h_precond >= b \u2227 maxOfThree a b c h_precond >= c",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.49180327868852464
+    },
+    {
+      "name": "maxOfThree_mono_a",
+      "stmt": "\u2200 (a a' b c : Int) (h_precond : maxOfThree_precond a b c)\n    (h_precond' : maxOfThree_precond a' b c),\n    a == a' \u2192 maxOfThree a b c h_precond <= maxOfThree a' b c h_precond'",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.49668874172185423
+    },
+    {
+      "name": "maxOfThree_eq_max",
+      "stmt": "\u2200 (a b c : Int) (h_precond : maxOfThree_precond a b c),\n    maxOfThree a b c h_precond = max a (max b c)",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5576208178438662
+    },
+    {
+      "name": "maxOfThree_idempotent",
+      "stmt": "\u2200 (a b c : Int) (h_precond : maxOfThree_precond a b c)\n    (h_precond2 : maxOfThree_precond (maxOfThree a b c h_precond) (maxOfThree a b c h_precond) (maxOfThree a b c h_precond)),\n    maxOfThree (maxOfThree a b c h_precond) (maxOfThree a b c h_precond) (maxOfThree a b c h_precond) h_precond2\n    = maxOfThree a b c h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.41782729805013924
+    },
+    {
+      "name": "maxOfThree_meets_postcond",
+      "stmt": "\u2200 (a b c : Int) (h_precond : maxOfThree_precond a b c),\n    maxOfThree_postcond a b c (maxOfThree a b c h_precond) h_precond",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.5639097744360902
+    },
+    {
+      "name": "maxOfThree_ignores_first",
+      "stmt": "maxOfThree_precond a b c) : maxOfThree a b c h_precond = max b c \u2228 maxOfThree a b c h_precond = a",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.6944444444444444
+    },
+    {
+      "name": "maxOfThree_second_component",
+      "stmt": "(maxOfThree a b c (by trivial)) = max a (max b c)",
+      "status": "proved",
+      "method": "rfl (mathlib)",
+      "clarity_score": 0.8064516129032259
+    },
+    {
+      "name": "maxOfThree_first_ge_second",
+      "stmt": "maxOfThree_precond a b c) : maxOfThree a b c h_precond \u2265 b",
+      "status": "rejected",
+      "method": "",
+      "clarity_score": 0.8064516129032259
+    },
+    {
+      "name": "maxOfThree_equal_when_equal",
+      "stmt": "maxOfThree a b b trivial = maxOfThree a b b trivial",
+      "status": "proved",
+      "method": "rfl",
+      "clarity_score": 0.819672131147541
+    },
+    {
+      "name": "maxOfThree_first_ge_second",
+      "stmt": "\u2200 (a b c : Int) (h_precond : maxOfThree_precond a b c), maxOfThree a b c h_precond \u2265 b",
+      "status": "proved",
+      "method": "intro x; induction x <;> simp [maxOfThree, maxOfThree_precond, maxOfThree_postcond, *] <;> omega",
+      "clarity_score": 0.5836575875486382
+    }
+  ],
+  "functional_correctness": {
+    "matched": 0,
+    "total_proved": 12,
+    "score": 0.0,
+    "matches": []
+  },
+  "spec_coverage": {
+    "covered": 0,
+    "total_ground_truth": 2,
+    "score": 0.0,
+    "covered_specs": []
+  }
+}
