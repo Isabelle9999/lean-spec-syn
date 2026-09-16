@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 sys.path.insert(0, "."); sys.stdout.reconfigure(encoding="utf-8")
 os.environ.setdefault("ANTHROPIC_API_KEY",
     open("/mnt/c/Users/User/projects/anthropic_api.txt").read().strip())

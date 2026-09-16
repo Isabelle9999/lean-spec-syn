@@ -1,4 +1,7 @@
-import subprocess, sys, os, time
+import subprocess
+import sys
+import os
+import time
 sys.stdout.reconfigure(encoding="utf-8")
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

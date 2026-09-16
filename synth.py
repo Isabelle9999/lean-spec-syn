@@ -4,7 +4,7 @@ import os
 import time
 import hashlib
 import anthropic
-from lean import (_run_lean, _errors, run_in_project, classify_function, MutationEngine, Cache,
+from lean import (_errors, run_in_project, classify_function, MutationEngine, Cache,
                   ProofResult, TACTICS, SpecMutator, _find_def_in_text,
                   _witnesses_for_type, _diverse_tuples, _parse_struct_defs)
 from strategies import generate_from_examples, generate_from_negatives, generate_with_proof
@@ -263,8 +263,8 @@ class LLMClient:
 
                 if output_props:
                     prompt += (
-                        f"\nThis function has a known postcondition. "
-                        f"Focus on these OUTPUT properties (these are about what the function RETURNS):\n"
+                        "\nThis function has a known postcondition. "
+                        "Focus on these OUTPUT properties (these are about what the function RETURNS):\n"
                     )
                     for i, prop in enumerate(output_props, 1):
                         prompt += f"  {i}. {prop}\n"
@@ -575,7 +575,9 @@ class LLMClient:
 
     def _retrieve_mathlib_examples(self, lean_code, func_name):
         """retrieve similar mathlib theorems via loogle + leansearch apis."""
-        import urllib.request, urllib.parse, json as _json
+        import urllib.request
+        import urllib.parse
+        import json as _json
         results = []
 
         args, ret_type = _parse_signature(lean_code, func_name) if func_name else (None, None)
@@ -638,7 +640,8 @@ class LLMClient:
 
     def _retrieve_similar_proved_specs(self, func_name, lean_code, max_results=5):
         """SpecSyn-style: find proved specs from previous runs for similar functions."""
-        import os, glob
+        import os
+        import glob
         similar = []
         name_words = set(re.findall(r'[a-z]+', func_name.lower()))
         run_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".lss", "runs")
@@ -1883,7 +1886,7 @@ def run_adversarial_tier(specs, lean_code, func_name, lean_checker, llm, example
                          "mutant": f"proved ≠ {func_name}({wit})"}
                 elif wit is False:  # tool limitation: signature unparsed or unsupported type
                     if verbose:
-                        print(f"  [adv] divergence check unavailable: signature unparsed or unsupported type")
+                        print("  [adv] divergence check unavailable: signature unparsed or unsupported type")
                     prev_failures.append(adv_body[:200] + "\n-- divergence check unavailable")
                     continue
                 # wit is None: budget exhausted, fall through to "if not diverges"
@@ -1960,7 +1963,7 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
                         print(f"  [refine] {spec['name']}: strengthened")
                     break
     elif verbose:
-        print(f"  [refine] no gate0 flags")
+        print("  [refine] no gate0 flags")
 
     if verbose:
         print(f"  [refine] starting refinement, {len(proved)} proved specs")
@@ -1976,7 +1979,7 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
 
         # fix 1: generate mutants first — skip perturbation if none compile
         if verbose:
-            print(f"  [refine] generating mutants...")
+            print("  [refine] generating mutants...")
         t_mut = time.time()
         all_mutants = engine.generate_mutants(lean_code, func_name, llm=llm,
                                               project_dir=project_dir, func_source=func_source)
@@ -1988,11 +1991,11 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
 
         if not compilable:
             if verbose:
-                print(f"  [refine] no compilable mutants, skipping tier 1")
+                print("  [refine] no compilable mutants, skipping tier 1")
         else:
             # fix 2: perturbation in batches of 10 (only when mutants exist)
             if verbose:
-                print(f"  [refine] running perturbation pre-check...")
+                print("  [refine] running perturbation pre-check...")
             t_pert = time.time()
             perturbation_checks = []
             for inp in test_inputs:
@@ -2083,7 +2086,7 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
 
             # tier 1: loop until no certified mutant is accepted by any spec
             if verbose:
-                print(f"  [refine] starting mutation loop...")
+                print("  [refine] starting mutation loop...")
             t_tier1 = time.time()
             # deduplicate proved specs by statement
             seen_stmts = set()
@@ -2150,7 +2153,7 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
                     print(f"  [mut] certify+check: {len(ml_checks)} live pairs ({time.time()-t_step:.1f}s)")
                 if not ml_checks:
                     if verbose:
-                        print(f"  [mut] no live pairs, tier 1 converged")
+                        print("  [mut] no live pairs, tier 1 converged")
                     break
                 # mathlib confirmation - one call per mutant
                 t_step = time.time()
@@ -2215,7 +2218,7 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
                     print(f"  [mut] mathlib confirm: {confirmed_count} confirmed ({time.time()-t_step:.1f}s)")
                 if not confirmed_count:
                     if verbose:
-                        print(f"  [mut] no confirmed weaknesses after mathlib, tier 1 converged")
+                        print("  [mut] no confirmed weaknesses after mathlib, tier 1 converged")
                     break
                 # batch strengthen queued specs
                 t_step = time.time()
@@ -2255,7 +2258,7 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
 
         # spec-mutator: flag unnecessarily tight operators in proved specs
         if verbose:
-            print(f"  [refine] running spec mutation check...")
+            print("  [refine] running spec mutation check...")
         sm = SpecMutator()
         proved_specs = [s for s in proved if s["status"] == "proved"]
         if proved_specs:
@@ -2266,7 +2269,7 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
 
         # === IronSpec Automatic Sanity Checking ===
         if verbose:
-            print(f"  [refine] IronSpec ASC analysis...")
+            print("  [refine] IronSpec ASC analysis...")
         for spec in list(proved):
             stmt = spec["stmt"]
 
@@ -2320,7 +2323,7 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
         tier2_found = False
         if max_tier >= 2:
             if verbose:
-                print(f"  [refine] starting tier 2 (adversarial, body-locked)...")
+                print("  [refine] starting tier 2 (adversarial, body-locked)...")
             t_tier2 = time.time()
 
             adv_result = run_adversarial_tier(
@@ -2361,7 +2364,7 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
 
         if max_tier >= 3:
             if verbose:
-                print(f"  [refine] starting tier 3 (entailment)...")
+                print("  [refine] starting tier 3 (entailment)...")
             t_tier3 = time.time()
             for spec in proved:
                 candidate = llm.propose_stronger(spec["stmt"], lean_code)
@@ -2603,11 +2606,11 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
                     f"A Lean 4 function with this signature:\n"
                     f"  def {fn} {sig_str}\n\n"
                     f"Observed behavior:\n" + "\n".join(io_pairs) + "\n\n"
-                    f"Write 10 theorems about the pattern in this input-output behavior.\n"
-                    f"Do NOT reference internal implementation details.\n"
-                    f"Focus on: bounds, base cases, monotonicity, relationship between input size and output.\n"
-                    f"Format: theorem name : ∀ (args), statement := sorry\n"
-                    f"Return only a ```lean code block."
+                    "Write 10 theorems about the pattern in this input-output behavior.\n"
+                    "Do NOT reference internal implementation details.\n"
+                    "Focus on: bounds, base cases, monotonicity, relationship between input size and output.\n"
+                    "Format: theorem name : ∀ (args), statement := sorry\n"
+                    "Return only a ```lean code block."
                 )
                 behavior_specs = llm.generate_specs_raw(behavior_prompt)
                 if behavior_specs and verbose:

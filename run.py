@@ -1,4 +1,4 @@
-import sys, os; sys.stdout.reconfigure(encoding="utf-8")
+import sys; import os; sys.stdout.reconfigure(encoding="utf-8")
 os.makedirs(".lss/runs", exist_ok=True)
 _existing = [f for f in os.listdir(".lss/runs") if f.startswith("run_")]
 _run_id = len(_existing) + 1
@@ -236,8 +236,8 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
               + (f" not_matchable={sc_nm}" if sc_nm else "")
               + (f" skipped={sc_skip}" if sc_skip else ""))
     else:
-        print(f"  func_correct: - (no ground truth)")
-        print(f"  spec_coverage: - (no ground truth)")
+        print("  func_correct: - (no ground truth)")
+        print("  spec_coverage: - (no ground truth)")
     print(f"  llm calls:  {llm_calls_count}")
     print(f"  lean calls: {lean_calls_count}")
     for s in survived:
@@ -258,7 +258,7 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
         if n_blocked:
             print(f"  blocked by divergence: {n_blocked} specs")
     else:
-        print(f"  divergent: none detected")
+        print("  divergent: none detected")
 
     _fn = bm.get("func_name") or _func_name(bm["lean_code"])
     _proved = [s for s in (specs or []) if s.get('status') in ('proved', 'validated')]

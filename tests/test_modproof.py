@@ -1,4 +1,5 @@
-import os, sys
+import os
+import sys
 sys.path.insert(0, "."); sys.stdout.reconfigure(encoding="utf-8")
 from lean import run_in_project
 

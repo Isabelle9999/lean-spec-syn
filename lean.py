@@ -496,11 +496,11 @@ class LeanChecker:
 
             tactics.extend([
                 f"intro x; simp [{names}]",
-                f"intro x; omega",
+                "intro x; omega",
             ])
 
             if eff_arity >= 2:
-                tactics.extend([f"intro a b; simp [{names}, *]", f"intro a b; omega"])
+                tactics.extend([f"intro a b; simp [{names}, *]", "intro a b; omega"])
             if eff_arity >= 3:
                 tactics.append(f"intro a b c; simp [{names}, *]")
             if eff_arity >= 4:
@@ -532,8 +532,8 @@ class LeanChecker:
         ]
         if names:
             entries += [
-                (f"fun x => by simp [{names}]", f"l1:term:fun x=>simp"),
-                (f"And.intro (by simp [{names}]) (by simp [{names}])", f"l1:term:And.intro"),
+                (f"fun x => by simp [{names}]", "l1:term:fun x=>simp"),
+                (f"And.intro (by simp [{names}]) (by simp [{names}])", "l1:term:And.intro"),
             ]
 
         env_stripped = lean_env.rstrip()

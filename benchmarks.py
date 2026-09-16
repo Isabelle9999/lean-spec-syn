@@ -1,4 +1,3 @@
-import re
 import os
 import glob as _glob
 from lean import LeanChecker, MutationEngine, _parse_struct_defs

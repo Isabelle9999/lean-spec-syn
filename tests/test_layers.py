@@ -1,4 +1,6 @@
-import os, sys, time
+import os
+import sys
+import time
 sys.path.insert(0, ".")
 sys.stdout.reconfigure(encoding="utf-8")
 

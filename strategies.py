@@ -1,5 +1,5 @@
 import re
-from lean import LeanChecker, _run_lean, _errors, run_in_project
+from lean import LeanChecker, _errors, run_in_project
 from callgraph import CallGraph
 
 

@@ -1,4 +1,6 @@
-import os, sys, inspect
+import os
+import sys
+import inspect
 sys.path.insert(0, "."); sys.stdout.reconfigure(encoding="utf-8")
 import metrics
 from lean import LeanChecker
