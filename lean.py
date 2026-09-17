@@ -6,6 +6,10 @@ import json
 import hashlib
 import time
 import difflib
+import threading as _threading
+import queue as _queue_mod
+import atexit as _atexit
+from collections import OrderedDict
 from dataclasses import dataclass
 
 LEAN = r"C:\Users\User\.elan\toolchains\leanprover--lean4---v4.32.2\bin\lean.exe"
@@ -136,11 +140,17 @@ def _build_lean_path(project_dir):
 
 
 def run_in_project(code, project_dir=None):
-    """Run lean with project dependencies (Mathlib or Aeneas).""" 
+    """Run lean with project dependencies (Mathlib or Aeneas)."""
     global _lean_call_count
     _lean_call_count += 1
     if project_dir is None:
         project_dir = _PROJECT_DIR
+    if _should_use_repl(code):
+        repl = _get_repl(project_dir)
+        if repl:
+            result = repl.run(code)
+            if result is not None:
+                return result
     return _run_in_project_lake(code, project_dir)
 
 def _run_in_project_lake(code, project_dir):
@@ -162,6 +172,183 @@ def _run_in_project_lake(code, project_dir):
             os.unlink(path)
         except OSError:
             pass
+
+
+def _should_use_repl(code):
+    """true if code has non-import content (eligible for any REPL)."""
+    for line in code.splitlines():
+        s = line.strip()
+        if s and not s.startswith('--') and not s.startswith('import '):
+            return True
+    return False
+
+
+def _extract_imports(code):
+    """split code into (import_block, cmd).
+    import_block: normalized import lines joined by newline (cache key).
+    cmd: code with import lines replaced by blank lines (preserves line numbers)."""
+    imports, cmd = [], []
+    for l in code.splitlines():
+        if l.strip().startswith('import '):
+            imports.append(l.strip())
+            cmd.append('')
+        else:
+            cmd.append(l)
+    return '\n'.join(imports), '\n'.join(cmd)
+
+
+_repls = {}           # project_dir -> LeanRepl | False
+_ENV_CACHE_CAP = 8    # max cached import envs per REPL
+
+
+class LeanRepl:
+    def __init__(self, project_dir, timeout=30):
+        self._dir = project_dir
+        self._timeout = timeout
+        self._proc = None
+        self._envs = OrderedDict()   # import_block -> env_id (LRU); -1 = known failure
+        self.restarts = 0
+
+    def _launch(self):
+        self._proc = subprocess.Popen(
+            ["lake", "exe", "repl"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, encoding="utf-8", cwd=self._dir,
+        )
+
+    def _send_raw(self, cmd_dict, timeout):
+        try:
+            self._proc.stdin.write(json.dumps(cmd_dict) + "\n\n")
+            self._proc.stdin.flush()
+        except (OSError, BrokenPipeError):
+            return None
+        q = _queue_mod.Queue()
+        proc_stdout = self._proc.stdout
+        def _r():
+            buf = []
+            try:
+                for line in proc_stdout:
+                    if not line.strip():
+                        break
+                    buf.append(line)
+                q.put(''.join(buf))
+            except Exception:
+                q.put(None)
+        _threading.Thread(target=_r, daemon=True).start()
+        try:
+            raw = q.get(timeout=timeout)
+        except _queue_mod.Empty:
+            return None
+        if not raw:
+            return None
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+
+    def _base_env_for(self, import_block):
+        """return env_id for import_block, or None on repl timeout, or -1 on import error."""
+        if import_block in self._envs:
+            self._envs.move_to_end(import_block)
+            return self._envs[import_block]
+        cmd_text = import_block if import_block else "-- base"
+        resp = self._send_raw({"cmd": cmd_text}, timeout=180)
+        if resp is None:
+            return None  # repl timeout
+        if "env" not in resp or any(m.get("severity") == "error" for m in resp.get("messages", [])):
+            self._envs[import_block] = -1   # cache so we don't retry
+            return -1
+        env_id = resp["env"]
+        if len(self._envs) >= _ENV_CACHE_CAP:
+            self._envs.popitem(last=False)  # evict LRU
+        self._envs[import_block] = env_id
+        return env_id
+
+    def start(self):
+        """start REPL process and verify it responds."""
+        try:
+            self._launch()
+        except (FileNotFoundError, OSError):
+            return False
+        resp = self._send_raw({"cmd": "-- ok"}, timeout=30)
+        if resp is None or "env" not in resp:
+            self.close()
+            return False
+        self._envs[""] = resp["env"]   # seed empty-import env
+        return True
+
+    def _fmt(self, resp):
+        msgs = resp.get("messages", [])
+        err = []
+        for m in msgs:
+            if m.get("severity") == "error":
+                p = m.get("pos", {})
+                err.append(f":{p.get('line', 0)}:{p.get('column', 0)}: error: {m.get('data', '')}")
+        if resp.get("sorries"):
+            err.append(":0:0: error: sorry found")
+        return '', '\n'.join(err), 1 if err else 0
+
+    def run(self, code):
+        """run code; return (stdout, stderr, rc) or None if unusable."""
+        if self._proc is None:
+            return None
+        import_block, cmd = _extract_imports(code)
+        env_id = self._base_env_for(import_block)
+        if env_id is None:
+            self._restart()
+            return "", ":0:0: error: lean repl timeout", 1
+        if env_id == -1:
+            return None  # import not available: let caller fall back to subprocess
+        resp = self._send_raw({"cmd": cmd, "env": env_id}, timeout=self._timeout)
+        if resp is None:
+            self._restart()
+            return "", ":0:0: error: lean repl timeout", 1
+        return self._fmt(resp)
+
+    def _restart(self):
+        self.close()
+        self.restarts += 1
+        print(f"  [repl] restart #{self.restarts}")
+        try:
+            self._launch()
+            resp = self._send_raw({"cmd": "-- ok"}, timeout=30)
+            if resp is None or "env" not in resp:
+                self.close()
+                return
+            self._envs[""] = resp["env"]
+        except Exception:
+            self._proc = None
+
+    def close(self):
+        p, self._proc = self._proc, None
+        self._envs.clear()
+        if p:
+            try: p.stdin.close()
+            except: pass
+            try: p.terminate()
+            except: pass
+            try: p.wait(timeout=3)
+            except: pass
+
+
+def _get_repl(project_dir):
+    if project_dir in _repls:
+        v = _repls[project_dir]
+        return v if v is not False else None
+    r = LeanRepl(project_dir)
+    ok = r.start()
+    _repls[project_dir] = r if ok else False
+    return r if ok else None
+
+
+def shutdown_repls():
+    for v in list(_repls.values()):
+        if v is not False:
+            v.close()
+    _repls.clear()
+
+
+_atexit.register(shutdown_repls)
 
 
 def verify_lean_path():
@@ -506,6 +693,16 @@ class LeanChecker:
             if eff_arity >= 4:
                 tactics.append(f"intro a b c d; simp [{names}, *]")
 
+            intro_n = "intro " + " ".join(["_"] * max(eff_arity, 1))
+            tactics.extend([
+                f"grind [{names}]",
+                f"intros; grind [{names}]",
+                f"simp [{names}]",
+                f"{intro_n}; simp [{names}, *]; omega",
+                f"{intro_n}; simp [{names}, *]; ring",
+                f"{intro_n}; simp [{names}, *]",
+            ])
+
         else:
             tactics.extend([
                 "intros; simp_all", "intros; omega", "intros; tauto",
@@ -567,16 +764,22 @@ class LeanChecker:
                                    error=f"env error: {combined.strip()[:200]}",
                                    mathlib_available=mathlib_ok)
 
-            # find first candidate not in error_lines, then confirm in isolation
+            # map errors to line numbers
             error_lines = set()
             for line in _errors(combined):
                 lm = re.search(r':(\d+):', line)
                 if lm:
                     error_lines.add(int(lm.group(1)))
+
+            # per-theorem ranges; stmt may span multiple lines
+            stmt_lines = theorem_stmt.count('\n') + 1
+            base = import_lines + env_line_count
             result = ProofResult(proved=False, method="", error=combined.strip()[:200],
                                  mathlib_available=mathlib_ok)
             for i, (suffix, label) in enumerate(entries):
-                if (import_lines + env_line_count + 1 + i) not in error_lines:
+                start = base + 1 + i * stmt_lines
+                end = base + (i + 1) * stmt_lines
+                if not any(start <= el <= end for el in error_lines):
                     # isolate and confirm — never proved from absence alone
                     confirm = imports + env_stripped + f"\ntheorem _conf : {theorem_stmt} := {suffix}"
                     cout, cerr, crc = run_in_project(confirm, project_dir=pdir)
@@ -585,7 +788,7 @@ class LeanChecker:
                     if crc == 0 and not _errors(ccombined) and "sorry" not in ccombined:
                         result = ProofResult(proved=True, method=label, error="",
                                              mathlib_available=mathlib_ok)
-                    break
+                        break
 
         if self._cache:
             self._cache.put_proof(cache_key, {

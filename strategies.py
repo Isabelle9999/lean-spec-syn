@@ -282,6 +282,301 @@ def generate_from_slices(lean_code, func_name, llm, lean_checker, verbose=False,
     return specs
 
 
+def generate_failure_freedom(lean_code, func_name, llm, lean_checker,
+                              verbose=False, project_dir=None, func_source=None):
+    """wp-style: scan body for arithmetic overflow, indexing, and div-by-zero sites;
+    conjoin per-site guards into P; emit ∀ args, P → ∃ r, def args = ok r.
+    processes each definition in the function family separately so aeneas-lifted
+    loop parameters are resolved from each definition's own signature.
+    precondition satisfiability check filters vacuously-true implications.
+    """
+    import os
+    import glob as _gl
+    from lean import (_find_def_in_text, _witnesses_for_type, _diverse_tuples,
+                      _parse_struct_defs, run_in_project, _errors)
+
+    UNSIGNED_BARE = {"U8", "U16", "U32", "U64", "U128", "Usize"}
+    SIGNED_BARE   = {"I8", "I16", "I32", "I64", "I128", "Isize"}
+    SUFFIX_TO_TYPE = {
+        "usize": "Usize", "u8": "U8", "u16": "U16", "u32": "U32",
+        "u64": "U64", "u128": "U128", "isize": "Isize", "i8": "I8",
+        "i16": "I16", "i32": "I32", "i64": "I64", "i128": "I128",
+    }
+
+    # locate function definition (same resolution order as generate_mutants)
+    fn_def = None
+    fn_src_text = None
+    for src in [lean_code, func_source]:
+        if not src:
+            continue
+        fn_def, _ = _find_def_in_text(src, func_name)
+        if fn_def:
+            fn_src_text = src
+            break
+    if fn_def is None and project_dir and os.path.isdir(project_dir):
+        for path in sorted(_gl.glob(
+                os.path.join(project_dir, "**", "*.lean"), recursive=True)):
+            if ".lake" in path.replace("\\", "/"):
+                continue
+            try:
+                text = open(path, encoding="utf-8").read()
+            except (OSError, UnicodeDecodeError):
+                continue
+            fn_def, _ = _find_def_in_text(text, func_name)
+            if fn_def:
+                fn_src_text = text
+                break
+    if fn_def is None:
+        if verbose:
+            print(f"  [ff] cannot locate body for {func_name!r}")
+        return []
+
+    # only process Result-returning function families
+    if "Result" not in fn_def:
+        return []
+
+    # collect the function family: top-level + all defs extending func_name with "_"
+    defs_to_scan = [(func_name, fn_def)]
+    if fn_src_text:
+        fam_pat = re.compile(r'def\s+(' + re.escape(func_name) + r'_\S+)')
+        seen: set = set()
+        for m in fam_pat.finditer(fn_src_text):
+            mname = m.group(1)
+            if mname in seen:
+                continue
+            seen.add(mname)
+            mdef, _ = _find_def_in_text(fn_src_text, mname)
+            if mdef:
+                defs_to_scan.append((mname, mdef))
+
+    # helpers independent of arg_types
+    def _bare(typ):
+        t = typ.split(".")[-1] if "." in typ else typ
+        if not t or not t.strip():
+            return ""
+        return t.split()[0]
+
+    def _lit_type(expr):
+        m = re.match(r'^\d+#(\w+)$', expr.strip())
+        return SUFFIX_TO_TYPE.get(m.group(1)) if m else None
+
+    def _is_literal(expr):
+        return bool(re.match(r'^\d+(?:#\w+)?$', expr.strip()))
+
+    def _val(expr):
+        m = re.match(r'^(\d+)(?:#\w+)?$', expr.strip())
+        return m.group(1) if m else f"{expr}.val"
+
+    arith_re = re.compile(
+        r'let\s+\w+\s*←\s*'
+        r'(\w+(?:#\w+)?)\s*'
+        r'([+\-*/%])\s*'
+        r'(\w+(?:#\w+)?)'
+    )
+    idx_re = re.compile(
+        r'let\s+\w+\s*←\s*(Array|Slice)\.index_usize\s+(\w+)\s+(\w+)'
+    )
+
+    struct_defs = _parse_struct_defs(fn_src_text or "")
+    sat_env = (lean_code or "").rstrip() + "\n"
+    # strip shared namespace prefix for readable spec names
+    ns_prefix = (func_name.split(".")[0] + ".") if "." in func_name else ""
+
+    specs = []
+
+    for def_name, def_text in defs_to_scan:
+        if "Result" not in def_text:
+            continue
+
+        # parse this definition's own parameter list
+        sig_m = re.search(r'def\s+\S+\s+(.*?)(?:\s*:=|\n\s*\|)', def_text, re.DOTALL)
+        if not sig_m:
+            continue
+        sig = sig_m.group(1)
+        arg_types = {}
+        for grp in re.findall(r'\(([^)]+)\)', sig):
+            colon = grp.find(':')
+            if colon == -1:
+                continue
+            for n in grp[:colon].split():
+                if n:
+                    arg_types[n] = grp[colon + 1:].strip()
+        if not arg_types:
+            continue
+
+        body_m = re.search(r':=(.*)', def_text, re.DOTALL)
+        if not body_m:
+            continue
+        body = body_m.group(1)
+
+        # arg_scalar uses this definition's arg_types (captured by default arg)
+        def _arg_scalar(name, _at=arg_types):
+            t = _at.get(name, "")
+            b = _bare(t)
+            return b if (b in UNSIGNED_BARE or b in SIGNED_BARE) else None
+
+        guards: list = []
+        skipped: list = []
+
+        for m in arith_re.finditer(body):
+            lhs, op, rhs = m.group(1), m.group(2), m.group(3)
+            if op in ('/', '%'):
+                if _is_literal(rhs):
+                    lit_m = re.match(r'^(\d+)', rhs)
+                    if lit_m and int(lit_m.group(1)) != 0:
+                        continue
+                if not (rhs in arg_types or lhs in arg_types):
+                    skipped.append(f"{lhs} {op} {rhs} (no func-arg operand)")
+                    continue
+                g = f"{_val(rhs)} ≠ 0"
+                if g not in guards:
+                    guards.append(g)
+                continue
+
+            typ = (_arg_scalar(lhs) or _arg_scalar(rhs)
+                   or _lit_type(lhs) or _lit_type(rhs))
+            if typ is None:
+                skipped.append(f"{lhs} {op} {rhs} (unknown type)")
+                continue
+            if not _is_literal(lhs) and lhs not in arg_types:
+                skipped.append(f"{lhs} {op} {rhs} (lhs is local)")
+                continue
+            if not _is_literal(rhs) and rhs not in arg_types:
+                skipped.append(f"{lhs} {op} {rhs} (rhs is local)")
+                continue
+
+            tmax = f"{typ}.max"
+            if typ in UNSIGNED_BARE:
+                if op == '+':
+                    g = f"{_val(lhs)} + {_val(rhs)} ≤ {tmax}"
+                elif op == '-':
+                    g = f"{_val(rhs)} ≤ {_val(lhs)}"
+                elif op == '*':
+                    g = f"{_val(lhs)} * {_val(rhs)} ≤ {tmax}"
+                else:
+                    continue
+            else:
+                tmin = f"{typ}.min"
+                if op == '+':
+                    g = (f"{tmin} ≤ {_val(lhs)} + {_val(rhs)} ∧ "
+                         f"{_val(lhs)} + {_val(rhs)} ≤ {tmax}")
+                elif op == '-':
+                    g = (f"{tmin} ≤ {_val(lhs)} - {_val(rhs)} ∧ "
+                         f"{_val(lhs)} - {_val(rhs)} ≤ {tmax}")
+                elif op == '*':
+                    g = (f"{tmin} ≤ {_val(lhs)} * {_val(rhs)} ∧ "
+                         f"{_val(lhs)} * {_val(rhs)} ≤ {tmax}")
+                else:
+                    continue
+            if g not in guards:
+                guards.append(g)
+
+        for m in idx_re.finditer(body):
+            coll, idx = m.group(2), m.group(3)
+            if idx not in arg_types:
+                skipped.append(f"index_usize {coll}[{idx}] (idx is local)")
+                continue
+            coll_type = arg_types.get(coll, "")
+            size_m = re.search(r'Array\s+\S+\s+(\d+)#usize', coll_type)
+            if size_m:
+                g = f"{_val(idx)} < {size_m.group(1)}"
+            elif coll in arg_types:
+                is_slice = "Slice" in coll_type or m.group(1) == "Slice"
+                size_fn = "Slice.len" if is_slice else "Array.size"
+                g = f"{_val(idx)} < {size_fn} {coll}"
+            else:
+                skipped.append(f"index_usize {coll}[{idx}] (coll not an arg)")
+                continue
+            if g not in guards:
+                guards.append(g)
+
+        if not guards:
+            if verbose:
+                msg = (f" ({len(skipped)} skipped: {'; '.join(skipped[:2])})"
+                       if skipped else "")
+                print(f"  [ff] {def_name!r}: no guards{msg}")
+            continue
+
+        if len(guards) == 1:
+            precond = guards[0]
+        else:
+            precond = " ∧\n    ".join(f"({g})" for g in guards)
+
+        binders = " ".join(f"({n} : {t})" for n, t in arg_types.items())
+        args_str = " ".join(arg_types.keys())
+        stmt = (f"∀ {binders},\n    {precond} →\n    ∃ r, {def_name} {args_str} = ok r")
+
+        display = def_name[len(ns_prefix):] if def_name.startswith(ns_prefix) else def_name
+        spec_name = display.replace(".", "_") + "_no_fail"
+
+        # satisfiability check: prove ∃ args, P to filter vacuous specs
+        sat_outcome = "undetermined"
+        sat_witness = None
+        n_candidates = 0
+
+        if project_dir:
+            ex_stmt = f"∃ {binders}, {precond}"
+            per_arg = [_witnesses_for_type(t, struct_defs) for t in arg_types.values()]
+            candidates = _diverse_tuples(per_arg, 12)
+            n_candidates = len(candidates)
+            sat_tacs = ["native_decide", "decide", "omega", "simp; omega"]
+
+            for tup in candidates:
+                witness_str = ", ".join(tup)
+                for tac in sat_tacs:
+                    code = (sat_env
+                            + f"theorem _ff_sat : {ex_stmt} :=\n"
+                            + f"  ⟨{witness_str}, by {tac}⟩\n")
+                    out, err, rc = run_in_project(code, project_dir=project_dir)
+                    combined = (out or "") + (err or "")
+                    if rc == 0 and not _errors(combined):
+                        sat_outcome = "satisfiable"
+                        sat_witness = witness_str
+                        break
+                if sat_outcome == "satisfiable":
+                    break
+
+            if sat_outcome != "satisfiable" and candidates:
+                names_str = " ".join(arg_types.keys())
+                for tac in ["omega", "simp; omega", "decide"]:
+                    code = (sat_env
+                            + f"theorem _ff_unsat : ¬{ex_stmt} := by\n"
+                            + f"  push_neg\n  intro {names_str}\n  {tac}\n")
+                    out, err, rc = run_in_project(code, project_dir=project_dir)
+                    combined = (out or "") + (err or "")
+                    if rc == 0 and not _errors(combined):
+                        sat_outcome = "unsatisfiable"
+                        break
+
+        if verbose:
+            print(f"  [ff] {def_name!r}: {len(guards)} guards, "
+                  f"{len(skipped)} skipped, sat={sat_outcome}")
+            if skipped:
+                print(f"       skipped: {'; '.join(skipped[:3])}")
+            if sat_outcome == "satisfiable":
+                print(f"       witness: {sat_witness}")
+            elif sat_outcome == "unsatisfiable":
+                print(f"       conflicting guards: {'; '.join(guards[:3])}")
+            elif n_candidates > 0:
+                print(f"       undetermined ({n_candidates} candidates)")
+
+        if sat_outcome == "unsatisfiable":
+            continue
+        if sat_outcome == "undetermined" and n_candidates > 0:
+            continue
+
+        specs.append({
+            "name": spec_name,
+            "stmt": stmt,
+            "status": "pending",
+            "method": None,
+            "strategy": "failure-freedom",
+            "preamble": "",
+        })
+
+    return specs
+
+
 if __name__ == "__main__":
     import sys
     sys.stdout.reconfigure(encoding="utf-8")

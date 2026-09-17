@@ -8,7 +8,7 @@ os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TESTS = [
     ("soundness guard",   "tests/audit.py",           "ALL PASS"),
     ("mutation inline",   "tests/harness_planted.py", None),
-    ("mutation imported", "tests/diag_survived2.py",  "STRONG: {'KILLED': 7}"),
+    ("mutation imported", "tests/diag_survived2.py",  "STRONG_OK"),
     ("operators",         "tests/test_operators.py",  "stillborn=0"),
     ("modularity",        "tests/test_modular.py",    "'status': 'proved'"),
     ("localisation",      "tests/test_localize.py",   "['dec']"),

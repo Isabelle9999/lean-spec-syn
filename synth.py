@@ -92,8 +92,8 @@ class LLMClient:
                 if attempt < 2:
                     time.sleep(2)
                 else:
-                    self._last_response = ""
-                    return ""
+                    print(f"  llm api error: {e}")
+                    raise
 
     def _ask_parsed(self, prompt, parser_fn):
         text = self._ask(prompt)
@@ -2663,6 +2663,19 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
                     specs.append(s)
             if verbose:
                 print(f"  [gen] total after merge+dedup: {len(specs)}")
+
+        # strategy: failure-freedom (aeneas Result functions)
+        # runs without test_inputs; final dedup handles duplicates with other strategies
+        # TODO: complexity classification can gate this strategy by complexity level
+        if func_name and "Result" in (func_source or lean_code):
+            from strategies import generate_failure_freedom
+            ff_specs = generate_failure_freedom(
+                lean_code, func_name, llm, lean_checker,
+                verbose=verbose, project_dir=project_dir, func_source=func_source)
+            if ff_specs:
+                if verbose:
+                    print(f"  [gen] failure-freedom produced {len(ff_specs)} candidates")
+                specs.extend(ff_specs)
 
     specs = validate(specs, lean_code, test_inputs, lean_checker,
                      llm=llm, example_store=example_store, func_name=func_name, verbose=verbose,

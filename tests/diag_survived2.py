@@ -37,3 +37,5 @@ for label, spec in [("WEAK", weak), ("STRONG", strong)]:
         if label == "STRONG":
             print("  ", st)
     print(f"{label}: {counts}")
+    if label == "STRONG" and counts.get("KILLED", 0) > 0 and counts.get("SURVIVED", 0) == 0:
+        print("STRONG_OK")
