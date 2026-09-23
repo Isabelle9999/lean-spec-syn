@@ -3,7 +3,9 @@ sys.path.insert(0, "."); sys.stdout.reconfigure(encoding="utf-8")
 import lean
 from lean import run_in_project, _run_in_project_lake, _should_use_repl, _get_repl
 
-L = os.path.expanduser("~/lean_v2")
+sys.path.insert(0, "..")
+import lss_config
+L = lss_config.project_dir("aeneas")
 
 cases = [
     ("plain",      "import Mathlib\ntheorem t : 1 = 1 := rfl\n"),

@@ -6,7 +6,9 @@ import lean
 from lean import LeanChecker, run_in_project, _run_in_project_lake
 from synth import LLMClient
 
-PROJ = os.path.expanduser("~/lean_v2")
+sys.path.insert(0, "..")
+import lss_config
+PROJ = lss_config.project_dir("aeneas")
 ck = LeanChecker(project_dir=PROJ)
 
 print("=== A: is try_proof fixed? ===")

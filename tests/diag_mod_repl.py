@@ -3,7 +3,9 @@ sys.path.insert(0, "."); sys.stdout.reconfigure(encoding="utf-8")
 import lean, callgraph, modularity
 from lean import LeanChecker, run_in_project, _run_in_project_lake
 
-PROJ = os.path.expanduser("~/lean_v2")
+sys.path.insert(0, "..")
+import lss_config
+PROJ = lss_config.project_dir("aeneas")
 ck = LeanChecker(project_dir=PROJ)
 
 src = "def dbl (n : Nat) : Nat := n + n\n\ndef quad (n : Nat) : Nat := dbl (dbl n)\n"

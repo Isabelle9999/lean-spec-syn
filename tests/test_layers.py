@@ -9,7 +9,9 @@ os.environ.setdefault("ANTHROPIC_API_KEY",
 
 from lean import LeanChecker
 
-PROJ = os.path.expanduser("~/lean_v2")
+sys.path.insert(0, "..")
+import lss_config
+PROJ = lss_config.project_dir("aeneas")
 ck = LeanChecker(project_dir=PROJ)
 
 env = "structure Pair where\n  first : Nat\n  second : Nat\ndef swp (p : Pair) : Pair := ⟨p.second, p.first⟩\n"

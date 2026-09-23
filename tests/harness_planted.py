@@ -4,7 +4,9 @@ sys.path.insert(0, "."); sys.stdout.reconfigure(encoding="utf-8")
 from lean import LeanChecker, MutationEngine
 from synth import LLMClient
 
-PROJ = os.path.expanduser("~/lean_v2")
+sys.path.insert(0, "..")
+import lss_config
+PROJ = lss_config.project_dir("aeneas")
 os.environ.setdefault("ANTHROPIC_API_KEY",
     open("/mnt/c/Users/User/projects/anthropic_api.txt").read().strip())
 ck = LeanChecker(project_dir=PROJ); llm = LLMClient()
