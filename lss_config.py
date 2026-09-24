@@ -37,5 +37,12 @@ def hammer_project_dir():
     return None
 
 
+def hammer_timeout():
+    for p in _cfg()["projects"].values():
+        if p.get("has_hammer"):
+            return p.get("hammer_timeout", 120)
+    return 120
+
+
 def all_projects():
     return {name: project_dir(name) for name in _cfg()["projects"]}

@@ -481,8 +481,8 @@ class LeanChecker:
             hp = _lss_config.hammer_project_dir()
             if hp and os.path.normpath(project_dir) != os.path.normpath(hp):
                 result = (False,
-                          f"LeanHammer not available in this project; "
-                          f"use lean-native ({hp})")
+                          f"hammer not available in this project; "
+                          f"hammer project: {hp}")
                 self._env_cache[key] = result
                 return result
         imports = "import Mathlib\n"
@@ -792,18 +792,17 @@ class LeanChecker:
                                     use_project=use_project, project_dir=project_dir)
 
     def try_hammer(self, lean_env, theorem_stmt, func_name=None, project_dir=None):
-        if project_dir is None:
-            project_dir = self.project_dir
-        # layer 2: hammer with 60s hard timeout; requires import Mathlib + import Hammer
-        pdir = project_dir if project_dir else (_PROJECT_DIR if os.path.isdir(_PROJECT_DIR) else None)
+        # always use the configured hammer project (aeneas); project_dir arg ignored
+        pdir = _lss_config.hammer_project_dir()
         if pdir is None:
-            return ProofResult(proved=False, method='', error='no project dir for hammer')
+            return ProofResult(proved=False, method='', error='no hammer project configured')
         hammer_ok, hammer_err = self._precheck_env(pdir, requires_hammer=True)
         if not hammer_ok:
             return ProofResult(proved=False, method='l2:skipped (hammer unavailable)',
                                error=f'hammer unavailable: {hammer_err}', hammer_available=False)
+        timeout = _lss_config.hammer_timeout()
         code = 'import Mathlib\nimport Hammer\n' + lean_env.rstrip() + '\n'
-        code += f'theorem _hammer_proof : {theorem_stmt} := by hammer'
+        code += f'theorem _hammer_proof : {theorem_stmt} := by hammer {{ disableGrind := true }}'
         fd, path = tempfile.mkstemp(suffix='.lean', dir=pdir)
         try:
             with os.fdopen(fd, 'w', encoding='utf-8') as f:
@@ -812,21 +811,26 @@ class LeanChecker:
             r = subprocess.run(
                 ['lake', 'env', 'lean', path],
                 capture_output=True, text=True, encoding='utf-8',
-                timeout=60, cwd=pdir,
+                timeout=timeout, cwd=pdir,
             )
             elapsed = time.time() - t0
             global _lean_call_count
             _lean_call_count += 1
             self.lean_calls += 1
             combined = (r.stdout or '') + (r.stderr or '')
-            ok = r.returncode == 0 and not _errors(combined)
+            # filter premise-server info lines before error check
+            filtered = '\n'.join(
+                l for l in combined.splitlines()
+                if 'unindexed premises' not in l
+            )
+            ok = r.returncode == 0 and not _errors(filtered)
             if ok:
                 return ProofResult(proved=True, method=f'l2:hammer ({elapsed:.1f}s)', error='',
                                    hammer_available=True)
             return ProofResult(proved=False, method='', error=combined.strip()[:200],
                                hammer_available=True)
         except subprocess.TimeoutExpired:
-            return ProofResult(proved=False, method='', error='timeout after 60s',
+            return ProofResult(proved=False, method='', error=f'timeout after {timeout}s',
                                hammer_available=True)
         finally:
             try:

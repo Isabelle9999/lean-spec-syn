@@ -10,3 +10,23 @@ rev = "5d08da45a405913bbee6fd544e01debf8154ac9d"
 name = "repl"
 git = "https://github.com/leanprover-community/repl"
 rev = "v4.31.0"
+
+[[require]]
+name = "«premise-selection»"
+git = "https://github.com/Isabelle9999/premise-selection.git"
+rev = "ff4eef90475dd86fa7ecb6e0eeb5656aa947ef14"
+
+[[require]]
+name = "auto"
+git = "https://github.com/Isabelle9999/lean-auto.git"
+rev = "367188d257dac0650d8e49c2aa7948669b0bc62a"
+
+[[require]]
+name = "«Duper»"
+git = "https://github.com/Isabelle9999/duper.git"
+rev = "82075d0d6f661fb74622d3eb6740a0f84055c330"
+
+[[require]]
+name = "Hammer"
+git = "https://github.com/Isabelle9999/LeanHammer.git"
+rev = "c3d6c390c3b1fe6a73d3cc6be690211050bfeecf"

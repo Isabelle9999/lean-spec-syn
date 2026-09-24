@@ -7,6 +7,10 @@ dir = "~/lss_lean/aeneas"
 lean_version = "v4.31.0"
 default = true
 env_var = "LSS_AENEAS_DIR"
+# hammer via Isabelle9999/{lean-auto,duper,LeanHammer,premise-selection}@v4.31.0-lss
+# use hammer { disableGrind := true } — grind kernel error in Lean 4.31.0
+has_hammer = true
+hammer_timeout = 120
 
 [projects."lean-native"]
 dir = "~/lss_lean/lean-native"
