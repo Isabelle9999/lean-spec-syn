@@ -50,6 +50,18 @@ sys.exit(0 if 'mathlib' in names else 1)
 
     echo "running lake build..." | tee -a "$log"
     (cd "$dir" && lake build --allow-empty 2>&1 | tee -a "$log")
+
+    if python3 -c "
+import sys, tomllib
+sys.path.insert(0, '$REPO')
+import lss_config as c
+p = c._cfg()['projects'].get('$name', {})
+sys.exit(0 if p.get('has_hammer') else 1)
+" 2>/dev/null; then
+        echo "running lake build Hammer..." | tee -a "$log"
+        (cd "$dir" && lake build Hammer 2>&1 | tee -a "$log")
+    fi
+
     echo "=== $name done ===" | tee -a "$log"
 }
 

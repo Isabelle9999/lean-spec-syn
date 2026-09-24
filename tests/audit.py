@@ -33,12 +33,13 @@ check("FALSE: 0 = 1",            ck.try_proof("", "(0 : Nat) = 1", project_dir=A
 check("FALSE: ∀ l, l.length = 0", ck.try_proof("", "∀ (l : List Nat), l.length = 0", project_dir=AENEAS).proved, False)
 
 print("\n=== 2. try_hammer must reject false statements ===")
-if not os.path.isdir(LEAN_NATIVE):
-    print("  skip (lean-native build dir not found)")
+_hdir = lss_config.hammer_project_dir()
+if not _hdir or not os.path.isdir(_hdir):
+    print("  skip (hammer project build dir not found)")
 else:
-    ckh = LeanChecker(project_dir=LEAN_NATIVE)
-    check("true:  n + 0 = n",  ckh.try_hammer("", "∀ (n : Nat), n + 0 = n", project_dir=LEAN_NATIVE).proved, True)
-    check("FALSE: n + 1 = n",  ckh.try_hammer("", "∀ (n : Nat), n + 1 = n", project_dir=LEAN_NATIVE).proved, False)
+    ckh = LeanChecker(project_dir=AENEAS)
+    check("true:  n + 0 = n",  ckh.try_hammer("", "∀ (n : Nat), n + 0 = n").proved, True)
+    check("FALSE: n + 1 = n",  ckh.try_hammer("", "∀ (n : Nat), n + 1 = n").proved, False)
 
 print("\n=== 3. aeneas environment must NOT yield false proofs ===")
 ckr = LeanChecker(project_dir=AENEAS)
