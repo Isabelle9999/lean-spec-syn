@@ -1,17 +1,16 @@
 import hashlib
 import json
 import os
-import subprocess
 
 _HASHES_FILE = ".lss/hashes.json"
 _CACHE_DIR = ".lss/cache"
 
 
 def lean_version():
-    from lean import LEAN
     try:
-        r = subprocess.run([LEAN, "--version"], capture_output=True, text=True, timeout=10)
-        return (r.stdout + r.stderr).strip()
+        import lss_config
+        tc = open(os.path.join(lss_config.default_project_dir(), "lean-toolchain")).read().strip()
+        return tc
     except Exception:
         return "unknown"
 

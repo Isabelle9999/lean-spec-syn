@@ -7,7 +7,9 @@ from loader import load_rust_project
 from lean import LeanChecker, MutationEngine, run_in_project
 from synth import LLMClient
 
-RUST = os.path.expanduser("~/rust_benchmarks")
+sys.path.insert(0, "..")
+import lss_config
+RUST = lss_config.project_dir("aeneas")
 bs = load_rust_project(RUST)
 bm = [b for b in bs if "swap" in b["name"]][0]
 lc = bm["lean_code"] + bm.get("lean_preamble", "")

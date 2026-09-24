@@ -6,7 +6,9 @@ os.environ.setdefault("ANTHROPIC_API_KEY",
 from synth import run_adversarial_tier, LLMClient
 from lean import LeanChecker, ExampleStore
 
-PROJ = os.path.expanduser("~/lean_v2")
+sys.path.insert(0, "..")
+import lss_config
+PROJ = lss_config.project_dir("aeneas")
 ck = LeanChecker(project_dir=PROJ); llm = LLMClient(); store = ExampleStore()
 
 code = """def clampTo (lo hi v : Nat) : Nat :=

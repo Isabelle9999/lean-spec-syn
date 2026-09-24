@@ -11,9 +11,7 @@ import queue as _queue_mod
 import atexit as _atexit
 from collections import OrderedDict
 from dataclasses import dataclass
-
-LEAN = r"C:\Users\User\.elan\toolchains\leanprover--lean4---v4.32.2\bin\lean.exe"
-_PROJECT_LEAN = r"C:\Users\User\.elan\toolchains\leanprover--lean4---v4.33.0-rc1\bin\lean.exe"
+import lss_config as _lss_config
 
 TACTICS = [
     # instant closers
@@ -100,21 +98,7 @@ class PBTResult:
 
 _lean_call_count = 0
 
-def _run_lean(code):
-    global _lean_call_count
-    _lean_call_count += 1
-    fd, path = tempfile.mkstemp(suffix=".lean")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(code)
-        r = subprocess.run([LEAN, path], capture_output=True, text=True, encoding="utf-8", timeout=60)
-        return r.stdout, r.stderr, r.returncode
-    except subprocess.TimeoutExpired:
-        return "", "timeout after 60s", 1
-    finally:
-        os.unlink(path)
-
-_PROJECT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean_project")
+_PROJECT_DIR = _lss_config.default_project_dir()
 _LEAN_PATH_CACHE = None
 
 def get_lean_calls():
@@ -460,10 +444,7 @@ class LeanChecker:
             hit = self._cache.get(code)
             if hit is not None:
                 return hit[0], hit[1]
-        if project_dir:
-            stdout, stderr, rc = run_in_project(code, project_dir=project_dir)
-        else:
-            stdout, stderr, rc = _run_lean(code)
+        stdout, stderr, rc = run_in_project(code, project_dir=project_dir or _PROJECT_DIR)
         self.lean_calls += 1
         combined = stdout + "\n" + stderr
         errs = _errors(combined)
@@ -496,6 +477,14 @@ class LeanChecker:
         key = (project_dir, requires_hammer)
         if key in self._env_cache:
             return self._env_cache[key]
+        if requires_hammer:
+            hp = _lss_config.hammer_project_dir()
+            if hp and os.path.normpath(project_dir) != os.path.normpath(hp):
+                result = (False,
+                          f"LeanHammer not available in this project; "
+                          f"use lean-native ({hp})")
+                self._env_cache[key] = result
+                return result
         imports = "import Mathlib\n"
         if requires_hammer:
             imports += "import Hammer\n"
@@ -523,10 +512,7 @@ class LeanChecker:
         if project_dir is None:
             project_dir = self.project_dir
         code = (prelude.rstrip() + "\n" if prelude else "") + f"#eval {expr}"
-        if project_dir:
-            stdout, stderr, _ = run_in_project(code, project_dir=project_dir)
-        else:
-            stdout, stderr, _ = _run_lean(code)
+        stdout, stderr, _ = run_in_project(code, project_dir=project_dir or _PROJECT_DIR)
         self.lean_calls += 1
         # lean writes pure #eval results as info messages; check both streams
         for text in (stdout, stderr):

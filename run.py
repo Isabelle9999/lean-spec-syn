@@ -15,9 +15,11 @@ builtins.print = _tee_print
 print = _tee_print
 
 import argparse
+import json
 import time
 import shutil
 import threading
+import lss_config as _lss_config
 
 from lean import LeanChecker, ExampleStore, Cache, get_lean_calls
 from synth import LLMClient, synthesize, refine, _func_name, get_llm_calls
@@ -306,6 +308,33 @@ def _ablation_table(name, variants):
         print(f"{label:<{col}}" + "".join(f"{d:>{w}}" for d in deltas))
 
 
+def _write_pins_header():
+    repo = os.path.dirname(os.path.abspath(__file__))
+    try:
+        import subprocess as _sp
+        sha = _sp.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True,
+                      cwd=repo).stdout.strip()
+        dirty = _sp.run(["git", "status", "--porcelain"], capture_output=True, text=True,
+                        cwd=repo).stdout.strip()
+        commit = sha + (" dirty" if dirty else "")
+    except Exception:
+        commit = "unknown"
+    print(f"pins: repo={commit}")
+    for name, pdir in _lss_config.all_projects().items():
+        tc = "missing"
+        tc_path = os.path.join(pdir, "lean-toolchain")
+        if os.path.exists(tc_path):
+            tc = open(tc_path).read().strip()
+        print(f"  project={name} toolchain={tc}")
+        mf_path = os.path.join(pdir, "lake-manifest.json")
+        if os.path.exists(mf_path):
+            with open(mf_path) as f:
+                mf = json.load(f)
+            for pkg in mf.get("packages", []):
+                if pkg["name"] in ("aeneas", "mathlib", "repl", "Hammer"):
+                    print(f"    {pkg['name']}={pkg.get('rev', '?')}")
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--quick", action="store_true")
@@ -321,22 +350,29 @@ def main():
     p.add_argument("--clever-path", default=r"C:\Users\User\projects\clever")
     p.add_argument("--limit", type=int)
     p.add_argument("--timeout", type=int, default=1800)
+    p.add_argument("--lean-project", type=str,
+                   default=_lss_config.project_dir("aeneas"),
+                   help="Lean project dir for synthesis and checking")
     p.add_argument("--rust-project", type=str, default=None,
                    help="Path to Aeneas-translated Rust project")
     p.add_argument("--force-full", action="store_true",
                    help="force full re-run, ignore incremental cache")
     args = p.parse_args()
 
-    rust_project_dir = os.path.abspath(args.rust_project) if args.rust_project else None
+    lean_project_dir = os.path.abspath(args.lean_project)
+    rust_project_dir = os.path.abspath(args.rust_project) if args.rust_project else lean_project_dir
+
+    _write_pins_header()
 
     cache = Cache()
     llm = LLMClient()
-    checker = LeanChecker(cache=cache, project_dir=rust_project_dir)
+    checker = LeanChecker(cache=cache, project_dir=lean_project_dir)
     store = ExampleStore()
 
     if args.rust_project:
         from loader import load_rust_project
         benches = load_rust_project(args.rust_project)
+        run_dir = rust_project_dir
         print(f"loaded {len(benches)} rust functions from {args.rust_project}")
     elif args.verina or args.clever:
         from loader import load_verina, load_clever
@@ -348,8 +384,10 @@ def main():
         if not benches:
             print("no benchmarks loaded")
             return
+        run_dir = lean_project_dir
     else:
         benches = BENCHMARKS
+        run_dir = lean_project_dir
 
     if args.bench:
         benches = [b for b in benches if b["name"] in args.bench]
@@ -371,7 +409,7 @@ def main():
         for bm in benches:
             variants = []
             for bl in baselines:
-                score, report = run_bench(bm, args, llm, checker, store, bl, project_dir=rust_project_dir, func_source=bm.get("func_source"))
+                score, report = run_bench(bm, args, llm, checker, store, bl, project_dir=run_dir, func_source=bm.get("func_source"))
                 if score is not None:
                     variants.append((bl, score, report))
             if variants:
@@ -388,7 +426,7 @@ def main():
                     continue
             n_reverified += 1
             try:
-                _, report = run_bench(bm, args, llm, checker, store, args.baseline, project_dir=rust_project_dir, func_source=bm.get("func_source"))
+                _, report = run_bench(bm, args, llm, checker, store, args.baseline, project_dir=run_dir, func_source=bm.get("func_source"))
                 if report is not None:
                     reports.append(report)
             except Exception as e:

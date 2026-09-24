@@ -1,0 +1,15 @@
+# LeanHammer and Duper have no v4.31.0 release, which is why the two projects
+# are on different toolchains. LeanHammer's premise selection calls the server
+# at leanpremise.net.
+
+[projects.aeneas]
+dir = "~/lss_lean/aeneas"
+lean_version = "v4.31.0"
+default = true
+env_var = "LSS_AENEAS_DIR"
+
+[projects."lean-native"]
+dir = "~/lss_lean/lean-native"
+lean_version = "v4.33.0"
+has_hammer = true
+env_var = "LSS_LEAN_NATIVE_DIR"

@@ -7,8 +7,10 @@ os.environ.setdefault("ANTHROPIC_API_KEY",
 from lean import LeanChecker, MutationEngine
 from synth import LLMClient
 
-LEAN_V2 = os.path.expanduser("~/lean_v2")
-RUST    = os.path.expanduser("~/rust_benchmarks")
+sys.path.insert(0, "..")
+import lss_config
+LEAN_V2 = lss_config.project_dir("aeneas")
+RUST    = lss_config.project_dir("aeneas")
 llm = LLMClient()
 
 cases = [

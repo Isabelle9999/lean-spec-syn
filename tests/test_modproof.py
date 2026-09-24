@@ -3,7 +3,9 @@ import sys
 sys.path.insert(0, "."); sys.stdout.reconfigure(encoding="utf-8")
 from lean import run_in_project
 
-PROJ = os.path.expanduser("~/lean_v2")
+sys.path.insert(0, "..")
+import lss_config
+PROJ = lss_config.project_dir("aeneas")
 env = "def quad_mabs (f : Nat → Nat) (n : Nat) : Nat := f (f n)\n"
 stmt = ("∀ (g : (n : Nat) → Nat), (∀ (n : Nat), g n = n + n) → "
         "(∀ (n : Nat), quad_mabs g n = 4 * n)")

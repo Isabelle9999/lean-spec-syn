@@ -5,7 +5,9 @@ sys.path.insert(0, "."); sys.stdout.reconfigure(encoding="utf-8")
 import metrics
 from lean import LeanChecker
 
-PROJ = os.path.expanduser("~/lean_v2")
+sys.path.insert(0, "..")
+import lss_config
+PROJ = lss_config.project_dir("aeneas")
 ck = LeanChecker(project_dir=PROJ)
 print("signature:", inspect.signature(metrics.functional_correctness), "\n")
 

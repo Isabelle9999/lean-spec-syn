@@ -1,7 +1,6 @@
-.lss/cache/
-.lss/cache.json
-.lss/hashes.json
+.lss/
 __pycache__/
+.lake/
 lean_project/
 rust_benchmarks/
 .claude/
