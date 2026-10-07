@@ -42,7 +42,10 @@ jobs:
           python -c "import callgraph, modularity, incremental, traits, divergence"
 
       - name: Pin check
-        run: python tests/test_pins.py
+        run: python tests/test_pins.py --static
+
+      - name: Manifest check
+        run: python scripts/derive_manifest.py --check
 
       - name: Test scripts are syntactically valid
         run: python -m compileall -q tests/
