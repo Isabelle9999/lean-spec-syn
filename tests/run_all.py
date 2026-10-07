@@ -6,6 +6,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 TESTS = [
+    ("events",            "tests/test_events.py",      "all ok"),
     ("pins",              "tests/test_pins.py",        "PINS OK"),
     ("lean server",       "tests/test_server.py",      "SERVER OK"),
     ("soundness guard",   "tests/audit.py",           "ALL PASS"),

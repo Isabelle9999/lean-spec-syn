@@ -24,6 +24,7 @@ import lss_config as _lss_config
 from lean import LeanChecker, ExampleStore, Cache, get_lean_calls
 import lean_server as _lean_server
 from synth import LLMClient, synthesize, refine, _func_name, get_llm_calls
+import events
 from benchmarks import BENCHMARKS, evaluate
 from metrics import (
     soundness_score, precision_score, clarity_score,
@@ -337,6 +338,7 @@ def _write_pins_header():
 
 
 def main():
+    _t_main_start = time.time()
     p = argparse.ArgumentParser()
     p.add_argument("--quick", action="store_true")
     p.add_argument("--verbose", action="store_true")
@@ -364,6 +366,15 @@ def main():
     rust_project_dir = os.path.abspath(args.rust_project) if args.rust_project else lean_project_dir
 
     _write_pins_header()
+
+    import tomllib, hashlib as _hashlib
+    try:
+        with open("lss.toml", "rb") as _f:
+            _toml_data = tomllib.load(_f)
+    except Exception:
+        _toml_data = {}
+    _cfg_obj = {"toml": _toml_data, "args": {k: v for k, v in vars(args).items() if isinstance(v, (str, int, float, bool, type(None)))}}
+    events.configure(_run_id, _cfg_obj)
 
     cache = Cache()
     llm = LLMClient()
@@ -441,6 +452,13 @@ def main():
 
     if len(reports) > 1:
         print("\n" + summary_table(reports))
+
+    _ev = events.get_stats()
+    _wall = time.time() - _t_main_start
+    print(f"events: llm_calls={_ev['llm_calls']} input={_ev['input_tokens']} "
+          f"output={_ev['output_tokens']} cached={_ev['cached_tokens']} "
+          f"usd=${_ev['usd']:.4f} lean_calls={_ev['lean_calls']} "
+          f"lean_s={_ev['lean_s']:.1f} wall_s={_wall:.1f}")
 
     for pdir, st in _lean_server.all_stats().items():
         name = os.path.basename(pdir)

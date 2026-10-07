@@ -8,6 +8,8 @@ from lean import (_errors, run_in_project, classify_function, MutationEngine, Ca
                   ProofResult, TACTICS, SpecMutator, _find_def_in_text,
                   _witnesses_for_type, _diverse_tuples, _parse_struct_defs)
 from strategies import generate_from_examples, generate_from_negatives, generate_with_proof
+import events
+import pricing
 
 def _fix_aeneas_spec(stmt):
     """Auto-fix common Aeneas syntax mistakes in LLM-generated specs."""
@@ -80,15 +82,33 @@ class LLMClient:
         self._last_prompt = prompt
         import time
         for attempt in range(3):
+            t0 = time.time()
             try:
                 r = self.c.messages.create(
                     model="claude-sonnet-4-6",
                     max_tokens=4096,
                     messages=[{"role": "user", "content": prompt}]
                 )
+                wall_s = time.time() - t0
+                u = r.usage
+                inp = getattr(u, "input_tokens", 0) or 0
+                out = getattr(u, "output_tokens", 0) or 0
+                cr = getattr(u, "cache_read_input_tokens", 0) or 0
+                cw = getattr(u, "cache_creation_input_tokens", 0) or 0
+                usage_dict = {"input_tokens": inp, "output_tokens": out,
+                              "cache_read_input_tokens": cr,
+                              "cache_creation_input_tokens": cw}
+                usd = pricing.cost_usd(r.model, usage_dict)
+                events.emit("llm", model=r.model, method=self._method_ctx,
+                            input_tokens=inp, output_tokens=out,
+                            cache_read_input_tokens=cr, cache_creation_input_tokens=cw,
+                            usd=usd, wall_s=wall_s, attempt=attempt, ok=True)
                 self._last_response = r.content[0].text
                 return self._last_response
             except Exception as e:
+                events.emit("llm", model="claude-sonnet-4-6", method=self._method_ctx,
+                            ok=False, error_class=type(e).__name__, attempt=attempt,
+                            wall_s=time.time() - t0)
                 if attempt < 2:
                     time.sleep(2)
                 else:
@@ -1376,186 +1396,196 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
         if s.get("stmt"):
             s["stmt"] = _fix_aeneas_spec(s["stmt"])
 
-    for spec_idx, spec in enumerate(specs):
-        stmt_norm = _normalize_stmt(spec["stmt"])
-        if stmt_norm in processed_stmts:
-            spec["status"] = "rejected"
-            spec["fail_gate"] = "dedup"
-            if verbose:
-                print(f"  [dedup] skipping duplicate in validate: {spec['name']}")
-            continue
-        processed_stmts.add(stmt_norm)
-        preamble = spec.get("preamble", "")
-        if preamble:
-            preamble_clean = "\n".join(
-                line for line in preamble.split("\n")
-                if not line.strip().startswith("import") and not line.strip().startswith("open")
-            )
-            if preamble_clean.strip():
-                ok_pre, errs_pre = lean_checker.typecheck(lean_code.rstrip() + "\n" + preamble_clean.strip(), project_dir=project_dir)
-                if not ok_pre:
+    with events.context(stage="validate"):
+        for spec_idx, spec in enumerate(specs):
+            with events.context(candidate_id=spec["name"]):
+                stmt_norm = _normalize_stmt(spec["stmt"])
+                if stmt_norm in processed_stmts:
+                    spec["status"] = "rejected"
+                    spec["fail_gate"] = "dedup"
                     if verbose:
-                        print(f"  [pre] {spec['name']}: preamble typecheck FAIL: {errs_pre[0][:80] if errs_pre else 'unknown'}")
-                    preamble = ""
-                else:
-                    preamble = preamble_clean
-            else:
-                preamble = ""
-        eff = lean_code.rstrip() + "\n" + preamble if preamble else lean_code
-        wrong_eff = wrong.rstrip() + "\n" + preamble if preamble else wrong
-
-        # gate 0: flag if spec is consistent with any stored negative example
-        if example_store:
-            ex = example_store.check_examples(func)
-            for neg in ex.get("negative", []):
-                const = re.sub(r':=.*', lambda m: ':= ' + neg["out"], lean_code, count=1, flags=re.DOTALL)
-                const_eff = const.rstrip() + "\n" + preamble if preamble else const
-                r = lean_checker.try_proof(const_eff, spec["stmt"], project_dir=project_dir)
-                if r.proved:
-                    spec["gate0_flag"] = True
-                    break
-        if verbose:
-            print(f"  [g0] {spec['name']}: example store check {'flagged' if spec.get('gate0_flag') else 'ok'}")
-
-        # gate 1: well-typed proposition
-        code = eff + f"\ntheorem {spec['name']} : {spec['stmt']} := sorry"
-        ok, err = lean_checker.typecheck(code, project_dir=project_dir)
-        via_mathlib = False
-        if not ok:
-            ml_full = ("import Mathlib.Data.List.Sort\nimport Mathlib.Data.List.Perm\n"
-                       "import Mathlib.Data.Nat.GCD.Basic\n" + code)
-            ok2, _ = lean_checker.typecheck_project(ml_full)
-            if ok2:
-                ok = True
-                via_mathlib = True
-                spec["_uses_mathlib"] = True
-        if not ok and llm and spec.get("_g1_retries", 0) < 1:
-            spec["_g1_retries"] = 1
-            error_msg = err[0][:200] if err else "typecheck failed"
-            fix_prompt = (
-                f"This Lean 4 theorem failed to typecheck:\n"
-                f"  theorem {spec['name']} : {spec['stmt']} := sorry\n\n"
-                f"Error message:\n  {error_msg}\n\n"
-                f"Function it is about:\n{func_source if func_source else lean_code}\n\n"
-                f"Fix the theorem statement so it typechecks. Common fixes:\n"
-                f"- wrong argument count: check the function signature\n"
-                f"- undefined name: use the exact names from the function definition\n"
-                f"- type mismatch: match the exact types in the function signature\n"
-                f"- missing precondition parameter: include (h : f_precond args) if the function has one\n\n"
-                f"Return ONLY the fixed theorem line: theorem name : fixed_statement := sorry"
-            )
-            fixed = llm._ask(fix_prompt)
-            if fixed:
-                fm = re.search(r':\s*(.*?)\s*:=', fixed)
-                if fm:
-                    spec["stmt"] = fm.group(1).strip()
-                    full_code2 = eff.rstrip() + "\n" + f"theorem {spec['name']} : {spec['stmt']} := sorry"
-                    ok3, _ = lean_checker.typecheck(full_code2, project_dir=project_dir)
-                    if ok3:
-                        ok = True
-                        if verbose:
-                            print(f"  [g1] {spec['name']}: fixed stmt typechecks")
-        if verbose:
-            if ok:
-                suffix = " (via mathlib)" if via_mathlib else ""
-                print(f"  [g1] {spec['name']}: typecheck pass{suffix}")
-            else:
-                print(f"  [g1] {spec['name']}: typecheck FAIL: {str(err)[:60]}")
-        if not ok:
-            spec["status"] = "rejected"
-            spec["fail_gate"] = "g1"
-            if verbose:
-                print(f"         stmt: {spec['stmt'][:100]}")
-            continue
-
-        # gate 2: function runs on test inputs
-        if test_inputs and func:
-            for inp in test_inputs:
-                val = lean_checker.eval_with_precond(func, inp, eff)
-                if val and "error" not in val.lower():
-                    if verbose:
-                        print(f"  [g2] {spec['name']}: eval pass ({func} {inp} = {val[:40]})")
-                    break
-            else:
-                if verbose:
-                    print(f"  [g2] {spec['name']}: eval FAIL (no input succeeded)")
-                    print(f"         stmt: {spec['stmt'][:100]}")
-                spec["status"] = "rejected"
-                spec["fail_gate"] = "g2"
-                continue
-
-        # Determine if vacuity check should be skipped (relational specs)
-        skip_vacuity = False
-        if func and spec['stmt'].count(func) >= 2:
-            # Both sides of equality reference the function — relational spec
-            skip_vacuity = True
-        # gate 3: completeness check (proof-based with input-dependent wrong implementations)
-            # Uses wrong implementations that DEPEND on input (l.reverse, l.drop 1, l ++ [0])
-            # NOT constants which satisfy trivial cases
-            # NOT #eval decide which fails for non-decidable propositions (List.Perm, Pairwise)
-            if skip_vacuity:
-                if verbose:
-                    print(f"  [g3] {spec['name']}: skipped (relational)")
-            else:
-                stmt = spec["stmt"]
-                parts = stmt.split("\u2192")
-                conclusion = parts[-1] if len(parts) > 1 else stmt
-                target_func = func
-                if func and func not in conclusion:
-                    if verbose:
-                        print(f"  [g3] {spec['name']}: skipped (no function in conclusion)")
-                else:
-                    rejects_any = False
-                    wrong_impls = _input_dependent_wrong_impls(lean_code, target_func)
-                    
-                    for wi in wrong_impls:
-                        pr_wrong = lean_checker.try_proof_batch(wi, stmt,
-                            func_name=target_func, project_dir=project_dir)
-                        if not pr_wrong.proved:
-                            rejects_any = True
+                        print(f"  [dedup] skipping duplicate in validate: {spec['name']}")
+                    events.emit("verdict", status="rejected", method="", fail_gate="dedup")
+                    continue
+                processed_stmts.add(stmt_norm)
+                preamble = spec.get("preamble", "")
+                if preamble:
+                    preamble_clean = "\n".join(
+                        line for line in preamble.split("\n")
+                        if not line.strip().startswith("import") and not line.strip().startswith("open")
+                    )
+                    if preamble_clean.strip():
+                        ok_pre, errs_pre = lean_checker.typecheck(lean_code.rstrip() + "\n" + preamble_clean.strip(), project_dir=project_dir)
+                        if not ok_pre:
                             if verbose:
-                                print(f"  [g3] {spec['name']}: completeness pass (rejects wrong impl)")
+                                print(f"  [pre] {spec['name']}: preamble typecheck FAIL: {errs_pre[0][:80] if errs_pre else 'unknown'}")
+                            preamble = ""
+                        else:
+                            preamble = preamble_clean
+                    else:
+                        preamble = ""
+                eff = lean_code.rstrip() + "\n" + preamble if preamble else lean_code
+                wrong_eff = wrong.rstrip() + "\n" + preamble if preamble else wrong
+
+                # gate 0: flag if spec is consistent with any stored negative example
+                if example_store:
+                    ex = example_store.check_examples(func)
+                    for neg in ex.get("negative", []):
+                        const = re.sub(r':=.*', lambda m: ':= ' + neg["out"], lean_code, count=1, flags=re.DOTALL)
+                        const_eff = const.rstrip() + "\n" + preamble if preamble else const
+                        r = lean_checker.try_proof(const_eff, spec["stmt"], project_dir=project_dir)
+                        if r.proved:
+                            spec["gate0_flag"] = True
                             break
-                    
-                    if not rejects_any:
-                        spec["status"] = "rejected"
-                        spec["fail_gate"] = "g3"
-                        if verbose:
-                            print(f"  [g3] {spec['name']}: vacuity FAIL (accepts all {len(wrong_impls)} wrong impls)")
-                            print(f"         stmt: {stmt[:100]}")
-                        continue
-        # gate 4: three-layer proof search
-        # layer 1: mathlib tactic portfolio
-        pr = lean_checker.try_proof(eff, spec["stmt"], func_name=func, project_dir=project_dir)
-        if pr.proved:
-            spec["status"] = "proved"
-            spec["method"] = pr.method
-            if verbose:
-                print(f"  [g4] {spec['name']}: proved (l1) by {pr.method}")
-            continue
-
-        # layer 2: hammer (60s timeout)
-        pr2 = lean_checker.try_hammer(eff, spec["stmt"], project_dir=project_dir)
-        if pr2.proved:
-            spec["status"] = "proved"
-            spec["method"] = pr2.method
-            if verbose:
-                print(f"  [g4] {spec['name']}: proved (l2) by {pr2.method}")
-            continue
-
-        # layer 3: auxiliary-lemma decomposition
-        if llm:
-            r3 = decompose_and_prove(eff, spec["stmt"], lean_checker, llm, project_dir=project_dir)
-            if r3.proved:
-                spec["status"] = "proved"
-                spec["method"] = r3.method
                 if verbose:
-                    print(f"  [g4] {spec['name']}: proved (l3) by {r3.method}")
-                continue
+                    print(f"  [g0] {spec['name']}: example store check {'flagged' if spec.get('gate0_flag') else 'ok'}")
 
-        if verbose:
-            print(f"  [g4] {spec['name']}: all layers failed, validated")
-        spec["status"] = "validated"
+                # gate 1: well-typed proposition
+                code = eff + f"\ntheorem {spec['name']} : {spec['stmt']} := sorry"
+                ok, err = lean_checker.typecheck(code, project_dir=project_dir)
+                via_mathlib = False
+                if not ok:
+                    ml_full = ("import Mathlib.Data.List.Sort\nimport Mathlib.Data.List.Perm\n"
+                               "import Mathlib.Data.Nat.GCD.Basic\n" + code)
+                    ok2, _ = lean_checker.typecheck_project(ml_full)
+                    if ok2:
+                        ok = True
+                        via_mathlib = True
+                        spec["_uses_mathlib"] = True
+                if not ok and llm and spec.get("_g1_retries", 0) < 1:
+                    spec["_g1_retries"] = 1
+                    error_msg = err[0][:200] if err else "typecheck failed"
+                    fix_prompt = (
+                        f"This Lean 4 theorem failed to typecheck:\n"
+                        f"  theorem {spec['name']} : {spec['stmt']} := sorry\n\n"
+                        f"Error message:\n  {error_msg}\n\n"
+                        f"Function it is about:\n{func_source if func_source else lean_code}\n\n"
+                        f"Fix the theorem statement so it typechecks. Common fixes:\n"
+                        f"- wrong argument count: check the function signature\n"
+                        f"- undefined name: use the exact names from the function definition\n"
+                        f"- type mismatch: match the exact types in the function signature\n"
+                        f"- missing precondition parameter: include (h : f_precond args) if the function has one\n\n"
+                        f"Return ONLY the fixed theorem line: theorem name : fixed_statement := sorry"
+                    )
+                    fixed = llm._ask(fix_prompt)
+                    if fixed:
+                        fm = re.search(r':\s*(.*?)\s*:=', fixed)
+                        if fm:
+                            spec["stmt"] = fm.group(1).strip()
+                            full_code2 = eff.rstrip() + "\n" + f"theorem {spec['name']} : {spec['stmt']} := sorry"
+                            ok3, _ = lean_checker.typecheck(full_code2, project_dir=project_dir)
+                            if ok3:
+                                ok = True
+                                if verbose:
+                                    print(f"  [g1] {spec['name']}: fixed stmt typechecks")
+                if verbose:
+                    if ok:
+                        suffix = " (via mathlib)" if via_mathlib else ""
+                        print(f"  [g1] {spec['name']}: typecheck pass{suffix}")
+                    else:
+                        print(f"  [g1] {spec['name']}: typecheck FAIL: {str(err)[:60]}")
+                if not ok:
+                    spec["status"] = "rejected"
+                    spec["fail_gate"] = "g1"
+                    if verbose:
+                        print(f"         stmt: {spec['stmt'][:100]}")
+                    events.emit("verdict", status="rejected", method="", fail_gate="g1")
+                    continue
+
+                # gate 2: function runs on test inputs
+                if test_inputs and func:
+                    for inp in test_inputs:
+                        val = lean_checker.eval_with_precond(func, inp, eff)
+                        if val and "error" not in val.lower():
+                            if verbose:
+                                print(f"  [g2] {spec['name']}: eval pass ({func} {inp} = {val[:40]})")
+                            break
+                    else:
+                        if verbose:
+                            print(f"  [g2] {spec['name']}: eval FAIL (no input succeeded)")
+                            print(f"         stmt: {spec['stmt'][:100]}")
+                        spec["status"] = "rejected"
+                        spec["fail_gate"] = "g2"
+                        events.emit("verdict", status="rejected", method="", fail_gate="g2")
+                        continue
+
+                # Determine if vacuity check should be skipped (relational specs)
+                skip_vacuity = False
+                if func and spec['stmt'].count(func) >= 2:
+                    # Both sides of equality reference the function — relational spec
+                    skip_vacuity = True
+                # gate 3: completeness check (proof-based with input-dependent wrong implementations)
+                    # Uses wrong implementations that DEPEND on input (l.reverse, l.drop 1, l ++ [0])
+                    # NOT constants which satisfy trivial cases
+                    # NOT #eval decide which fails for non-decidable propositions (List.Perm, Pairwise)
+                    if skip_vacuity:
+                        if verbose:
+                            print(f"  [g3] {spec['name']}: skipped (relational)")
+                    else:
+                        stmt = spec["stmt"]
+                        parts = stmt.split("\u2192")
+                        conclusion = parts[-1] if len(parts) > 1 else stmt
+                        target_func = func
+                        if func and func not in conclusion:
+                            if verbose:
+                                print(f"  [g3] {spec['name']}: skipped (no function in conclusion)")
+                        else:
+                            rejects_any = False
+                            wrong_impls = _input_dependent_wrong_impls(lean_code, target_func)
+                    
+                            for wi in wrong_impls:
+                                pr_wrong = lean_checker.try_proof_batch(wi, stmt,
+                                    func_name=target_func, project_dir=project_dir)
+                                if not pr_wrong.proved:
+                                    rejects_any = True
+                                    if verbose:
+                                        print(f"  [g3] {spec['name']}: completeness pass (rejects wrong impl)")
+                                    break
+                    
+                            if not rejects_any:
+                                spec["status"] = "rejected"
+                                spec["fail_gate"] = "g3"
+                                if verbose:
+                                    print(f"  [g3] {spec['name']}: vacuity FAIL (accepts all {len(wrong_impls)} wrong impls)")
+                                    print(f"         stmt: {stmt[:100]}")
+                                events.emit("verdict", status="rejected", method="", fail_gate="g3")
+                                continue
+                # gate 4: three-layer proof search
+                # layer 1: mathlib tactic portfolio
+                pr = lean_checker.try_proof(eff, spec["stmt"], func_name=func, project_dir=project_dir)
+                if pr.proved:
+                    spec["status"] = "proved"
+                    spec["method"] = pr.method
+                    if verbose:
+                        print(f"  [g4] {spec['name']}: proved (l1) by {pr.method}")
+                    events.emit("verdict", status="proved", method=pr.method)
+                    continue
+
+                # layer 2: hammer (60s timeout)
+                pr2 = lean_checker.try_hammer(eff, spec["stmt"], project_dir=project_dir)
+                if pr2.proved:
+                    spec["status"] = "proved"
+                    spec["method"] = pr2.method
+                    if verbose:
+                        print(f"  [g4] {spec['name']}: proved (l2) by {pr2.method}")
+                    events.emit("verdict", status="proved", method=pr2.method)
+                    continue
+
+                # layer 3: auxiliary-lemma decomposition
+                if llm:
+                    r3 = decompose_and_prove(eff, spec["stmt"], lean_checker, llm, project_dir=project_dir)
+                    if r3.proved:
+                        spec["status"] = "proved"
+                        spec["method"] = r3.method
+                        if verbose:
+                            print(f"  [g4] {spec['name']}: proved (l3) by {r3.method}")
+                        events.emit("verdict", status="proved", method=r3.method)
+                        continue
+
+                if verbose:
+                    print(f"  [g4] {spec['name']}: all layers failed, validated")
+                spec["status"] = "validated"
+                events.emit("verdict", status="validated", method="")
 
     # pbt: final check for unproved specs
     for spec in specs:
@@ -1569,6 +1599,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
             spec["fail_gate"] = "pbt"
             if verbose:
                 print(f"  [pbt] {spec['name']}: FAIL counterexample found")
+            events.emit("verdict", status="rejected", method="", fail_gate="pbt")
         elif verbose:
             print(f"  [pbt] {spec['name']}: pass")
 
@@ -1923,480 +1954,481 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
                   max_iterations=5, max_tier=3, verbose=False, debug_dir=None, project_dir=None,
                   func_source=None):
     print(f"  [refine] entered, verbose={verbose}, {len([s for s in specs if s['status']=='proved'])} proved specs")
-    engine = MutationEngine(lean_checker)
-    proved = [s for s in specs if s["status"] in ("proved", "validated")]
-    sig = lean_code.split(':=', 1)[0].strip() if ':=' in lean_code else func_name
+    with events.context(stage="refine"):
+        engine = MutationEngine(lean_checker)
+        proved = [s for s in specs if s["status"] in ("proved", "validated")]
+        sig = lean_code.split(':=', 1)[0].strip() if ':=' in lean_code else func_name
 
-    def _try_strengthen(spec, evidence):
-        ex = example_store.check_examples(func_name)
-        negs = ex.get("negative", [])
-        new_stmt = llm.strengthen_spec(spec["stmt"], evidence, negatives=negs, lean_code=lean_code)
-        if not new_stmt or new_stmt == spec["stmt"]:
-            return False
-        ok, _ = lean_checker.typecheck(lean_code.rstrip() + "\n" + f"theorem _t : {new_stmt} := sorry")
-        if not ok:
-            return False
-        pr = lean_checker.try_proof_batch(lean_code, new_stmt, func_name=func_name)
-        if not pr.proved:
-            pr = lean_checker.try_proof_batch(lean_code, new_stmt, func_name=func_name, use_project=True)
-        if pr.proved:
-            spec.update({"stmt": new_stmt, "status": "proved", "method": pr.method})
-            if verbose:
-                print(f"  [strengthen] {spec['name']}: strengthened and re-proved by {pr.method}")
-            return True
-        return False
-
-    gate0_flagged = [s for s in proved if s.get("gate0_flag")]
-    if gate0_flagged:
-        ex = example_store.check_examples(func_name)
-        negs = ex.get("negative", [])
-        if verbose:
-            print(f"  [refine] gate0 pre-strengthen: {len(gate0_flagged)} flagged specs, {len(negs)} negatives")
-        for spec in gate0_flagged:
-            spec.pop("gate0_flag", None)
-            for neg in negs[:3]:
-                ev = f"must not accept: {func_name} {neg['in']} = {neg['out']}"
+        def _try_strengthen(spec, evidence):
+            ex = example_store.check_examples(func_name)
+            negs = ex.get("negative", [])
+            new_stmt = llm.strengthen_spec(spec["stmt"], evidence, negatives=negs, lean_code=lean_code)
+            if not new_stmt or new_stmt == spec["stmt"]:
+                return False
+            ok, _ = lean_checker.typecheck(lean_code.rstrip() + "\n" + f"theorem _t : {new_stmt} := sorry")
+            if not ok:
+                return False
+            pr = lean_checker.try_proof_batch(lean_code, new_stmt, func_name=func_name)
+            if not pr.proved:
+                pr = lean_checker.try_proof_batch(lean_code, new_stmt, func_name=func_name, use_project=True)
+            if pr.proved:
+                spec.update({"stmt": new_stmt, "status": "proved", "method": pr.method})
                 if verbose:
-                    print(f"  [refine] trying strengthen {spec['name']}")
-                if _try_strengthen(spec, ev):
+                    print(f"  [strengthen] {spec['name']}: strengthened and re-proved by {pr.method}")
+                return True
+            return False
+
+        gate0_flagged = [s for s in proved if s.get("gate0_flag")]
+        if gate0_flagged:
+            ex = example_store.check_examples(func_name)
+            negs = ex.get("negative", [])
+            if verbose:
+                print(f"  [refine] gate0 pre-strengthen: {len(gate0_flagged)} flagged specs, {len(negs)} negatives")
+            for spec in gate0_flagged:
+                spec.pop("gate0_flag", None)
+                for neg in negs[:3]:
+                    ev = f"must not accept: {func_name} {neg['in']} = {neg['out']}"
                     if verbose:
-                        print(f"  [refine] {spec['name']}: strengthened")
-                    break
-    elif verbose:
-        print("  [refine] no gate0 flags")
+                        print(f"  [refine] trying strengthen {spec['name']}")
+                    if _try_strengthen(spec, ev):
+                        if verbose:
+                            print(f"  [refine] {spec['name']}: strengthened")
+                        break
+        elif verbose:
+            print("  [refine] no gate0 flags")
 
-    if verbose:
-        print(f"  [refine] starting refinement, {len(proved)} proved specs")
-
-    seen_spec_hashes = set()
-    for _ in range(5):
-        current_hash = hash(frozenset((s["name"], s["stmt"]) for s in specs if s["status"] in ("proved", "validated")))
-        if current_hash in seen_spec_hashes:
-            if verbose:
-                print("  [cycle] spec set repeated, stopping refinement to avoid infinite loop")
-            break
-        seen_spec_hashes.add(current_hash)
-
-        # fix 1: generate mutants first — skip perturbation if none compile
         if verbose:
-            print("  [refine] generating mutants...")
-        t_mut = time.time()
-        all_mutants = engine.generate_mutants(lean_code, func_name, llm=llm,
-                                              project_dir=project_dir, func_source=func_source)
-        compilable = engine.filter_compilable(all_mutants, original_code=lean_code, func_name=func_name, llm=llm)
-        if verbose:
-            print(f"  mutants: {len(all_mutants)} generated, {len(compilable)} compile")
-        if verbose:
-            print(f"  [refine] mutant gen took {time.time()-t_mut:.1f}s")
+            print(f"  [refine] starting refinement, {len(proved)} proved specs")
 
-        if not compilable:
-            if verbose:
-                print("  [refine] no compilable mutants, skipping tier 1")
-        else:
-            # fix 2: perturbation in batches of 10 (only when mutants exist)
-            if verbose:
-                print("  [refine] running perturbation pre-check...")
-            t_pert = time.time()
-            perturbation_checks = []
-            for inp in test_inputs:
-                correct = lean_checker.eval_expr(f"{func_name} {inp}", prelude=lean_code)
-                if not correct or "error" in (correct or "").lower():
-                    continue
-                for wrong in _perturb(correct):
-                    const = re.sub(r':=.*', f':= {wrong}', lean_code, count=1, flags=re.DOTALL)
-                    for spec in proved:
-                        perturbation_checks.append({
-                            "inp": inp, "correct": correct, "wrong_val": wrong,
-                            "wrong_code": const, "spec": spec,
-                        })
-            if verbose:
-                print(f"  [refine] perturbation: {len(perturbation_checks)} checks")
-            seen_wrongs = set()
-            perturbation_weaknesses = []
-            for batch_start in range(0, len(perturbation_checks), 10):
-                batch = perturbation_checks[batch_start:batch_start + 10]
-                entries = []
-                for i, pc in enumerate(batch):
-                    idx = batch_start + i
-                    entries.append(f"namespace _pert{idx}")
-                    entries.append(pc["wrong_code"])
-                    entries.append(f"private theorem _t0 : {pc['spec']['stmt']} := by simp [*]")
-                    entries.append(f"private theorem _t1 : {pc['spec']['stmt']} := by omega")
-                    entries.append(f"private theorem _t2 : {pc['spec']['stmt']} := by aesop")
-                    entries.append(f"end _pert{idx}")
-                stdout, stderr, _ = run_in_project("\n".join(entries), project_dir=project_dir)
-                combined = (stdout or "") + "\n" + (stderr or "")
-                for i, pc in enumerate(batch):
-                    idx = batch_start + i
-                    holds = any(f"_pert{idx}._t{j}" not in combined for j in range(3))
-                    if holds and pc["wrong_val"] not in seen_wrongs:
-                        seen_wrongs.add(pc["wrong_val"])
-                        example_store.add_negative(func_name, pc["inp"], pc["wrong_val"])
-                        perturbation_weaknesses.append(pc)
-            if verbose and perturbation_weaknesses:
-                spec_names = set(w["spec"]["name"] for w in perturbation_weaknesses)
-                print(f"  [perturb] found {len(perturbation_weaknesses)} weaknesses across {len(spec_names)} specs")
-            if verbose:
-                print(f"  [refine] perturbation took {time.time()-t_pert:.1f}s")
+        seen_spec_hashes = set()
+        for _ in range(5):
+            current_hash = hash(frozenset((s["name"], s["stmt"]) for s in specs if s["status"] in ("proved", "validated")))
+            if current_hash in seen_spec_hashes:
+                if verbose:
+                    print("  [cycle] spec set repeated, stopping refinement to avoid infinite loop")
+                break
+            seen_spec_hashes.add(current_hash)
 
-            # batch strengthen: one llm call per spec, then one mathlib batch
-            from collections import defaultdict
-            weakness_by_spec = defaultdict(list)
-            for w in perturbation_weaknesses:
-                weakness_by_spec[w["spec"]["name"]].append(w)
-            perturb_strengthen_queue = []
-            for spec_name, weaknesses in weakness_by_spec.items():
-                spec = weaknesses[0]["spec"]
-                combined_ev = "\n".join(
-                    f"spec allows constant returning {w['wrong_val']} for input {w['inp']} (correct: {w['correct']})"
-                    for w in weaknesses[:5]
-                )
-                ex = example_store.check_examples(func_name)
-                negs = ex.get("negative", [])
-                new_stmt = llm.strengthen_spec(spec["stmt"], combined_ev, negatives=negs, lean_code=lean_code)
-                if new_stmt and new_stmt != spec["stmt"]:
-                    ok, _ = lean_checker.typecheck(lean_code.rstrip() + "\n" + f"theorem _t : {new_stmt} := sorry")
-                    if ok:
-                        pr = lean_checker.try_proof_batch(lean_code, new_stmt, func_name=func_name)
-                        if pr.proved:
-                            spec["stmt"] = new_stmt
-                            spec["method"] = pr.method
-                            if verbose:
-                                print(f"  [strengthen] {spec_name}: proved by {pr.method}")
-                        else:
-                            perturb_strengthen_queue.append({"spec": spec, "new_stmt": new_stmt})
-            if perturb_strengthen_queue:
-                _proj = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean_project")
-                sq_tacs = ["rfl", "simp", "omega", "aesop", "simp_all", "decide"]
-                sq_entries = ["import Mathlib.Tactic\n", lean_code.rstrip() + "\n"]
-                for i, sq in enumerate(perturb_strengthen_queue):
-                    for j, tac in enumerate(sq_tacs):
-                        sq_entries.append(f"private theorem _psq{i}t{j} : {sq['new_stmt']} := by {tac}")
-                if os.path.isdir(_proj):
-                    sq_out, sq_err, _ = run_in_project("\n".join(sq_entries))
-                    sq_combined = (sq_out or "") + "\n" + (sq_err or "")
+            # fix 1: generate mutants first — skip perturbation if none compile
+            if verbose:
+                print("  [refine] generating mutants...")
+            t_mut = time.time()
+            all_mutants = engine.generate_mutants(lean_code, func_name, llm=llm,
+                                                  project_dir=project_dir, func_source=func_source)
+            compilable = engine.filter_compilable(all_mutants, original_code=lean_code, func_name=func_name, llm=llm)
+            if verbose:
+                print(f"  mutants: {len(all_mutants)} generated, {len(compilable)} compile")
+            if verbose:
+                print(f"  [refine] mutant gen took {time.time()-t_mut:.1f}s")
+
+            if not compilable:
+                if verbose:
+                    print("  [refine] no compilable mutants, skipping tier 1")
+            else:
+                # fix 2: perturbation in batches of 10 (only when mutants exist)
+                if verbose:
+                    print("  [refine] running perturbation pre-check...")
+                t_pert = time.time()
+                perturbation_checks = []
+                for inp in test_inputs:
+                    correct = lean_checker.eval_expr(f"{func_name} {inp}", prelude=lean_code)
+                    if not correct or "error" in (correct or "").lower():
+                        continue
+                    for wrong in _perturb(correct):
+                        const = re.sub(r':=.*', f':= {wrong}', lean_code, count=1, flags=re.DOTALL)
+                        for spec in proved:
+                            perturbation_checks.append({
+                                "inp": inp, "correct": correct, "wrong_val": wrong,
+                                "wrong_code": const, "spec": spec,
+                            })
+                if verbose:
+                    print(f"  [refine] perturbation: {len(perturbation_checks)} checks")
+                seen_wrongs = set()
+                perturbation_weaknesses = []
+                for batch_start in range(0, len(perturbation_checks), 10):
+                    batch = perturbation_checks[batch_start:batch_start + 10]
+                    entries = []
+                    for i, pc in enumerate(batch):
+                        idx = batch_start + i
+                        entries.append(f"namespace _pert{idx}")
+                        entries.append(pc["wrong_code"])
+                        entries.append(f"private theorem _t0 : {pc['spec']['stmt']} := by simp [*]")
+                        entries.append(f"private theorem _t1 : {pc['spec']['stmt']} := by omega")
+                        entries.append(f"private theorem _t2 : {pc['spec']['stmt']} := by aesop")
+                        entries.append(f"end _pert{idx}")
+                    stdout, stderr, _ = run_in_project("\n".join(entries), project_dir=project_dir)
+                    combined = (stdout or "") + "\n" + (stderr or "")
+                    for i, pc in enumerate(batch):
+                        idx = batch_start + i
+                        holds = any(f"_pert{idx}._t{j}" not in combined for j in range(3))
+                        if holds and pc["wrong_val"] not in seen_wrongs:
+                            seen_wrongs.add(pc["wrong_val"])
+                            example_store.add_negative(func_name, pc["inp"], pc["wrong_val"])
+                            perturbation_weaknesses.append(pc)
+                if verbose and perturbation_weaknesses:
+                    spec_names = set(w["spec"]["name"] for w in perturbation_weaknesses)
+                    print(f"  [perturb] found {len(perturbation_weaknesses)} weaknesses across {len(spec_names)} specs")
+                if verbose:
+                    print(f"  [refine] perturbation took {time.time()-t_pert:.1f}s")
+
+                # batch strengthen: one llm call per spec, then one mathlib batch
+                from collections import defaultdict
+                weakness_by_spec = defaultdict(list)
+                for w in perturbation_weaknesses:
+                    weakness_by_spec[w["spec"]["name"]].append(w)
+                perturb_strengthen_queue = []
+                for spec_name, weaknesses in weakness_by_spec.items():
+                    spec = weaknesses[0]["spec"]
+                    combined_ev = "\n".join(
+                        f"spec allows constant returning {w['wrong_val']} for input {w['inp']} (correct: {w['correct']})"
+                        for w in weaknesses[:5]
+                    )
+                    ex = example_store.check_examples(func_name)
+                    negs = ex.get("negative", [])
+                    new_stmt = llm.strengthen_spec(spec["stmt"], combined_ev, negatives=negs, lean_code=lean_code)
+                    if new_stmt and new_stmt != spec["stmt"]:
+                        ok, _ = lean_checker.typecheck(lean_code.rstrip() + "\n" + f"theorem _t : {new_stmt} := sorry")
+                        if ok:
+                            pr = lean_checker.try_proof_batch(lean_code, new_stmt, func_name=func_name)
+                            if pr.proved:
+                                spec["stmt"] = new_stmt
+                                spec["method"] = pr.method
+                                if verbose:
+                                    print(f"  [strengthen] {spec_name}: proved by {pr.method}")
+                            else:
+                                perturb_strengthen_queue.append({"spec": spec, "new_stmt": new_stmt})
+                if perturb_strengthen_queue:
+                    _proj = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean_project")
+                    sq_tacs = ["rfl", "simp", "omega", "aesop", "simp_all", "decide"]
+                    sq_entries = ["import Mathlib.Tactic\n", lean_code.rstrip() + "\n"]
                     for i, sq in enumerate(perturb_strengthen_queue):
                         for j, tac in enumerate(sq_tacs):
-                            if f"_psq{i}t{j}" not in sq_combined:
-                                sq["spec"]["stmt"] = sq["new_stmt"]
-                                sq["spec"]["method"] = f"{tac} (mathlib)"
-                                if verbose:
-                                    print(f"  [strengthen] {sq['spec']['name']}: proved by {tac} (mathlib)")
-                                break
-
-            # tier 1: loop until no certified mutant is accepted by any spec
-            if verbose:
-                print("  [refine] starting mutation loop...")
-            t_tier1 = time.time()
-            # deduplicate proved specs by statement
-            seen_stmts = set()
-            proved_deduped = []
-            for s in proved:
-                if s["stmt"] not in seen_stmts:
-                    seen_stmts.add(s["stmt"])
-                    proved_deduped.append(s)
-            if verbose and len(proved_deduped) < len(proved):
-                print(f"  [mut] deduped {len(proved)} proved specs to {len(proved_deduped)} unique")
-            proved = proved_deduped
-            # struct defs for certify_proof kill witnesses
-            import glob as _glob_mut
-            _proj_struct_defs = {}
-            if project_dir and os.path.isdir(project_dir):
-                for _sp in sorted(_glob_mut.glob(
-                        os.path.join(project_dir, "**", "*.lean"), recursive=True)):
-                    if ".lake" in _sp.replace("\\", "/"):
-                        continue
-                    try:
-                        _proj_struct_defs.update(
-                            _parse_struct_defs(open(_sp, encoding="utf-8").read()))
-                    except (OSError, UnicodeDecodeError):
-                        continue
-            iteration = 0
-            found_live = True
-            seen_pairs = set()
-            while found_live and iteration < max_iterations:
-                found_live = False
-                iteration += 1
-                t_iter = time.time()
-                if verbose:
-                    print(f"\n  [mut] === iteration {iteration}/{max_iterations} ===")
-                    print(f"  [mut] {len(compilable)} compilable mutants to check")
-                # certify mutants with five-state proof classification
-                t_step = time.time()
-                ml_checks = []
-                _spec_stmts_c = [s["stmt"] for s in proved]
-                _spec_names_c = [s["name"] for s in proved]
-                for mi, m in enumerate(compilable):
-                    r = engine.certify_proof(lean_code, m, func_name, _spec_stmts_c,
-                                             project_dir=project_dir,
-                                             struct_defs=_proj_struct_defs,
-                                             spec_names=_spec_names_c)
-                    _st = r.get("status")
-                    if _st == "EQUIVALENT":
-                        if verbose:
-                            print(f"  [mut] mutant {mi} ({m['operator']}): proved equivalent, skipped")
-                        continue
-                    if _st in ("STILLBORN", "INCONCLUSIVE", "KILLED"):
-                        if verbose:
-                            print(f"  [mut] mutant {mi} ({m['operator']}): {_st.lower()}, no weakness")
-                        continue
-                    if _st == "SURVIVED":
-                        if verbose:
-                            print(f"  [mut] mutant {mi} ({m['operator']}): survived — spec too weak")
-                        _survived_names = r.get("survived_spec_names") or _spec_names_c
-                        _op = m.get("operator", "?")
-                        _w = {"input": f"[{_op}]", "original": "?", "mutant": f"[{_op}]"}
-                        for spec in proved:
-                            if spec["name"] in _survived_names:
-                                ml_checks.append({"mutant": m, "spec": spec, "witness": _w})
-                if verbose:
-                    print(f"  [mut] certify+check: {len(ml_checks)} live pairs ({time.time()-t_step:.1f}s)")
-                if not ml_checks:
-                    if verbose:
-                        print("  [mut] no live pairs, tier 1 converged")
-                    break
-                # mathlib confirmation - one call per mutant
-                t_step = time.time()
-                confirmed_count = 0
-                strengthen_queue = []
-                _proj = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean_project")
-                ml_tacs = ["rfl", "simp", "omega", "aesop", "simp_all", "decide"]
-                pairs_by_mutant = defaultdict(list)
-                for cc in ml_checks:
-                    pairs_by_mutant[id(cc["mutant"])].append(cc)
-                for mut_pairs in pairs_by_mutant.values():
-                    m = mut_pairs[0]["mutant"]
-                    specs_to_check = [cc["spec"] for cc in mut_pairs]
-                    ml_parts = [
-                        "import Mathlib.Tactic\n"
-                        "import Mathlib.Data.List.Sort\n"
-                        "import Mathlib.Data.List.Perm\n"
-                        "import Mathlib.Data.Nat.GCD.Basic\n\n",
-                        m["code"].rstrip() + "\n"
-                    ]
-                    for si, spec in enumerate(specs_to_check):
-                        for tj, tac in enumerate(ml_tacs):
-                            ml_parts.append(f"private theorem _s{si}t{tj} : {spec['stmt']} := by {tac}")
-                    if not os.path.isdir(_proj):
-                        continue
-                    ml_out, ml_err, _ = run_in_project("\n".join(ml_parts))
-                    ml_combined = (ml_out or "") + "\n" + (ml_err or "")
-                    for si, spec in enumerate(specs_to_check):
-                        pair_key = (m["operator"], spec["name"])
-                        if pair_key in seen_pairs:
-                            if verbose:
-                                print(f"  [mut] WEAKNESS: {spec['name']} accepts mutant ({m['operator']}) -- already tried, skipping")
-                            continue
-                        confirmed = any(f"_s{si}t{tj}" not in ml_combined for tj in range(len(ml_tacs)))
-                        if not confirmed:
-                            continue
-                        seen_pairs.add(pair_key)
-                        confirmed_count += 1
-                        w = mut_pairs[si]["witness"]
-                        if verbose:
-                            print(f"  [mut] WEAKNESS: {spec['name']} accepts mutant ({m['operator']})")
-                        example_store.add_negative(func_name, w.get("input", "?"), w.get("mutant", "?"), provenance="mutation")
-                        ev = (f"mutant ({m['operator']}):\n{m['code']}\n"
-                              f"input: {w.get('input','?')}\noriginal: {w.get('original','?')}\nmutant: {w.get('mutant','?')}")
-                        ex = example_store.check_examples(func_name)
-                        negs = ex.get("negative", [])
-                        new_stmt = llm.strengthen_spec(spec["stmt"], ev, negatives=negs, lean_code=lean_code)
-                        if new_stmt and new_stmt != spec["stmt"]:
-                            ok, _ = lean_checker.typecheck(
-                                lean_code.rstrip() + "\n" + f"theorem _t : {new_stmt} := sorry"
-                            )
-                            if ok:
-                                pr = lean_checker.try_proof_batch(lean_code, new_stmt, func_name=func_name)
-                                if pr.proved:
-                                    spec.update({"stmt": new_stmt, "status": "proved", "method": pr.method})
-                                    found_live = True
-                                    if verbose:
-                                        print(f"  [strengthen] {spec['name']}: proved by {pr.method}")
-                                else:
-                                    strengthen_queue.append({"spec": spec, "new_stmt": new_stmt})
-                if verbose:
-                    print(f"  [mut] mathlib confirm: {confirmed_count} confirmed ({time.time()-t_step:.1f}s)")
-                if not confirmed_count:
-                    if verbose:
-                        print("  [mut] no confirmed weaknesses after mathlib, tier 1 converged")
-                    break
-                # batch strengthen queued specs
-                t_step = time.time()
-                strengthened_count = 0
-                if strengthen_queue:
-                    _proj = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean_project")
-                    fn_info = classify_function(lean_code, func_name) if func_name else {}
-                    helpers = fn_info.get("helpers", [])
-                    names = ", ".join([func_name] + helpers) if func_name else ""
-                    sq_tacs = ["rfl", "simp", "omega", "aesop", "decide", "grind",
-                               "ring", "linarith", "simp_all", "norm_num"]
-                    if func_name:
-                        sq_tacs.extend([f"simp [{names}]", f"simp [{names}, *]; omega"])
-                    sq_entries = ["import Mathlib.Tactic\n", lean_code.rstrip()]
-                    for i, sq in enumerate(strengthen_queue):
-                        for j, tac in enumerate(sq_tacs):
-                            sq_entries.append(f"private theorem _sq{i}t{j} : {sq['new_stmt']} := by {tac}")
+                            sq_entries.append(f"private theorem _psq{i}t{j} : {sq['new_stmt']} := by {tac}")
                     if os.path.isdir(_proj):
                         sq_out, sq_err, _ = run_in_project("\n".join(sq_entries))
                         sq_combined = (sq_out or "") + "\n" + (sq_err or "")
+                        for i, sq in enumerate(perturb_strengthen_queue):
+                            for j, tac in enumerate(sq_tacs):
+                                if f"_psq{i}t{j}" not in sq_combined:
+                                    sq["spec"]["stmt"] = sq["new_stmt"]
+                                    sq["spec"]["method"] = f"{tac} (mathlib)"
+                                    if verbose:
+                                        print(f"  [strengthen] {sq['spec']['name']}: proved by {tac} (mathlib)")
+                                    break
+
+                # tier 1: loop until no certified mutant is accepted by any spec
+                if verbose:
+                    print("  [refine] starting mutation loop...")
+                t_tier1 = time.time()
+                # deduplicate proved specs by statement
+                seen_stmts = set()
+                proved_deduped = []
+                for s in proved:
+                    if s["stmt"] not in seen_stmts:
+                        seen_stmts.add(s["stmt"])
+                        proved_deduped.append(s)
+                if verbose and len(proved_deduped) < len(proved):
+                    print(f"  [mut] deduped {len(proved)} proved specs to {len(proved_deduped)} unique")
+                proved = proved_deduped
+                # struct defs for certify_proof kill witnesses
+                import glob as _glob_mut
+                _proj_struct_defs = {}
+                if project_dir and os.path.isdir(project_dir):
+                    for _sp in sorted(_glob_mut.glob(
+                            os.path.join(project_dir, "**", "*.lean"), recursive=True)):
+                        if ".lake" in _sp.replace("\\", "/"):
+                            continue
+                        try:
+                            _proj_struct_defs.update(
+                                _parse_struct_defs(open(_sp, encoding="utf-8").read()))
+                        except (OSError, UnicodeDecodeError):
+                            continue
+                iteration = 0
+                found_live = True
+                seen_pairs = set()
+                while found_live and iteration < max_iterations:
+                    found_live = False
+                    iteration += 1
+                    t_iter = time.time()
+                    if verbose:
+                        print(f"\n  [mut] === iteration {iteration}/{max_iterations} ===")
+                        print(f"  [mut] {len(compilable)} compilable mutants to check")
+                    # certify mutants with five-state proof classification
+                    t_step = time.time()
+                    ml_checks = []
+                    _spec_stmts_c = [s["stmt"] for s in proved]
+                    _spec_names_c = [s["name"] for s in proved]
+                    for mi, m in enumerate(compilable):
+                        r = engine.certify_proof(lean_code, m, func_name, _spec_stmts_c,
+                                                 project_dir=project_dir,
+                                                 struct_defs=_proj_struct_defs,
+                                                 spec_names=_spec_names_c)
+                        _st = r.get("status")
+                        if _st == "EQUIVALENT":
+                            if verbose:
+                                print(f"  [mut] mutant {mi} ({m['operator']}): proved equivalent, skipped")
+                            continue
+                        if _st in ("STILLBORN", "INCONCLUSIVE", "KILLED"):
+                            if verbose:
+                                print(f"  [mut] mutant {mi} ({m['operator']}): {_st.lower()}, no weakness")
+                            continue
+                        if _st == "SURVIVED":
+                            if verbose:
+                                print(f"  [mut] mutant {mi} ({m['operator']}): survived — spec too weak")
+                            _survived_names = r.get("survived_spec_names") or _spec_names_c
+                            _op = m.get("operator", "?")
+                            _w = {"input": f"[{_op}]", "original": "?", "mutant": f"[{_op}]"}
+                            for spec in proved:
+                                if spec["name"] in _survived_names:
+                                    ml_checks.append({"mutant": m, "spec": spec, "witness": _w})
+                    if verbose:
+                        print(f"  [mut] certify+check: {len(ml_checks)} live pairs ({time.time()-t_step:.1f}s)")
+                    if not ml_checks:
+                        if verbose:
+                            print("  [mut] no live pairs, tier 1 converged")
+                        break
+                    # mathlib confirmation - one call per mutant
+                    t_step = time.time()
+                    confirmed_count = 0
+                    strengthen_queue = []
+                    _proj = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean_project")
+                    ml_tacs = ["rfl", "simp", "omega", "aesop", "simp_all", "decide"]
+                    pairs_by_mutant = defaultdict(list)
+                    for cc in ml_checks:
+                        pairs_by_mutant[id(cc["mutant"])].append(cc)
+                    for mut_pairs in pairs_by_mutant.values():
+                        m = mut_pairs[0]["mutant"]
+                        specs_to_check = [cc["spec"] for cc in mut_pairs]
+                        ml_parts = [
+                            "import Mathlib.Tactic\n"
+                            "import Mathlib.Data.List.Sort\n"
+                            "import Mathlib.Data.List.Perm\n"
+                            "import Mathlib.Data.Nat.GCD.Basic\n\n",
+                            m["code"].rstrip() + "\n"
+                        ]
+                        for si, spec in enumerate(specs_to_check):
+                            for tj, tac in enumerate(ml_tacs):
+                                ml_parts.append(f"private theorem _s{si}t{tj} : {spec['stmt']} := by {tac}")
+                        if not os.path.isdir(_proj):
+                            continue
+                        ml_out, ml_err, _ = run_in_project("\n".join(ml_parts))
+                        ml_combined = (ml_out or "") + "\n" + (ml_err or "")
+                        for si, spec in enumerate(specs_to_check):
+                            pair_key = (m["operator"], spec["name"])
+                            if pair_key in seen_pairs:
+                                if verbose:
+                                    print(f"  [mut] WEAKNESS: {spec['name']} accepts mutant ({m['operator']}) -- already tried, skipping")
+                                continue
+                            confirmed = any(f"_s{si}t{tj}" not in ml_combined for tj in range(len(ml_tacs)))
+                            if not confirmed:
+                                continue
+                            seen_pairs.add(pair_key)
+                            confirmed_count += 1
+                            w = mut_pairs[si]["witness"]
+                            if verbose:
+                                print(f"  [mut] WEAKNESS: {spec['name']} accepts mutant ({m['operator']})")
+                            example_store.add_negative(func_name, w.get("input", "?"), w.get("mutant", "?"), provenance="mutation")
+                            ev = (f"mutant ({m['operator']}):\n{m['code']}\n"
+                                  f"input: {w.get('input','?')}\noriginal: {w.get('original','?')}\nmutant: {w.get('mutant','?')}")
+                            ex = example_store.check_examples(func_name)
+                            negs = ex.get("negative", [])
+                            new_stmt = llm.strengthen_spec(spec["stmt"], ev, negatives=negs, lean_code=lean_code)
+                            if new_stmt and new_stmt != spec["stmt"]:
+                                ok, _ = lean_checker.typecheck(
+                                    lean_code.rstrip() + "\n" + f"theorem _t : {new_stmt} := sorry"
+                                )
+                                if ok:
+                                    pr = lean_checker.try_proof_batch(lean_code, new_stmt, func_name=func_name)
+                                    if pr.proved:
+                                        spec.update({"stmt": new_stmt, "status": "proved", "method": pr.method})
+                                        found_live = True
+                                        if verbose:
+                                            print(f"  [strengthen] {spec['name']}: proved by {pr.method}")
+                                    else:
+                                        strengthen_queue.append({"spec": spec, "new_stmt": new_stmt})
+                    if verbose:
+                        print(f"  [mut] mathlib confirm: {confirmed_count} confirmed ({time.time()-t_step:.1f}s)")
+                    if not confirmed_count:
+                        if verbose:
+                            print("  [mut] no confirmed weaknesses after mathlib, tier 1 converged")
+                        break
+                    # batch strengthen queued specs
+                    t_step = time.time()
+                    strengthened_count = 0
+                    if strengthen_queue:
+                        _proj = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean_project")
+                        fn_info = classify_function(lean_code, func_name) if func_name else {}
+                        helpers = fn_info.get("helpers", [])
+                        names = ", ".join([func_name] + helpers) if func_name else ""
+                        sq_tacs = ["rfl", "simp", "omega", "aesop", "decide", "grind",
+                                   "ring", "linarith", "simp_all", "norm_num"]
+                        if func_name:
+                            sq_tacs.extend([f"simp [{names}]", f"simp [{names}, *]; omega"])
+                        sq_entries = ["import Mathlib.Tactic\n", lean_code.rstrip()]
                         for i, sq in enumerate(strengthen_queue):
                             for j, tac in enumerate(sq_tacs):
-                                if f"_sq{i}t{j}" not in sq_combined:
-                                    sq["spec"].update({"stmt": sq["new_stmt"], "status": "proved",
-                                                       "method": f"{tac} (mathlib)"})
-                                    strengthened_count += 1
-                                    found_live = True
-                                    if verbose:
-                                        print(f"  [strengthen] {sq['spec']['name']}: proved by {tac} (mathlib, batched)")
-                                    break
-                if verbose:
-                    print(f"  [mut] strengthen: {strengthened_count} proved ({time.time()-t_step:.1f}s)")
-                    print(f"  [mut] iteration {iteration} total: {time.time()-t_iter:.1f}s")
-                    print(f"  [mut] total mutation phase: {time.time()-t_tier1:.1f}s")
-            if verbose:
-                print(f"  [refine] mutation loop took {time.time()-t_tier1:.1f}s")
-
-        # spec-mutator: flag unnecessarily tight operators in proved specs
-        if verbose:
-            print("  [refine] running spec mutation check...")
-        sm = SpecMutator()
-        proved_specs = [s for s in proved if s["status"] == "proved"]
-        if proved_specs:
-            weak_findings = sm.find_unnecessarily_weak(proved_specs, lean_code, lean_checker, project_dir=project_dir)
-            for w in weak_findings:
-                if w["still_holds"]:
-                    print(f"  [spec-mut] {w['spec_name']}: operator '{w['mutation']}' is unnecessarily tight")
-
-        # === IronSpec Automatic Sanity Checking ===
-        if verbose:
-            print("  [refine] IronSpec ASC analysis...")
-        for spec in list(proved):
-            stmt = spec["stmt"]
-
-            # ASC 1: conclusion must reference the function
-            parts = stmt.split("→")
-            conclusion = parts[-1] if len(parts) > 1 else stmt
-            if func_name and func_name not in conclusion:
-                if verbose:
-                    print(f"  [asc] {spec['name']}: WARN — conclusion does not reference {func_name} (possible precondition restatement)")
-
-            # ASC 2: spec must depend on all non-precondition arguments
-            fn_args, _ = _parse_signature(lean_code, func_name) if func_name else (None, None)
-            if fn_args:
-                for arg_name, arg_type in fn_args:
-                    if "precond" not in arg_type.lower() and arg_name not in stmt:
-                        if verbose:
-                            print(f"  [asc] {spec['name']}: WARN — does not reference arg '{arg_name}' (unnecessary input)")
-
-            # ASC 3: try strengthening weaker operators (IronSpec IsAtLeastAsWeak)
-            for weak, strong in [("≥", "="), ("≤", "="), ("∨", "∧"), (">", "="), ("<", "=")]:
-                if weak in stmt:
-                    stronger_stmt = stmt.replace(weak, strong, 1)
-                    pr_strong = lean_checker.try_proof_batch(lean_code, stronger_stmt, func_name=func_name)
-                    if pr_strong.proved:
-                        # check reverse: if original → stronger fails, it's strictly stronger
-                        reverse = f"({stmt}) → ({stronger_stmt})"
-                        rev_code = lean_code.rstrip() + f"\ntheorem _rev : {reverse} := by intro h; exact h"
-                        ok_rev, _ = lean_checker.typecheck(rev_code)
-                        if not ok_rev:
-                            spec["stmt"] = stronger_stmt
-                            spec["method"] = pr_strong.method
-                            stmt = stronger_stmt
-                            if verbose:
-                                print(f"  [asc] {spec['name']}: STRENGTHENED {weak}→{strong} (IronSpec: strictly stronger, still verifies)")
-                        else:
-                            if verbose:
-                                print(f"  [asc] {spec['name']}: {weak}→{strong} is equivalent, not strictly stronger")
-
-            # ASC 4: try removing unnecessary preconditions (IronSpec IsAtLeastAsStrong)
-            if "→" in stmt:
-                conclusion_part = stmt[stmt.rfind("→")+1:].strip()
-                no_precond = conclusion_part if "∀" in conclusion_part else f"∀ {conclusion_part}"
-                pr_no = lean_checker.try_proof_batch(lean_code, no_precond, func_name=func_name)
-                if pr_no.proved:
+                                sq_entries.append(f"private theorem _sq{i}t{j} : {sq['new_stmt']} := by {tac}")
+                        if os.path.isdir(_proj):
+                            sq_out, sq_err, _ = run_in_project("\n".join(sq_entries))
+                            sq_combined = (sq_out or "") + "\n" + (sq_err or "")
+                            for i, sq in enumerate(strengthen_queue):
+                                for j, tac in enumerate(sq_tacs):
+                                    if f"_sq{i}t{j}" not in sq_combined:
+                                        sq["spec"].update({"stmt": sq["new_stmt"], "status": "proved",
+                                                           "method": f"{tac} (mathlib)"})
+                                        strengthened_count += 1
+                                        found_live = True
+                                        if verbose:
+                                            print(f"  [strengthen] {sq['spec']['name']}: proved by {tac} (mathlib, batched)")
+                                        break
                     if verbose:
-                        print(f"  [asc] {spec['name']}: precondition is unnecessary — spec holds without it")
-                    spec["stmt"] = no_precond
-                    spec["method"] = pr_no.method
+                        print(f"  [mut] strengthen: {strengthened_count} proved ({time.time()-t_step:.1f}s)")
+                        print(f"  [mut] iteration {iteration} total: {time.time()-t_iter:.1f}s")
+                        print(f"  [mut] total mutation phase: {time.time()-t_tier1:.1f}s")
+                if verbose:
+                    print(f"  [refine] mutation loop took {time.time()-t_tier1:.1f}s")
 
-        # tier 2: adversarial (Containment Verification methodology)
-        tier2_found = False
-        if max_tier >= 2:
+            # spec-mutator: flag unnecessarily tight operators in proved specs
             if verbose:
-                print("  [refine] starting tier 2 (adversarial, body-locked)...")
-            t_tier2 = time.time()
+                print("  [refine] running spec mutation check...")
+            sm = SpecMutator()
+            proved_specs = [s for s in proved if s["status"] == "proved"]
+            if proved_specs:
+                weak_findings = sm.find_unnecessarily_weak(proved_specs, lean_code, lean_checker, project_dir=project_dir)
+                for w in weak_findings:
+                    if w["still_holds"]:
+                        print(f"  [spec-mut] {w['spec_name']}: operator '{w['mutation']}' is unnecessarily tight")
 
-            adv_result = run_adversarial_tier(
-                proved, lean_code, func_name, lean_checker, llm, example_store,
-                project_dir=project_dir, test_inputs=test_inputs,
-                rounds=3, verbose=verbose)
+            # === IronSpec Automatic Sanity Checking ===
+            if verbose:
+                print("  [refine] IronSpec ASC analysis...")
+            for spec in list(proved):
+                stmt = spec["stmt"]
 
-            if adv_result["attacked"]:
-                adv_full = adv_result["adv_full"]
-                w = adv_result["witness"]
+                # ASC 1: conclusion must reference the function
+                parts = stmt.split("→")
+                conclusion = parts[-1] if len(parts) > 1 else stmt
+                if func_name and func_name not in conclusion:
+                    if verbose:
+                        print(f"  [asc] {spec['name']}: WARN — conclusion does not reference {func_name} (possible precondition restatement)")
 
-                example_store.add_negative(func_name, w["input"], w["mutant"], provenance="adversarial")
-                ev = (f"adversarial body: {adv_full[:200]}\n"
-                      f"input: {w['input']}\ncorrect: {w['original']}\nwrong: {w['mutant']}")
+                # ASC 2: spec must depend on all non-precondition arguments
+                fn_args, _ = _parse_signature(lean_code, func_name) if func_name else (None, None)
+                if fn_args:
+                    for arg_name, arg_type in fn_args:
+                        if "precond" not in arg_type.lower() and arg_name not in stmt:
+                            if verbose:
+                                print(f"  [asc] {spec['name']}: WARN — does not reference arg '{arg_name}' (unnecessary input)")
 
+                # ASC 3: try strengthening weaker operators (IronSpec IsAtLeastAsWeak)
+                for weak, strong in [("≥", "="), ("≤", "="), ("∨", "∧"), (">", "="), ("<", "=")]:
+                    if weak in stmt:
+                        stronger_stmt = stmt.replace(weak, strong, 1)
+                        pr_strong = lean_checker.try_proof_batch(lean_code, stronger_stmt, func_name=func_name)
+                        if pr_strong.proved:
+                            # check reverse: if original → stronger fails, it's strictly stronger
+                            reverse = f"({stmt}) → ({stronger_stmt})"
+                            rev_code = lean_code.rstrip() + f"\ntheorem _rev : {reverse} := by intro h; exact h"
+                            ok_rev, _ = lean_checker.typecheck(rev_code)
+                            if not ok_rev:
+                                spec["stmt"] = stronger_stmt
+                                spec["method"] = pr_strong.method
+                                stmt = stronger_stmt
+                                if verbose:
+                                    print(f"  [asc] {spec['name']}: STRENGTHENED {weak}→{strong} (IronSpec: strictly stronger, still verifies)")
+                            else:
+                                if verbose:
+                                    print(f"  [asc] {spec['name']}: {weak}→{strong} is equivalent, not strictly stronger")
+
+                # ASC 4: try removing unnecessary preconditions (IronSpec IsAtLeastAsStrong)
+                if "→" in stmt:
+                    conclusion_part = stmt[stmt.rfind("→")+1:].strip()
+                    no_precond = conclusion_part if "∀" in conclusion_part else f"∀ {conclusion_part}"
+                    pr_no = lean_checker.try_proof_batch(lean_code, no_precond, func_name=func_name)
+                    if pr_no.proved:
+                        if verbose:
+                            print(f"  [asc] {spec['name']}: precondition is unnecessary — spec holds without it")
+                        spec["stmt"] = no_precond
+                        spec["method"] = pr_no.method
+
+            # tier 2: adversarial (Containment Verification methodology)
+            tier2_found = False
+            if max_tier >= 2:
+                if verbose:
+                    print("  [refine] starting tier 2 (adversarial, body-locked)...")
+                t_tier2 = time.time()
+
+                adv_result = run_adversarial_tier(
+                    proved, lean_code, func_name, lean_checker, llm, example_store,
+                    project_dir=project_dir, test_inputs=test_inputs,
+                    rounds=3, verbose=verbose)
+
+                if adv_result["attacked"]:
+                    adv_full = adv_result["adv_full"]
+                    w = adv_result["witness"]
+
+                    example_store.add_negative(func_name, w["input"], w["mutant"], provenance="adversarial")
+                    ev = (f"adversarial body: {adv_full[:200]}\n"
+                          f"input: {w['input']}\ncorrect: {w['original']}\nwrong: {w['mutant']}")
+
+                    for spec in proved:
+                        pr_adv = lean_checker.try_proof_batch(adv_full, spec["stmt"], func_name=func_name,
+                                                              project_dir=project_dir)
+                        if pr_adv.proved:
+                            new_stmt = llm.strengthen_spec(spec["stmt"], ev, negatives=[w], lean_code=lean_code)
+                            if new_stmt and new_stmt != spec["stmt"]:
+                                ok2, _ = lean_checker.typecheck(
+                                    lean_code.rstrip() + f"\ntheorem _t : {new_stmt} := sorry",
+                                    project_dir=project_dir)
+                                if ok2:
+                                    pr2 = lean_checker.try_proof_batch(lean_code, new_stmt,
+                                                                        func_name=func_name,
+                                                                        project_dir=project_dir)
+                                    if pr2.proved:
+                                        spec["stmt"] = new_stmt
+                                        spec["method"] = pr2.method
+                                        tier2_found = True
+                                        if verbose:
+                                            print(f"  [adv] {spec['name']}: strengthened")
+
+                if verbose:
+                    print(f"  [refine] tier 2 took {time.time()-t_tier2:.1f}s")
+
+            if max_tier >= 3:
+                if verbose:
+                    print("  [refine] starting tier 3 (entailment)...")
+                t_tier3 = time.time()
                 for spec in proved:
-                    pr_adv = lean_checker.try_proof_batch(adv_full, spec["stmt"], func_name=func_name,
-                                                          project_dir=project_dir)
-                    if pr_adv.proved:
-                        new_stmt = llm.strengthen_spec(spec["stmt"], ev, negatives=[w], lean_code=lean_code)
-                        if new_stmt and new_stmt != spec["stmt"]:
-                            ok2, _ = lean_checker.typecheck(
-                                lean_code.rstrip() + f"\ntheorem _t : {new_stmt} := sorry",
-                                project_dir=project_dir)
-                            if ok2:
-                                pr2 = lean_checker.try_proof_batch(lean_code, new_stmt,
-                                                                    func_name=func_name,
-                                                                    project_dir=project_dir)
-                                if pr2.proved:
-                                    spec["stmt"] = new_stmt
-                                    spec["method"] = pr2.method
-                                    tier2_found = True
-                                    if verbose:
-                                        print(f"  [adv] {spec['name']}: strengthened")
+                    candidate = llm.propose_stronger(spec["stmt"], lean_code)
+                    if not candidate or "NONE" in candidate.upper():
+                        continue
+                    if candidate == spec["stmt"]:
+                        continue
+                    ent = check_strict_entailment(candidate, spec["stmt"], lean_code, lean_checker, project_dir=project_dir)
+                    if not ent["forward_holds"] or not ent["backward_fails"]:
+                        continue
+                    ns = {"name": spec["name"], "stmt": candidate, "status": "pending", "method": ""}
+                    r = validate([ns], lean_code, test_inputs, lean_checker, llm=llm)
+                    if r[0]["status"] in ("proved", "validated"):
+                        spec.update({"stmt": candidate, "status": r[0]["status"], "method": r[0]["method"]})
+                if verbose:
+                    print(f"  [refine] tier 3 took {time.time()-t_tier3:.1f}s")
 
-            if verbose:
-                print(f"  [refine] tier 2 took {time.time()-t_tier2:.1f}s")
-
-        if max_tier >= 3:
-            if verbose:
-                print("  [refine] starting tier 3 (entailment)...")
-            t_tier3 = time.time()
-            for spec in proved:
-                candidate = llm.propose_stronger(spec["stmt"], lean_code)
-                if not candidate or "NONE" in candidate.upper():
-                    continue
-                if candidate == spec["stmt"]:
-                    continue
-                ent = check_strict_entailment(candidate, spec["stmt"], lean_code, lean_checker, project_dir=project_dir)
-                if not ent["forward_holds"] or not ent["backward_fails"]:
-                    continue
-                ns = {"name": spec["name"], "stmt": candidate, "status": "pending", "method": ""}
-                r = validate([ns], lean_code, test_inputs, lean_checker, llm=llm)
-                if r[0]["status"] in ("proved", "validated"):
-                    spec.update({"stmt": candidate, "status": r[0]["status"], "method": r[0]["method"]})
-            if verbose:
-                print(f"  [refine] tier 3 took {time.time()-t_tier3:.1f}s")
-
-        if not tier2_found:
-            break
-
-    pc_results = compute_post_completeness(specs, lean_code, func_name, test_inputs, lean_checker)
-    for name, pc in pc_results.items():
-        for s in specs:
-            if s["name"] == name:
-                s["post_completeness"] = pc
+            if not tier2_found:
                 break
-    if verbose and pc_results:
-        for name, pc in pc_results.items():
-            pct = f"{pc['post_completeness']:.2f}" if pc["post_completeness"] is not None else "n/a"
-            print(f"  [pc] {name}: post_completeness={pct} ({pc['rejected']}/{pc['total_tested']})")
 
-    return specs
+        pc_results = compute_post_completeness(specs, lean_code, func_name, test_inputs, lean_checker)
+        for name, pc in pc_results.items():
+            for s in specs:
+                if s["name"] == name:
+                    s["post_completeness"] = pc
+                    break
+        if verbose and pc_results:
+            for name, pc in pc_results.items():
+                pct = f"{pc['post_completeness']:.2f}" if pc["post_completeness"] is not None else "n/a"
+                print(f"  [pc] {name}: post_completeness={pct} ({pc['rejected']}/{pc['total_tested']})")
+
+        return specs
 
 
 _LEAN_KEYWORDS = {
@@ -2583,274 +2615,275 @@ def _normalize_stmt(stmt):
 def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_store,
                use_obligations=False, func_name=None, verbose=False, debug_dir=None, postcond_defs=None, project_dir=None, func_source=None):
     fn = func_name or _func_name(lean_code)
-    if not templates:
-        templates = auto_templates(lean_code)
-    if use_obligations:
-        obligations = plan_obligations(lean_code, llm)
-        specs = generate_from_plan(obligations, lean_code, llm)
-        gwp = []
-    else:
-        complexity = _classify_complexity(func_source or lean_code, fn)
-        if verbose:
-            print(f"  [gen] function complexity: {complexity}")
-        behavior_specs = []
-        if complexity == "hard" and fn and test_inputs:
-            io_pairs = []
-            for inp in test_inputs[:8]:
-                out = lean_checker.eval_expr(f"{fn} {inp}", prelude=func_source or lean_code)
-                if out:
-                    io_pairs.append(f"  {fn} {inp} = {out}")
-            if io_pairs:
-                sig_str = _get_signature_string(func_source or lean_code, fn)
-                behavior_prompt = (
-                    f"A Lean 4 function with this signature:\n"
-                    f"  def {fn} {sig_str}\n\n"
-                    f"Observed behavior:\n" + "\n".join(io_pairs) + "\n\n"
-                    "Write 10 theorems about the pattern in this input-output behavior.\n"
-                    "Do NOT reference internal implementation details.\n"
-                    "Focus on: bounds, base cases, monotonicity, relationship between input size and output.\n"
-                    "Format: theorem name : ∀ (args), statement := sorry\n"
-                    "Return only a ```lean code block."
-                )
-                behavior_specs = llm.generate_specs_raw(behavior_prompt)
-                if behavior_specs and verbose:
-                    print(f"  [gen] behavior-first produced {len(behavior_specs)} candidates (hard function)")
-        if verbose:
-            print("  [gen] running strategy: direct")
-        specs = llm.generate_specs(lean_code, templates, example_store=example_store, func_name=func_name, postcond_defs=postcond_defs, func_source=func_source)
-        if behavior_specs:
-            specs.extend(behavior_specs)
-        if verbose:
-            print(f"  [gen] direct produced {len(specs)} candidates")
-        gwp = []
-        if func_name and test_inputs:
+    with events.context(func=fn, stage="generate"):
+        if not templates:
+            templates = auto_templates(lean_code)
+        if use_obligations:
+            obligations = plan_obligations(lean_code, llm)
+            specs = generate_from_plan(obligations, lean_code, llm)
+            gwp = []
+        else:
+            complexity = _classify_complexity(func_source or lean_code, fn)
             if verbose:
-                print("  [gen] running strategy: examples")
-            ex = generate_from_examples(func_source or lean_code, func_name, test_inputs, lean_checker, llm)
+                print(f"  [gen] function complexity: {complexity}")
+            behavior_specs = []
+            if complexity == "hard" and fn and test_inputs:
+                io_pairs = []
+                for inp in test_inputs[:8]:
+                    out = lean_checker.eval_expr(f"{fn} {inp}", prelude=func_source or lean_code)
+                    if out:
+                        io_pairs.append(f"  {fn} {inp} = {out}")
+                if io_pairs:
+                    sig_str = _get_signature_string(func_source or lean_code, fn)
+                    behavior_prompt = (
+                        f"A Lean 4 function with this signature:\n"
+                        f"  def {fn} {sig_str}\n\n"
+                        f"Observed behavior:\n" + "\n".join(io_pairs) + "\n\n"
+                        "Write 10 theorems about the pattern in this input-output behavior.\n"
+                        "Do NOT reference internal implementation details.\n"
+                        "Focus on: bounds, base cases, monotonicity, relationship between input size and output.\n"
+                        "Format: theorem name : ∀ (args), statement := sorry\n"
+                        "Return only a ```lean code block."
+                    )
+                    behavior_specs = llm.generate_specs_raw(behavior_prompt)
+                    if behavior_specs and verbose:
+                        print(f"  [gen] behavior-first produced {len(behavior_specs)} candidates (hard function)")
             if verbose:
-                print(f"  [gen] examples produced {len(ex)} candidates")
+                print("  [gen] running strategy: direct")
+            specs = llm.generate_specs(lean_code, templates, example_store=example_store, func_name=func_name, postcond_defs=postcond_defs, func_source=func_source)
+            if behavior_specs:
+                specs.extend(behavior_specs)
             if verbose:
-                print("  [gen] running strategy: negatives")
-            neg = generate_from_negatives(func_source or lean_code, func_name, test_inputs, lean_checker, llm)
-            if verbose:
-                print(f"  [gen] negatives produced {len(neg)} candidates")
-            gwp = generate_with_proof(func_source or lean_code, func_name, llm, lean_checker, project_dir=project_dir)
-            # strategy: program slicing (SLD-Spec methodology)
-            if func_name:
-                from strategies import generate_from_slices
-                slice_specs = generate_from_slices(
-                    lean_code, func_name, llm, lean_checker, verbose=verbose,
-                    project_dir=project_dir, func_source=func_source)
-                if slice_specs:
-                    if verbose:
-                        print(f"  [gen] slicing produced {len(slice_specs)} candidates")
-                    specs.extend(slice_specs)
-            seen_stmts = set()
-            deduped = []
-            for s in specs:
-                k = s["stmt"].strip()
-                if k not in seen_stmts:
-                    seen_stmts.add(k)
-                    deduped.append(s)
-                elif verbose:
-                    print(f"  [dedup] dropped exact duplicate: {s['name']}")
-            specs = deduped
-            seen_norm = {_normalize_stmt(s["stmt"]) for s in specs}
-            for s in ex + neg:
-                norm = _normalize_stmt(s["stmt"])
-                if norm not in seen_norm:
-                    seen_norm.add(norm)
-                    specs.append(s)
-            if verbose:
-                print(f"  [gen] total after merge+dedup: {len(specs)}")
-
-        # strategy: failure-freedom (aeneas Result functions)
-        # runs without test_inputs; final dedup handles duplicates with other strategies
-        # TODO: complexity classification can gate this strategy by complexity level
-        if func_name and "Result" in (func_source or lean_code):
-            from strategies import generate_failure_freedom
-            ff_specs = generate_failure_freedom(
-                lean_code, func_name, llm, lean_checker,
-                verbose=verbose, project_dir=project_dir, func_source=func_source)
-            if ff_specs:
+                print(f"  [gen] direct produced {len(specs)} candidates")
+            gwp = []
+            if func_name and test_inputs:
                 if verbose:
-                    print(f"  [gen] failure-freedom produced {len(ff_specs)} candidates")
-                specs.extend(ff_specs)
+                    print("  [gen] running strategy: examples")
+                ex = generate_from_examples(func_source or lean_code, func_name, test_inputs, lean_checker, llm)
+                if verbose:
+                    print(f"  [gen] examples produced {len(ex)} candidates")
+                if verbose:
+                    print("  [gen] running strategy: negatives")
+                neg = generate_from_negatives(func_source or lean_code, func_name, test_inputs, lean_checker, llm)
+                if verbose:
+                    print(f"  [gen] negatives produced {len(neg)} candidates")
+                gwp = generate_with_proof(func_source or lean_code, func_name, llm, lean_checker, project_dir=project_dir)
+                # strategy: program slicing (SLD-Spec methodology)
+                if func_name:
+                    from strategies import generate_from_slices
+                    slice_specs = generate_from_slices(
+                        lean_code, func_name, llm, lean_checker, verbose=verbose,
+                        project_dir=project_dir, func_source=func_source)
+                    if slice_specs:
+                        if verbose:
+                            print(f"  [gen] slicing produced {len(slice_specs)} candidates")
+                        specs.extend(slice_specs)
+                seen_stmts = set()
+                deduped = []
+                for s in specs:
+                    k = s["stmt"].strip()
+                    if k not in seen_stmts:
+                        seen_stmts.add(k)
+                        deduped.append(s)
+                    elif verbose:
+                        print(f"  [dedup] dropped exact duplicate: {s['name']}")
+                specs = deduped
+                seen_norm = {_normalize_stmt(s["stmt"]) for s in specs}
+                for s in ex + neg:
+                    norm = _normalize_stmt(s["stmt"])
+                    if norm not in seen_norm:
+                        seen_norm.add(norm)
+                        specs.append(s)
+                if verbose:
+                    print(f"  [gen] total after merge+dedup: {len(specs)}")
 
-    specs = validate(specs, lean_code, test_inputs, lean_checker,
-                     llm=llm, example_store=example_store, func_name=func_name, verbose=verbose,
-                     debug_dir=debug_dir, project_dir=project_dir)
-
-    # round 2: SpecGen-style mutation-guided repair (not raw error messages)
-    g1_fails = [s for s in specs if s.get("fail_gate") == "g1"]
-    if g1_fails and len(g1_fails) <= 15:
-        repaired = []
-
-        for failed_spec in g1_fails[:5]:
-            stmt = failed_spec["stmt"]
-            mutations = []
-
-            args_in_stmt = re.findall(r'\((\w+)\s*:\s*[^)]+\)', stmt)
-            for arg in args_in_stmt:
-                mutated = re.sub(rf'\({arg}\s*:\s*[^)]+\)\s*', '', stmt)
-                mutations.append(("remove_arg_" + arg, mutated))
-
-            for old_t, new_t in [("Int", "Nat"), ("Nat", "Int"), ("Array", "List"), ("List", "Array")]:
-                if old_t in stmt:
-                    mutations.append(("swap_type_" + old_t, stmt.replace(old_t, new_t, 1)))
-
-            if "_precond" not in stmt:
-                forall_match = re.match(r'∀\s*(\([^)]+\)(?:\s*\([^)]+\))*)', stmt)
-                if forall_match:
-                    first_arg = re.search(r'\((\w+)\s*:', stmt)
-                    if first_arg:
-                        arg_name = first_arg.group(1)
-                        precond_insert = f"(h_precond : {fn}_precond {arg_name})"
-                        insert_pos = forall_match.end()
-                        mutated = stmt[:insert_pos] + f" {precond_insert}" + stmt[insert_pos:]
-                        mutations.append(("add_precond", mutated))
-
-            mutations.append(("add_namespace", stmt.replace(fn, fn)))
-
-            working_mutation = None
-            for mut_name, mut_stmt in mutations:
-                code = lean_code.rstrip() + f"\ntheorem _test : {mut_stmt} := sorry"
-                ok, _ = lean_checker.typecheck(code, project_dir=project_dir)
-                if ok:
-                    working_mutation = (mut_name, mut_stmt)
+            # strategy: failure-freedom (aeneas Result functions)
+            # runs without test_inputs; final dedup handles duplicates with other strategies
+            # TODO: complexity classification can gate this strategy by complexity level
+            if func_name and "Result" in (func_source or lean_code):
+                from strategies import generate_failure_freedom
+                ff_specs = generate_failure_freedom(
+                    lean_code, func_name, llm, lean_checker,
+                    verbose=verbose, project_dir=project_dir, func_source=func_source)
+                if ff_specs:
                     if verbose:
-                        print(f"  [repair] {failed_spec['name']}: mutation '{mut_name}' fixes typecheck")
-                    break
+                        print(f"  [gen] failure-freedom produced {len(ff_specs)} candidates")
+                    specs.extend(ff_specs)
 
-            if working_mutation:
-                mut_name, mut_stmt = working_mutation
-                repaired.append({
-                    "name": failed_spec["name"] + "_repaired",
-                    "stmt": mut_stmt,
-                    "status": "pending",
-                    "method": None,
-                    "preamble": failed_spec.get("preamble", ""),
-                })
-            else:
-                mutation_insights = []
-                for mut_name, mut_stmt in mutations[:3]:
+        specs = validate(specs, lean_code, test_inputs, lean_checker,
+                         llm=llm, example_store=example_store, func_name=func_name, verbose=verbose,
+                         debug_dir=debug_dir, project_dir=project_dir)
+
+        # round 2: SpecGen-style mutation-guided repair (not raw error messages)
+        g1_fails = [s for s in specs if s.get("fail_gate") == "g1"]
+        if g1_fails and len(g1_fails) <= 15:
+            repaired = []
+
+            for failed_spec in g1_fails[:5]:
+                stmt = failed_spec["stmt"]
+                mutations = []
+
+                args_in_stmt = re.findall(r'\((\w+)\s*:\s*[^)]+\)', stmt)
+                for arg in args_in_stmt:
+                    mutated = re.sub(rf'\({arg}\s*:\s*[^)]+\)\s*', '', stmt)
+                    mutations.append(("remove_arg_" + arg, mutated))
+
+                for old_t, new_t in [("Int", "Nat"), ("Nat", "Int"), ("Array", "List"), ("List", "Array")]:
+                    if old_t in stmt:
+                        mutations.append(("swap_type_" + old_t, stmt.replace(old_t, new_t, 1)))
+
+                if "_precond" not in stmt:
+                    forall_match = re.match(r'∀\s*(\([^)]+\)(?:\s*\([^)]+\))*)', stmt)
+                    if forall_match:
+                        first_arg = re.search(r'\((\w+)\s*:', stmt)
+                        if first_arg:
+                            arg_name = first_arg.group(1)
+                            precond_insert = f"(h_precond : {fn}_precond {arg_name})"
+                            insert_pos = forall_match.end()
+                            mutated = stmt[:insert_pos] + f" {precond_insert}" + stmt[insert_pos:]
+                            mutations.append(("add_precond", mutated))
+
+                mutations.append(("add_namespace", stmt.replace(fn, fn)))
+
+                working_mutation = None
+                for mut_name, mut_stmt in mutations:
                     code = lean_code.rstrip() + f"\ntheorem _test : {mut_stmt} := sorry"
-                    ok, errs = lean_checker.typecheck(code, project_dir=project_dir)
-                    if errs:
-                        mutation_insights.append(f"  tried {mut_name}: {errs[0][:60]}")
-
-                guided_prompt = (
-                    f"This theorem failed to typecheck:\n"
-                    f"  theorem {failed_spec['name']} : {stmt} := sorry\n\n"
-                    f"I tried these mutations:\n" + "\n".join(mutation_insights) + "\n\n"
-                    f"Function signature:\n  {_get_signature_string(func_source or lean_code, fn)}\n\n"
-                    f"Write a FIXED version that typechecks. Return ONLY the theorem line."
-                )
-                fix_resp = llm._ask(guided_prompt)
-                if fix_resp:
-                    m = re.search(r'theorem\s+(\w+)\s*:\s*([\s\S]*?)\s*:=\s*sorry', fix_resp)
-                    if m:
-                        repaired.append({
-                            "name": m.group(1),
-                            "stmt": m.group(2).strip(),
-                            "status": "pending",
-                            "method": None,
-                            "preamble": "",
-                        })
-
-        if repaired:
-            repaired_validated = validate(repaired, lean_code, test_inputs, lean_checker,
-                llm=llm, example_store=example_store, func_name=func_name,
-                verbose=verbose, debug_dir=debug_dir, project_dir=project_dir,
-                func_source=func_source)
-            new_proved = [s for s in repaired_validated if s["status"] == "proved"]
-            specs.extend(new_proved)
-            if verbose:
-                print(f"  [repair] mutation-guided: {len(repaired)} repaired, {len(new_proved)} proved")
-
-    # round 3: if still low, generate safe/simple specs
-    proved_count = sum(1 for s in specs if s["status"] == "proved")
-    if proved_count < 3:
-        safe_prompt = (
-            f"I need simple theorems about this function that will definitely typecheck:\n"
-            f"{func_source if func_source else lean_code}\n\n"
-            f"Write 5 simple theorems: base cases, type preservation, trivial properties.\n"
-            f"Every theorem must use ∀ quantifiers and will typecheck.\n"
-        )
-        round3 = llm.generate_specs_raw(safe_prompt)
-        if round3:
-            if verbose:
-                print(f"  [gen] round 3 produced {len(round3)} safe specs")
-            round3_validated = validate(round3, lean_code, test_inputs, lean_checker,
-                                        llm=llm, example_store=example_store, func_name=func_name,
-                                        verbose=verbose, debug_dir=debug_dir, project_dir=project_dir)
-            new_proved = [s for s in round3_validated if s["status"] == "proved"]
-            specs.extend(new_proved)
-            if verbose:
-                print(f"  [gen] round 3: {len(new_proved)} proved")
-
-    # merge gwp: gate 0 and gate 3 only (proofs already kernel-checked)
-    if gwp and fn:
-        wrong = _make_wrong(lean_code, fn) or _replace_body(lean_code)
-        for s in gwp:
-            if example_store:
-                ex_data = example_store.check_examples(fn)
-                flagged = False
-                for neg in ex_data.get("negative", []):
-                    const = re.sub(r':=.*', lambda m: ':= ' + neg["out"], lean_code, count=1, flags=re.DOTALL)
-                    if lean_checker.try_proof(const, s["stmt"]).proved:
-                        flagged = True
+                    ok, _ = lean_checker.typecheck(code, project_dir=project_dir)
+                    if ok:
+                        working_mutation = (mut_name, mut_stmt)
+                        if verbose:
+                            print(f"  [repair] {failed_spec['name']}: mutation '{mut_name}' fixes typecheck")
                         break
-                if flagged:
-                    continue
-            if lean_checker.try_proof(wrong, s["stmt"]).proved:
-                continue
-            existing = next((x for x in specs if x["stmt"] == s["stmt"]), None)
-            if existing:
-                existing.update({"status": "proved", "method": s["method"]})
-            else:
-                specs.append(s)
 
-    # dedup all specs after gwp merge using normalized comparison
-    seen_final = set()
-    deduped_final = []
-    for s in specs:
-        norm = _normalize_stmt(s["stmt"])
-        if norm not in seen_final:
-            seen_final.add(norm)
-            deduped_final.append(s)
-        elif verbose:
-            print(f"  [dedup] dropped post-gwp duplicate: {s['name']}: {s['stmt'][:60]}")
-    specs = deduped_final
+                if working_mutation:
+                    mut_name, mut_stmt = working_mutation
+                    repaired.append({
+                        "name": failed_spec["name"] + "_repaired",
+                        "stmt": mut_stmt,
+                        "status": "pending",
+                        "method": None,
+                        "preamble": failed_spec.get("preamble", ""),
+                    })
+                else:
+                    mutation_insights = []
+                    for mut_name, mut_stmt in mutations[:3]:
+                        code = lean_code.rstrip() + f"\ntheorem _test : {mut_stmt} := sorry"
+                        ok, errs = lean_checker.typecheck(code, project_dir=project_dir)
+                        if errs:
+                            mutation_insights.append(f"  tried {mut_name}: {errs[0][:60]}")
 
-    # second pass: last-resort proof for validated-but-unproved specs
-    if llm and fn:
-        for spec in [s for s in specs if s["status"] == "validated"]:
-            prompt = (
-                f"this theorem is true but i cannot prove it:\n"
-                f"{lean_code}\n"
-                f"theorem {spec['name']} : {spec['stmt']} := sorry\n\n"
-                f"write a complete proof. no sorry allowed. the function is {fn}.\n"
-                f"try: induction, cases, simp [{fn}], or define a helper lemma first.\n"
-                "return the full theorem with proof in a ```lean block."
-            )
-            text = llm._ask(prompt)
-            m = re.search(r'```\w*\s*([\s\S]*?)```', text)
-            if not m:
+                    guided_prompt = (
+                        f"This theorem failed to typecheck:\n"
+                        f"  theorem {failed_spec['name']} : {stmt} := sorry\n\n"
+                        f"I tried these mutations:\n" + "\n".join(mutation_insights) + "\n\n"
+                        f"Function signature:\n  {_get_signature_string(func_source or lean_code, fn)}\n\n"
+                        f"Write a FIXED version that typechecks. Return ONLY the theorem line."
+                    )
+                    fix_resp = llm._ask(guided_prompt)
+                    if fix_resp:
+                        m = re.search(r'theorem\s+(\w+)\s*:\s*([\s\S]*?)\s*:=\s*sorry', fix_resp)
+                        if m:
+                            repaired.append({
+                                "name": m.group(1),
+                                "stmt": m.group(2).strip(),
+                                "status": "pending",
+                                "method": None,
+                                "preamble": "",
+                            })
+
+            if repaired:
+                repaired_validated = validate(repaired, lean_code, test_inputs, lean_checker,
+                    llm=llm, example_store=example_store, func_name=func_name,
+                    verbose=verbose, debug_dir=debug_dir, project_dir=project_dir,
+                    func_source=func_source)
+                new_proved = [s for s in repaired_validated if s["status"] == "proved"]
+                specs.extend(new_proved)
                 if verbose:
-                    print(f"  [2nd] {spec['name']}: FAIL")
-                continue
-            block = m.group(1).strip()
-            full = lean_code.rstrip() + "\n" + block
-            stdout, stderr, rc = run_in_project(full, project_dir=project_dir)
-            combined = stdout + stderr
-            if rc == 0 and not _errors(combined) and "sorry" not in combined:
-                spec["status"] = "proved"
-                spec["method"] = "llm-second-pass"
-            if verbose:
-                print(f"  [2nd] {spec['name']}: {'PROVED' if spec['status'] == 'proved' else 'FAIL'}")
+                    print(f"  [repair] mutation-guided: {len(repaired)} repaired, {len(new_proved)} proved")
 
-    return specs
+        # round 3: if still low, generate safe/simple specs
+        proved_count = sum(1 for s in specs if s["status"] == "proved")
+        if proved_count < 3:
+            safe_prompt = (
+                f"I need simple theorems about this function that will definitely typecheck:\n"
+                f"{func_source if func_source else lean_code}\n\n"
+                f"Write 5 simple theorems: base cases, type preservation, trivial properties.\n"
+                f"Every theorem must use ∀ quantifiers and will typecheck.\n"
+            )
+            round3 = llm.generate_specs_raw(safe_prompt)
+            if round3:
+                if verbose:
+                    print(f"  [gen] round 3 produced {len(round3)} safe specs")
+                round3_validated = validate(round3, lean_code, test_inputs, lean_checker,
+                                            llm=llm, example_store=example_store, func_name=func_name,
+                                            verbose=verbose, debug_dir=debug_dir, project_dir=project_dir)
+                new_proved = [s for s in round3_validated if s["status"] == "proved"]
+                specs.extend(new_proved)
+                if verbose:
+                    print(f"  [gen] round 3: {len(new_proved)} proved")
+
+        # merge gwp: gate 0 and gate 3 only (proofs already kernel-checked)
+        if gwp and fn:
+            wrong = _make_wrong(lean_code, fn) or _replace_body(lean_code)
+            for s in gwp:
+                if example_store:
+                    ex_data = example_store.check_examples(fn)
+                    flagged = False
+                    for neg in ex_data.get("negative", []):
+                        const = re.sub(r':=.*', lambda m: ':= ' + neg["out"], lean_code, count=1, flags=re.DOTALL)
+                        if lean_checker.try_proof(const, s["stmt"]).proved:
+                            flagged = True
+                            break
+                    if flagged:
+                        continue
+                if lean_checker.try_proof(wrong, s["stmt"]).proved:
+                    continue
+                existing = next((x for x in specs if x["stmt"] == s["stmt"]), None)
+                if existing:
+                    existing.update({"status": "proved", "method": s["method"]})
+                else:
+                    specs.append(s)
+
+        # dedup all specs after gwp merge using normalized comparison
+        seen_final = set()
+        deduped_final = []
+        for s in specs:
+            norm = _normalize_stmt(s["stmt"])
+            if norm not in seen_final:
+                seen_final.add(norm)
+                deduped_final.append(s)
+            elif verbose:
+                print(f"  [dedup] dropped post-gwp duplicate: {s['name']}: {s['stmt'][:60]}")
+        specs = deduped_final
+
+        # second pass: last-resort proof for validated-but-unproved specs
+        if llm and fn:
+            for spec in [s for s in specs if s["status"] == "validated"]:
+                prompt = (
+                    f"this theorem is true but i cannot prove it:\n"
+                    f"{lean_code}\n"
+                    f"theorem {spec['name']} : {spec['stmt']} := sorry\n\n"
+                    f"write a complete proof. no sorry allowed. the function is {fn}.\n"
+                    f"try: induction, cases, simp [{fn}], or define a helper lemma first.\n"
+                    "return the full theorem with proof in a ```lean block."
+                )
+                text = llm._ask(prompt)
+                m = re.search(r'```\w*\s*([\s\S]*?)```', text)
+                if not m:
+                    if verbose:
+                        print(f"  [2nd] {spec['name']}: FAIL")
+                    continue
+                block = m.group(1).strip()
+                full = lean_code.rstrip() + "\n" + block
+                stdout, stderr, rc = run_in_project(full, project_dir=project_dir)
+                combined = stdout + stderr
+                if rc == 0 and not _errors(combined) and "sorry" not in combined:
+                    spec["status"] = "proved"
+                    spec["method"] = "llm-second-pass"
+                if verbose:
+                    print(f"  [2nd] {spec['name']}: {'PROVED' if spec['status'] == 'proved' else 'FAIL'}")
+
+        return specs
 
 
 if __name__ == "__main__":
