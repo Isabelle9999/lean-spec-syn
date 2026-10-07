@@ -1,0 +1,13 @@
+# verify against the source before quoting $
+
+[meta]
+date = "2026-10-06"
+source = "https://www.anthropic.com/pricing"
+
+[models."claude-sonnet-4-6"]
+input = 3.00
+output = 15.00
+cache_read_mult = 0.1
+cache_write_5m_mult = 1.25
+cache_write_1h_mult = 2.0
+batch_mult = 0.5
