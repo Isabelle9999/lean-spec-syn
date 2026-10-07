@@ -9,6 +9,7 @@ import queue as _queue_mod
 import atexit as _atexit
 from collections import OrderedDict
 from dataclasses import dataclass
+import events
 
 
 @dataclass
@@ -305,6 +306,11 @@ class LeanServer:
                 self._seconds_repl += r.elapsed
                 if r.timed_out:
                     self._timeouts += 1
+                n_err = r.stderr.count(": error:") if r.stderr else 0
+                sorry = "sorry" in (r.stderr or "") or "sorry" in (r.stdout or "")
+                events.emit("lean", via=r.via, rc=r.rc, elapsed=r.elapsed,
+                            timed_out=r.timed_out, restarted=r.restarted,
+                            n_errors=n_err, sorry=sorry)
                 return r
         r = _run_lake(code, self._dir, timeout=timeout if timeout is not None else self._lake_timeout)
         self._lake_calls += 1
@@ -313,6 +319,11 @@ class LeanServer:
             self._timeouts += 1
             self._lake_timeouts += 1
             self._lake_killed += 1
+        n_err = r.stderr.count(": error:") if r.stderr else 0
+        sorry = "sorry" in (r.stderr or "") or "sorry" in (r.stdout or "")
+        events.emit("lean", via=r.via, rc=r.rc, elapsed=r.elapsed,
+                    timed_out=r.timed_out, restarted=r.restarted,
+                    n_errors=n_err, sorry=sorry)
         return r
 
     def stats(self):
