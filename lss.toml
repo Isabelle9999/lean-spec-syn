@@ -1,19 +1,26 @@
-# LeanHammer and Duper have no v4.31.0 release, which is why the two projects
-# are on different toolchains. LeanHammer's premise selection calls the server
-# at leanpremise.net.
+# both projects use ported forks at v4.31.0 and share package pins for offline seeding
+# LeanHammer's premise selection calls the server at leanpremise.net
 
 [projects.aeneas]
 dir = "~/lss_lean/aeneas"
 lean_version = "v4.31.0"
 default = true
 env_var = "LSS_AENEAS_DIR"
-# hammer via Isabelle9999/{lean-auto,duper,LeanHammer,premise-selection}@v4.31.0-lss
+# hammer via Isabelle9999 ported forks at v4.31.0; both projects share pins for offline seeding
 # use hammer { disableGrind := true } — grind kernel error in Lean 4.31.0
 has_hammer = true
-hammer_timeout = 120
 
 [projects."lean-native"]
 dir = "~/lss_lean/lean-native"
-lean_version = "v4.33.0"
+lean_version = "v4.31.0"
 has_hammer = true
 env_var = "LSS_LEAN_NATIVE_DIR"
+
+[server]
+workers = 1
+cmd_timeout = 30
+import_timeout = 180
+lake_timeout = 120
+env_cache_cap = 8
+max_restarts = 20
+hammer_timeout = 90

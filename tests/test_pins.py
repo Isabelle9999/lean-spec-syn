@@ -7,7 +7,6 @@ sys.stdout.reconfigure(encoding="utf-8")
 import lss_config
 
 repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-skipped = []
 fails = []
 
 
@@ -22,8 +21,8 @@ def check(name, ok, msg=""):
 print("=== pins ===")
 for name, build_dir in lss_config.all_projects().items():
     if not os.path.isdir(build_dir):
-        print(f"  skip: {name} (build dir not found: {build_dir})")
-        skipped.append(name)
+        print(f"  FAIL: {name} (build dir not found: {build_dir})")
+        fails.append(f"{name} build dir missing")
         continue
 
     pin_dir = os.path.join(repo, "lean", name)
@@ -43,7 +42,31 @@ for name, build_dir in lss_config.all_projects().items():
             build_bytes = f.read()
         check(f"{name}/{fname} no drift", pin_bytes == build_bytes)
 
-    # (2) toolchain: lake env lean --version reports expected version
+    # (2a) Mathlib.olean must exist for every project
+    mathlib_olean = os.path.join(
+        build_dir,
+        ".lake/packages/mathlib/.lake/build/lib/lean/Mathlib.olean",
+    )
+    check(f"{name} Mathlib.olean exists", os.path.exists(mathlib_olean), "Mathlib not built")
+
+    # (2b) Hammer.olean must exist when has_hammer
+    cfg_projects = lss_config._cfg().get("projects", {})
+    if cfg_projects.get(name, {}).get("has_hammer"):
+        hammer_olean = os.path.join(
+            build_dir,
+            ".lake/packages/Hammer/.lake/build/lib/lean/Hammer.olean",
+        )
+        check(f"{name} Hammer.olean exists", os.path.exists(hammer_olean), "Hammer not built")
+
+    # (2c) aeneas: Aeneas.olean must exist (lake build Aeneas was run)
+    if name == "aeneas":
+        olean = os.path.join(
+            build_dir,
+            ".lake/packages/aeneas/backends/lean/.lake/build/lib/lean/Aeneas.olean",
+        )
+        check(f"{name} Aeneas.olean exists", os.path.exists(olean), "Aeneas not built")
+
+    # (3) toolchain: lake env lean --version reports expected version
     tc_file = os.path.join(pin_dir, "lean-toolchain")
     if os.path.exists(tc_file):
         # strip "v" prefix: lean --version says "4.31.0", toolchain says "v4.31.0"
@@ -80,8 +103,6 @@ for root, dirs, files in os.walk(repo):
 check("no .elan/toolchains or lean.exe in .py files", not bad,
       ", ".join(bad) if bad else "")
 
-if skipped:
-    print(f"\nskipped: {skipped}")
 if not fails:
     print("\nPINS OK")
 else:

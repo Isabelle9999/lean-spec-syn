@@ -22,6 +22,7 @@ import threading
 import lss_config as _lss_config
 
 from lean import LeanChecker, ExampleStore, Cache, get_lean_calls
+import lean_server as _lean_server
 from synth import LLMClient, synthesize, refine, _func_name, get_llm_calls
 from benchmarks import BENCHMARKS, evaluate
 from metrics import (
@@ -440,6 +441,12 @@ def main():
 
     if len(reports) > 1:
         print("\n" + summary_table(reports))
+
+    for pdir, st in _lean_server.all_stats().items():
+        name = os.path.basename(pdir)
+        print(f"lean server {name}: calls={st['calls']} repl={st['repl_calls']} "
+              f"lake={st['lake_calls']} env_hits={st['env_hits']} "
+              f"timeouts={st['timeouts']} restarts={st['restarts']}")
 
     if reports:
         best_path = ".lss/runs/best.txt"

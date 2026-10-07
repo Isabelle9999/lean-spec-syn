@@ -1,17 +1,12 @@
-import subprocess
-import tempfile
 import os
 import re
 import json
 import hashlib
 import time
 import difflib
-import threading as _threading
-import queue as _queue_mod
-import atexit as _atexit
-from collections import OrderedDict
 from dataclasses import dataclass
 import lss_config as _lss_config
+import lean_server as _lean_server
 
 TACTICS = [
     # instant closers
@@ -99,29 +94,11 @@ class PBTResult:
 _lean_call_count = 0
 
 _PROJECT_DIR = _lss_config.default_project_dir()
-_LEAN_PATH_CACHE = None
-
 def get_lean_calls():
     global _lean_call_count
     c = _lean_call_count
     _lean_call_count = 0
     return c
-
-def _build_lean_path(project_dir):
-    """Run lake env once to get LEAN_PATH."""
-    try:
-        r = subprocess.run(
-            ["lake", "env"],
-            capture_output=True, text=True, encoding="utf-8",
-            timeout=30, cwd=project_dir,
-        )
-        for line in (r.stdout + r.stderr).splitlines():
-            if line.startswith("LEAN_PATH="):
-                return line[len("LEAN_PATH="):]
-    except Exception:
-        pass
-    return None
-
 
 def run_in_project(code, project_dir=None):
     """Run lean with project dependencies (Mathlib or Aeneas)."""
@@ -129,222 +106,9 @@ def run_in_project(code, project_dir=None):
     _lean_call_count += 1
     if project_dir is None:
         project_dir = _PROJECT_DIR
-    if _should_use_repl(code):
-        repl = _get_repl(project_dir)
-        if repl:
-            result = repl.run(code)
-            if result is not None:
-                return result
-    return _run_in_project_lake(code, project_dir)
+    r = _lean_server.get_server(project_dir).check(code)
+    return r.stdout, r.stderr, r.rc
 
-def _run_in_project_lake(code, project_dir):
-    """Fallback: use lake env lean (slow, ~60s startup)."""
-    fd, path = tempfile.mkstemp(suffix=".lean", dir=project_dir)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(code)
-        r = subprocess.run(
-            ["lake", "env", "lean", path],
-            capture_output=True, text=True, encoding="utf-8",
-            timeout=120, cwd=project_dir,
-        )
-        return r.stdout, r.stderr, r.returncode
-    except subprocess.TimeoutExpired:
-        return "", "timeout after 120s", 1
-    finally:
-        try:
-            os.unlink(path)
-        except OSError:
-            pass
-
-
-def _should_use_repl(code):
-    """true if code has non-import content (eligible for any REPL)."""
-    for line in code.splitlines():
-        s = line.strip()
-        if s and not s.startswith('--') and not s.startswith('import '):
-            return True
-    return False
-
-
-def _extract_imports(code):
-    """split code into (import_block, cmd).
-    import_block: normalized import lines joined by newline (cache key).
-    cmd: code with import lines replaced by blank lines (preserves line numbers)."""
-    imports, cmd = [], []
-    for l in code.splitlines():
-        if l.strip().startswith('import '):
-            imports.append(l.strip())
-            cmd.append('')
-        else:
-            cmd.append(l)
-    return '\n'.join(imports), '\n'.join(cmd)
-
-
-_repls = {}           # project_dir -> LeanRepl | False
-_ENV_CACHE_CAP = 8    # max cached import envs per REPL
-
-
-class LeanRepl:
-    def __init__(self, project_dir, timeout=30):
-        self._dir = project_dir
-        self._timeout = timeout
-        self._proc = None
-        self._envs = OrderedDict()   # import_block -> env_id (LRU); -1 = known failure
-        self.restarts = 0
-
-    def _launch(self):
-        self._proc = subprocess.Popen(
-            ["lake", "exe", "repl"],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, encoding="utf-8", cwd=self._dir,
-        )
-
-    def _send_raw(self, cmd_dict, timeout):
-        try:
-            self._proc.stdin.write(json.dumps(cmd_dict) + "\n\n")
-            self._proc.stdin.flush()
-        except (OSError, BrokenPipeError):
-            return None
-        q = _queue_mod.Queue()
-        proc_stdout = self._proc.stdout
-        def _r():
-            buf = []
-            try:
-                for line in proc_stdout:
-                    if not line.strip():
-                        break
-                    buf.append(line)
-                q.put(''.join(buf))
-            except Exception:
-                q.put(None)
-        _threading.Thread(target=_r, daemon=True).start()
-        try:
-            raw = q.get(timeout=timeout)
-        except _queue_mod.Empty:
-            return None
-        if not raw:
-            return None
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError:
-            return None
-
-    def _base_env_for(self, import_block):
-        """return env_id for import_block, or None on repl timeout, or -1 on import error."""
-        if import_block in self._envs:
-            self._envs.move_to_end(import_block)
-            return self._envs[import_block]
-        cmd_text = import_block if import_block else "-- base"
-        resp = self._send_raw({"cmd": cmd_text}, timeout=180)
-        if resp is None:
-            return None  # repl timeout
-        if "env" not in resp or any(m.get("severity") == "error" for m in resp.get("messages", [])):
-            self._envs[import_block] = -1   # cache so we don't retry
-            return -1
-        env_id = resp["env"]
-        if len(self._envs) >= _ENV_CACHE_CAP:
-            self._envs.popitem(last=False)  # evict LRU
-        self._envs[import_block] = env_id
-        return env_id
-
-    def start(self):
-        """start REPL process and verify it responds."""
-        try:
-            self._launch()
-        except (FileNotFoundError, OSError):
-            return False
-        resp = self._send_raw({"cmd": "-- ok"}, timeout=30)
-        if resp is None or "env" not in resp:
-            self.close()
-            return False
-        self._envs[""] = resp["env"]   # seed empty-import env
-        return True
-
-    def _fmt(self, resp):
-        msgs = resp.get("messages", [])
-        err = []
-        for m in msgs:
-            if m.get("severity") == "error":
-                p = m.get("pos", {})
-                err.append(f":{p.get('line', 0)}:{p.get('column', 0)}: error: {m.get('data', '')}")
-        if resp.get("sorries"):
-            err.append(":0:0: error: sorry found")
-        return '', '\n'.join(err), 1 if err else 0
-
-    def run(self, code):
-        """run code; return (stdout, stderr, rc) or None if unusable."""
-        if self._proc is None:
-            return None
-        import_block, cmd = _extract_imports(code)
-        env_id = self._base_env_for(import_block)
-        if env_id is None:
-            self._restart()
-            return "", ":0:0: error: lean repl timeout", 1
-        if env_id == -1:
-            return None  # import not available: let caller fall back to subprocess
-        resp = self._send_raw({"cmd": cmd, "env": env_id}, timeout=self._timeout)
-        if resp is None:
-            self._restart()
-            return "", ":0:0: error: lean repl timeout", 1
-        return self._fmt(resp)
-
-    def _restart(self):
-        self.close()
-        self.restarts += 1
-        print(f"  [repl] restart #{self.restarts}")
-        try:
-            self._launch()
-            resp = self._send_raw({"cmd": "-- ok"}, timeout=30)
-            if resp is None or "env" not in resp:
-                self.close()
-                return
-            self._envs[""] = resp["env"]
-        except Exception:
-            self._proc = None
-
-    def close(self):
-        p, self._proc = self._proc, None
-        self._envs.clear()
-        if p:
-            try: p.stdin.close()
-            except: pass
-            try: p.terminate()
-            except: pass
-            try: p.wait(timeout=3)
-            except: pass
-
-
-def _get_repl(project_dir):
-    if project_dir in _repls:
-        v = _repls[project_dir]
-        return v if v is not False else None
-    r = LeanRepl(project_dir)
-    ok = r.start()
-    _repls[project_dir] = r if ok else False
-    return r if ok else None
-
-
-def shutdown_repls():
-    for v in list(_repls.values()):
-        if v is not False:
-            v.close()
-    _repls.clear()
-
-
-_atexit.register(shutdown_repls)
-
-
-def verify_lean_path():
-    """Test that LEAN_PATH gives access to Mathlib. Returns True if fast path works."""
-    test_code = "import Mathlib.Tactic\n#check Nat.gcd_comm"
-    stdout, stderr, rc = run_in_project(test_code)
-    if rc == 0:
-        print(f"lean_path verified: mathlib accessible ({len(_LEAN_PATH_CACHE)} chars)")
-        return True
-    else:
-        print(f"lean_path check failed (rc={rc}): {(stdout + stderr)[:200]}")
-        return False
 
 def _errors(text):
     errs = []
@@ -428,6 +192,12 @@ def classify_function(lean_env, func_name):
         "arity": len(re.findall(r'\([^)]+:[^)]+\)', lean_env[:lean_env.find(":=")])) if ":=" in lean_env else 1,
         "helpers": helpers,
     }
+
+
+def _hammer_code(lean_env, theorem_stmt):
+    code = 'import Mathlib\nimport Hammer\n' + lean_env.rstrip() + '\n'
+    code += f'theorem _hammer_proof : {theorem_stmt} := by hammer {{ disableGrind := true }}'
+    return code
 
 
 class LeanChecker:
@@ -800,43 +570,29 @@ class LeanChecker:
         if not hammer_ok:
             return ProofResult(proved=False, method='l2:skipped (hammer unavailable)',
                                error=f'hammer unavailable: {hammer_err}', hammer_available=False)
-        timeout = _lss_config.hammer_timeout()
-        code = 'import Mathlib\nimport Hammer\n' + lean_env.rstrip() + '\n'
-        code += f'theorem _hammer_proof : {theorem_stmt} := by hammer {{ disableGrind := true }}'
-        fd, path = tempfile.mkstemp(suffix='.lean', dir=pdir)
-        try:
-            with os.fdopen(fd, 'w', encoding='utf-8') as f:
-                f.write(code)
-            t0 = time.time()
-            r = subprocess.run(
-                ['lake', 'env', 'lean', path],
-                capture_output=True, text=True, encoding='utf-8',
-                timeout=timeout, cwd=pdir,
-            )
-            elapsed = time.time() - t0
-            global _lean_call_count
-            _lean_call_count += 1
-            self.lean_calls += 1
-            combined = (r.stdout or '') + (r.stderr or '')
-            # filter premise-server info lines before error check
-            filtered = '\n'.join(
-                l for l in combined.splitlines()
-                if 'unindexed premises' not in l
-            )
-            ok = r.returncode == 0 and not _errors(filtered)
-            if ok:
-                return ProofResult(proved=True, method=f'l2:hammer ({elapsed:.1f}s)', error='',
-                                   hammer_available=True)
-            return ProofResult(proved=False, method='', error=combined.strip()[:200],
+        hammer_timeout = _lss_config.server_cfg()['hammer_timeout']
+        code = _hammer_code(lean_env, theorem_stmt)
+        t0 = time.time()
+        r = _lean_server.get_server(pdir).check(code, timeout=hammer_timeout)
+        elapsed = time.time() - t0
+        global _lean_call_count
+        _lean_call_count += 1
+        self.lean_calls += 1
+        if r.timed_out:
+            return ProofResult(proved=False, method='', error=f'timeout after {hammer_timeout}s',
                                hammer_available=True)
-        except subprocess.TimeoutExpired:
-            return ProofResult(proved=False, method='', error=f'timeout after {timeout}s',
+        combined = (r.stdout or '') + (r.stderr or '')
+        # filter premise-server info lines before error check
+        filtered = '\n'.join(
+            l for l in combined.splitlines()
+            if 'unindexed premises' not in l
+        )
+        ok = r.rc == 0 and not _errors(filtered)
+        if ok:
+            return ProofResult(proved=True, method=f'l2:hammer ({elapsed:.1f}s)', error='',
                                hammer_available=True)
-        finally:
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
+        return ProofResult(proved=False, method='', error=combined.strip()[:200],
+                           hammer_available=True)
 
     def check_specs_against_mutants_batch(self, mutant_code, specs, func_name=None):
         """check which specs hold against a mutant, all in one lean call.
@@ -2082,6 +1838,8 @@ class ExampleStore:
 
 
 class Cache:
+    CACHE_VERSION = 2
+
     def __init__(self, path=".lss/cache.json"):
         self._path = path
         self._data = {}
@@ -2091,21 +1849,26 @@ class Cache:
         if os.path.exists(self._path):
             try:
                 with open(self._path) as f:
-                    self._data = json.load(f)
+                    raw = json.load(f)
+                if raw.get("_v") != self.CACHE_VERSION:
+                    self._data = {"_v": self.CACHE_VERSION}
+                    return
+                self._data = raw
             except (json.JSONDecodeError, ValueError):
                 self._data = {}
 
     def _save(self):
         os.makedirs(os.path.dirname(self._path) or ".", exist_ok=True)
+        out = {"_v": self.CACHE_VERSION, **self._data}
         tmp = self._path + ".tmp"
         try:
             with open(tmp, "w") as f:
-                json.dump(dict(self._data), f)
+                json.dump(out, f)
             os.replace(tmp, self._path)
         except Exception:
             try:
                 with open(self._path, "w") as f:
-                    json.dump(dict(self._data), f)
+                    json.dump(out, f)
             except Exception:
                 pass
 
