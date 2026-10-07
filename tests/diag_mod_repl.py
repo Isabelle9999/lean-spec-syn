@@ -1,7 +1,8 @@
 import os, sys
 sys.path.insert(0, "."); sys.stdout.reconfigure(encoding="utf-8")
 import lean, callgraph, modularity
-from lean import LeanChecker, run_in_project, _run_in_project_lake
+from lean import LeanChecker, run_in_project
+from lean_server import _run_in_project_lake
 
 sys.path.insert(0, "..")
 import lss_config

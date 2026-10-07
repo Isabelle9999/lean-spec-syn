@@ -3,7 +3,8 @@ sys.path.insert(0, "."); sys.stdout.reconfigure(encoding="utf-8")
 os.environ.setdefault("ANTHROPIC_API_KEY",
     open("/mnt/c/Users/User/projects/anthropic_api.txt").read().strip())
 import lean
-from lean import LeanChecker, run_in_project, _run_in_project_lake
+from lean import LeanChecker, run_in_project
+from lean_server import _run_in_project_lake
 from synth import LLMClient
 
 sys.path.insert(0, "..")

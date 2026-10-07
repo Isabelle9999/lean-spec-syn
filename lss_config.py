@@ -37,12 +37,19 @@ def hammer_project_dir():
     return None
 
 
-def hammer_timeout():
-    for p in _cfg()["projects"].values():
-        if p.get("has_hammer"):
-            return p.get("hammer_timeout", 120)
-    return 120
-
-
 def all_projects():
     return {name: project_dir(name) for name in _cfg()["projects"]}
+
+
+def server_cfg():
+    defaults = {
+        "workers": 1,
+        "cmd_timeout": 30,
+        "import_timeout": 180,
+        "lake_timeout": 120,
+        "env_cache_cap": 8,
+        "max_restarts": 20,
+        "hammer_timeout": 90,
+    }
+    s = _cfg().get("server", {})
+    return {k: s.get(k, v) for k, v in defaults.items()}
