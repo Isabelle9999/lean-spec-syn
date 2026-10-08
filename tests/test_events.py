@@ -68,9 +68,48 @@ def test_cost_usd_unknown():
     print("d: unknown model raises ok")
 
 
+def test_with_context():
+    # e: with_context sets fields for the duration of the function, restores on return and on raise
+    from events import with_context
+
+    captured = []
+
+    @with_context(layer="test_layer")
+    def fn(x):
+        captured.append(dict(events._ctx.get()))
+        return x * 2
+
+    before = dict(events._ctx.get())
+    result = fn(5)
+    after = dict(events._ctx.get())
+    assert result == 10
+    assert captured[0].get("layer") == "test_layer", f"layer missing inside fn: {captured[0]}"
+    assert after == before, f"context not restored after return: {after}"
+    print("e: with_context sets/restores on return ok")
+
+    # on exception: context must still be restored
+    captured.clear()
+
+    @with_context(layer="raise_test")
+    def fn2():
+        captured.append(dict(events._ctx.get()))
+        raise ValueError("boom")
+
+    before2 = dict(events._ctx.get())
+    try:
+        fn2()
+    except ValueError:
+        pass
+    after2 = dict(events._ctx.get())
+    assert captured[0].get("layer") == "raise_test", f"layer missing inside fn2: {captured[0]}"
+    assert after2 == before2, f"context not restored after exception: {after2}"
+    print("f: with_context restores on exception ok")
+
+
 if __name__ == "__main__":
     test_emit_no_configure()
     test_nested_context_merge()
     test_cost_usd_known()
     test_cost_usd_unknown()
+    test_with_context()
     print("all ok")
