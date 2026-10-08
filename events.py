@@ -36,6 +36,15 @@ def context(**fields):
     return _CtxMgr(fields)
 
 
+def with_context(**fields):
+    def decorator(fn):
+        def wrapper(*args, **kwargs):
+            with context(**fields):
+                return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
 def emit(kind, **fields):
     if not _state:
         return

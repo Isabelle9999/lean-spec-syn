@@ -7,6 +7,7 @@ import difflib
 from dataclasses import dataclass
 import lss_config as _lss_config
 import lean_server as _lean_server
+from events import with_context
 
 TACTICS = [
     # instant closers
@@ -207,6 +208,7 @@ class LeanChecker:
         self.project_dir = project_dir
         self._env_cache = {}  # (project_dir, requires_hammer) -> (ok, error)
 
+    @with_context(layer="typecheck")
     def typecheck(self, code, project_dir=None):
         if project_dir is None:
             project_dir = self.project_dir
@@ -355,6 +357,7 @@ class LeanChecker:
             self._cache.put(cache_key, result)
         return result
 
+    @with_context(layer="tactics")
     def try_proof_batch(self, lean_env, theorem_stmt, func_name=None,
                         allow_search_tactics=False, use_project=False, project_dir=None):
         if project_dir is None:
@@ -561,6 +564,7 @@ class LeanChecker:
                                     allow_search_tactics=allow_search_tactics,
                                     use_project=use_project, project_dir=project_dir)
 
+    @with_context(layer="hammer")
     def try_hammer(self, lean_env, theorem_stmt, func_name=None, project_dir=None):
         # always use the configured hammer project (aeneas); project_dir arg ignored
         pdir = _lss_config.hammer_project_dir()
@@ -1413,6 +1417,7 @@ class MutationEngine:
 
         return mutants
 
+    @with_context(layer="mutation")
     def filter_compilable(self, mutants, original_code=None, func_name=None, llm=None):
         result = []
         for mut in mutants:
@@ -1619,6 +1624,7 @@ class MutationEngine:
 
         return results
 
+    @with_context(layer="mutation")
     def certify_proof(self, lean_code, mutant, func_name, spec_stmts,
                        project_dir=None, skip_equiv=False, struct_defs=None, spec_names=None):
         """classify one mutant: STILLBORN/EQUIVALENT/KILLED/SURVIVED/INCONCLUSIVE"""
