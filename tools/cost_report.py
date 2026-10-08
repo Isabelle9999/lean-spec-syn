@@ -10,6 +10,16 @@ def _row():
             "via_lake": 0, "timed_out": 0, "restarted": 0, "max_elapsed": 0.0}
 
 
+def _layer_row():
+    return {"lean_calls": 0, "lean_s": 0.0, "timed_out": 0,
+            "restarted": 0, "swapped": 0, "proofs": 0}
+
+
+# method prefix -> layer name (how lean.py builds the method string)
+# try_proof_batch returns "l1:<tactic>"; try_hammer returns "l2:hammer (...)"
+_METHOD_LAYER = {"l1:": "tactics", "l2:": "hammer"}
+
+
 def main():
     if len(sys.argv) < 2:
         print("usage: cost_report.py <events.jsonl>")
@@ -19,6 +29,7 @@ def main():
     by_stage = defaultdict(_row)
     by_model = defaultdict(_row)
     by_func = defaultdict(lambda: {**_row(), "verdicts": []})
+    by_layer = defaultdict(_layer_row)
     lean_events = []
 
     with open(path, encoding="utf-8") as f:
@@ -70,9 +81,26 @@ def main():
                     "via": ev.get("via", ""), "timed_out": ev.get("timed_out", False),
                     "restarted": ev.get("restarted", False), "n_errors": ev.get("n_errors", 0),
                 })
+                layer = ev.get("layer", "")
+                if layer:
+                    ld = by_layer[layer]
+                    ld["lean_calls"] += 1
+                    ld["lean_s"] += s
+                    if ev.get("timed_out"):
+                        ld["timed_out"] += 1
+                    if ev.get("restarted"):
+                        ld["restarted"] += 1
+                    if ev.get("swapped"):
+                        ld["swapped"] += 1
             elif kind == "verdict":
                 if func:
                     by_func[func]["verdicts"].append(ev.get("status", "?"))
+                method = ev.get("method", "")
+                if ev.get("status") == "proved" and method:
+                    for prefix, lname in _METHOD_LAYER.items():
+                        if method.startswith(prefix):
+                            by_layer[lname]["proofs"] += 1
+                            break
 
     def _fmt(d):
         return (f"llm={d['llm_calls']} in={d['input']} out={d['output']} "
@@ -104,6 +132,35 @@ def main():
         for func, d in sorted(by_func.items()):
             vs = ", ".join(d["verdicts"]) if d["verdicts"] else "-"
             print(f"  {func:30} usd=${d['usd']:.4f} lean_s={d['lean_s']:.1f} verdicts=[{vs}]")
+
+    if by_layer:
+        print("\nby layer")
+        layer_lean = 0
+        layer_s = 0.0
+        layer_tout = 0
+        layer_restart = 0
+        layer_swap = 0
+        layer_proofs = 0
+        for lname in ("typecheck", "tactics", "hammer", "mutation"):
+            if lname not in by_layer:
+                continue
+            ld = by_layer[lname]
+            print(f"  {lname:12} lean={ld['lean_calls']} s={ld['lean_s']:.1f}"
+                  f" tout={ld['timed_out']} restart={ld['restarted']}"
+                  f" swap={ld['swapped']} proofs={ld['proofs']}")
+            layer_lean += ld["lean_calls"]
+            layer_s += ld["lean_s"]
+            layer_tout += ld["timed_out"]
+            layer_restart += ld["restarted"]
+            layer_swap += ld["swapped"]
+            layer_proofs += ld["proofs"]
+        no_lean = totals["lean_calls"] - layer_lean
+        no_s = totals["lean_s"] - layer_s
+        no_tout = sum(1 for e in lean_events if e["timed_out"]) - layer_tout
+        no_restart = sum(1 for e in lean_events if e["restarted"]) - layer_restart
+        print(f"  {'(no layer)':12} lean={no_lean} s={no_s:.1f}"
+              f" tout={no_tout} restart={no_restart}"
+              f" swap=0 proofs=0")
 
     if lean_events:
         print("\nslowest lean calls")
