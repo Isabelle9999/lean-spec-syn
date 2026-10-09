@@ -383,9 +383,13 @@ def main():
 
     if args.rust_project:
         from loader import load_rust_project
+        import callgraph
         benches = load_rust_project(args.rust_project)
         run_dir = rust_project_dir
         print(f"loaded {len(benches)} rust functions from {args.rust_project}")
+        topo = callgraph.for_project(args.rust_project).topo_sorted_names()
+        order = {n: i for i, n in enumerate(topo)}
+        benches.sort(key=lambda b: order.get(b.get("lean_name"), len(topo)))
     elif args.verina or args.clever:
         from loader import load_verina, load_clever
         benches = []
