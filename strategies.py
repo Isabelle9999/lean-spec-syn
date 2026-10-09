@@ -1,6 +1,7 @@
+import os
 import re
+import callgraph
 from lean import LeanChecker, _errors, run_in_project
-from callgraph import CallGraph
 import events
 
 
@@ -169,8 +170,12 @@ def generate_from_slices(lean_code, func_name, llm, lean_checker, verbose=False,
         specs = []
         proved_helper_specs = []
 
-        # use call graph for topo-ordered helper discovery
-        cg = CallGraph(code)
+        # use call graph for topo-ordered helper discovery: the project graph
+        # when project_dir has a manifest, else build from the inline code
+        has_manifest = project_dir and (
+            os.path.exists(os.path.join(project_dir, "rust-spec-synthesis.json"))
+            or os.path.exists(os.path.join(project_dir, "translation.json")))
+        cg = callgraph.for_project(project_dir) if has_manifest else callgraph.build_call_graph(code)
         topo = cg.topo_sorted_names()
         trans_callees = cg.transitive_callees(func_name)
 
