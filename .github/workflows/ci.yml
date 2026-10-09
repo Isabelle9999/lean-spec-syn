@@ -44,6 +44,9 @@ jobs:
       - name: Pin check
         run: python tests/test_pins.py --static
 
+      - name: Unit graph check
+        run: python tests/test_unitgraph.py --static
+
       - name: Manifest check
         run: python scripts/derive_manifest.py --check
 
