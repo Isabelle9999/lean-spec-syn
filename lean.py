@@ -7,6 +7,8 @@ import difflib
 from dataclasses import dataclass
 import lss_config as _lss_config
 import lean_server as _lean_server
+import callgraph as _callgraph
+import events
 from events import with_context
 
 TACTICS = [
@@ -85,6 +87,7 @@ class ProofResult:
     error: str
     mathlib_available: bool = True
     hammer_available: bool = True
+    proof_text: str = ""
 
 @dataclass
 class PBTResult:
@@ -201,12 +204,26 @@ def _hammer_code(lean_env, theorem_stmt):
     return code
 
 
+_AENEAS_LAYER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean", "aeneas_layer.lean")
+_aeneas_layer_cache = None
+
+
+def _aeneas_layer_text():
+    global _aeneas_layer_cache
+    if _aeneas_layer_cache is None:
+        with open(_AENEAS_LAYER_PATH, encoding="utf-8") as f:
+            _aeneas_layer_cache = f.read()
+    return _aeneas_layer_cache
+
+
 class LeanChecker:
     def __init__(self, cache=None, project_dir=None):
         self._cache = cache
         self.lean_calls = 0
         self.project_dir = project_dir
         self._env_cache = {}  # (project_dir, requires_hammer) -> (ok, error)
+        self._aeneas_env = {}  # project_dir -> {env, admitted: [(name,stmt,tactic)], restarts, ok, error}
+        self._aeneas_admit_counter = {}  # project_dir -> next admitted-name index, never reused
 
     @with_context(layer="typecheck")
     def typecheck(self, code, project_dir=None):
@@ -597,6 +614,141 @@ class LeanChecker:
                                hammer_available=True)
         return ProofResult(proved=False, method='', error=combined.strip()[:200],
                            hammer_available=True)
+
+    def _aeneas_build_env(self, project_dir):
+        """fresh env = crate text + the same options/opens the benches' own
+        lean_code + lean_preamble use (so a statement elaborates the same way in
+        every layer) + the aeneas layer, in the pinned aeneas project. maxHeartbeats
+        is left out here on purpose: each attempt sets its own cap. printed once
+        per crate since cost grows with crate size."""
+        aeneas_dir = _lss_config.project_dir("aeneas")
+        server = _lean_server.get_server(aeneas_dir)
+        g = _callgraph.for_project(project_dir)
+        text = (g.crate_text +
+                "\nset_option maxRecDepth 2048\n"
+                f"open Aeneas Aeneas.Std Result ControlFlow Error\nopen {g.crate}\n" +
+                _aeneas_layer_text())
+        t0 = time.time()
+        r = server.check(text, timeout=600)
+        elapsed = time.time() - t0
+        print(f"  aeneas env build: {project_dir} {elapsed:.1f}s")
+        self.lean_calls += 1
+        combined = (r.stdout or "") + (r.stderr or "")
+        ok = r.rc == 0 and r.new_env is not None
+        if not ok:
+            errs = _errors(combined)
+            print(f"  aeneas env build failed: {(errs[0] if errs else combined.strip())[:200]}")
+        state = {"env": r.new_env, "admitted": [], "restarts": server.stats()["restarts"],
+                 "ok": ok, "error": combined[:300]}
+        self._aeneas_env[project_dir] = state
+        return state
+
+    def _aeneas_env_for(self, project_dir):
+        """the crate's current env, rebuilding (and replaying admitted specs, in
+        proof order, callees-first) if the server restarted since it was built."""
+        aeneas_dir = _lss_config.project_dir("aeneas")
+        server = _lean_server.get_server(aeneas_dir)
+        state = self._aeneas_env.get(project_dir)
+        if state is None:
+            return self._aeneas_build_env(project_dir)
+        if state["restarts"] != server.stats()["restarts"]:
+            admitted = state["admitted"]
+            state = self._aeneas_build_env(project_dir)
+            if state["ok"]:
+                for name, stmt, tactic in admitted:
+                    self._aeneas_admit(project_dir, state, name, stmt, tactic)
+        return state
+
+    def _aeneas_admit(self, project_dir, state, name, stmt, tactic):
+        """extend the crate's env once with the winning proof, @[step]-registered.
+        only on success: a failing admit (lower cap, flaky tactic, ...) keeps the
+        old env and is not recorded, so it can't leave a sorry-backed @[step] lemma.
+        success is lss_report_attempts's ok=true (collectAxioms, no sorryAx), the
+        same check the proof attempts themselves get: a plain error-message check
+        can't see a tactic that silently closes the goal with sorry."""
+        aeneas_dir = _lss_config.project_dir("aeneas")
+        heartbeats = _lss_config.proof_cfg()["aeneas_heartbeats"]
+        server = _lean_server.get_server(aeneas_dir)
+        text = (f"set_option maxHeartbeats {heartbeats} in\n"
+                f"theorem {name} : {stmt} := by\n  {tactic}\n"
+                f"lss_register_step {name}\nlss_report_attempts {name}")
+        r = server.check(text, timeout=90, env=state["env"])
+        self.lean_calls += 1
+        combined = (r.stdout or "") + (r.stderr or "")
+        verdict = None
+        for m in re.finditer(r"LSS_ATTEMPT (\{[^\n]*\})", combined):
+            try:
+                v = json.loads(m.group(1))
+            except json.JSONDecodeError:
+                continue
+            if v.get("name") == name:
+                verdict = v
+        ok = r.rc == 0 and r.new_env is not None and verdict is not None and verdict.get("ok") is True
+        if ok:
+            state["env"] = r.new_env
+            state["admitted"].append((name, stmt, tactic))
+        else:
+            errs = _errors(combined)
+            print(f"  aeneas admit failed: {name}: {(errs[0] if errs else combined.strip())[:200]}")
+        return r
+
+    @with_context(layer="aeneas")
+    def try_aeneas(self, candidate_stmt, func_name, rust_project_dir, candidate_id=None):
+        """aeneas-tactic layer for a rust unit: unfold f; step*, then step* plus a
+        closer, against the crate's growing env in the pinned aeneas project (every
+        spec proved so far this run, this crate, already @[step]-registered there)."""
+        aeneas_dir = _lss_config.project_dir("aeneas")
+        heartbeats = _lss_config.proof_cfg()["aeneas_heartbeats"]
+        server = _lean_server.get_server(aeneas_dir)
+        state = self._aeneas_env_for(rust_project_dir)
+        if not state["ok"]:
+            return ProofResult(proved=False, method="", error=state["error"])
+
+        attempts = [
+            ("a", f"lss_spec_form\n  unfold {func_name}\n  step*"),
+            ("b", f"lss_spec_form\n  unfold {func_name}\n  "
+                  "step* <;> first | scalar_tac | simp_scalar | (simp_all <;> simp_lists [*]) | grind"),
+            ("c", f"lss_spec_form\n  unfold {func_name}\n  step*\n  lss_log_goals\n  all_goals sorry"),
+        ]
+
+        def entry_text(label, tactic):
+            return (f"set_option maxHeartbeats {heartbeats} in\n"
+                    f"theorem _aeneas_{label} : {candidate_stmt} := by\n  {tactic}")
+
+        full = "\n".join(entry_text(label, tactic) for label, tactic in attempts)
+        full += "\nlss_report_attempts _aeneas_a _aeneas_b"
+
+        r = server.check(full, timeout=90, env=state["env"])
+        self.lean_calls += 1
+        combined = (r.stdout or "") + (r.stderr or "")
+
+        for m in re.finditer(r"LSS_GOALS (\{[^\n]*\})", combined):
+            try:
+                goal = json.loads(m.group(1))
+            except json.JSONDecodeError:
+                continue
+            events.emit("open_goal", unit=func_name, candidate_id=candidate_id,
+                        head=goal.get("head", "?"))
+
+        verdicts = {}
+        for m in re.finditer(r"LSS_ATTEMPT (\{[^\n]*\})", combined):
+            try:
+                v = json.loads(m.group(1))
+            except json.JSONDecodeError:
+                continue
+            verdicts[v.get("name")] = v
+
+        for label, tactic in attempts[:2]:
+            v = verdicts.get(f"_aeneas_{label}")
+            if v and v.get("ok"):
+                n = self._aeneas_admit_counter.get(rust_project_dir, 0)
+                self._aeneas_admit_counter[rust_project_dir] = n + 1
+                name = f"lss_admitted_{n}"
+                self._aeneas_admit(rust_project_dir, state, name, candidate_stmt, tactic)
+                return ProofResult(proved=True, method=f"aeneas:{label}", error="",
+                                   proof_text=tactic)
+
+        return ProofResult(proved=False, method="", error=combined.strip()[:200])
 
     def check_specs_against_mutants_batch(self, mutant_code, specs, func_name=None):
         """check which specs hold against a mutant, all in one lean call.

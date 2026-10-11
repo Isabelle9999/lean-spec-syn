@@ -152,6 +152,13 @@ class CallGraph:
         return len(self._sccs[i]) if i is not None else 1
 
     @property
+    def crate_text(self):
+        """the crate code sent to lean (import Aeneas + the crate's own Code/*.lean
+        files), without the unit-graph driver that for_project appends only to
+        compute units."""
+        return self._text
+
+    @property
     def names(self):
         return set(self._names)
 
