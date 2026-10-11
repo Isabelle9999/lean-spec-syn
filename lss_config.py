@@ -50,6 +50,14 @@ def server_cfg():
         "env_cache_cap": 8,
         "max_restarts": 20,
         "hammer_timeout": 90,
+        "memory_cap": True,
+        "memory_fraction": 0.4,
     }
     s = _cfg().get("server", {})
     return {k: s.get(k, v) for k, v in defaults.items()}
+
+
+def proof_cfg():
+    defaults = {"aeneas_layer": True, "aeneas_heartbeats": 200000}
+    p = _cfg().get("proof", {})
+    return {k: p.get(k, v) for k, v in defaults.items()}

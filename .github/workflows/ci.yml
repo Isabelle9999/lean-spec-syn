@@ -47,6 +47,9 @@ jobs:
       - name: Unit graph check
         run: python tests/test_unitgraph.py --static
 
+      - name: Aeneas layer check
+        run: python tests/test_aeneas_layer.py --static
+
       - name: Manifest check
         run: python scripts/derive_manifest.py --check
 

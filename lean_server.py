@@ -1,6 +1,7 @@
 import subprocess
 import tempfile
 import os
+import shutil
 import signal as _signal
 import json
 import time
@@ -21,6 +22,59 @@ class CheckResult:
     elapsed: float = 0.0
     timed_out: bool = False
     restarted: bool = False
+    new_env: int = None  # repl env id after this command, if via="repl" and it ran
+    mem_killed: bool = False  # process died by a SIGKILL the server did not send (cgroup memory cap)
+
+
+def _mem_total_bytes():
+    with open("/proc/meminfo", encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("MemTotal:"):
+                return int(line.split()[1]) * 1024
+    raise RuntimeError("lean_server: no MemTotal line in /proc/meminfo")
+
+
+def _mem_cap_bytes(fraction):
+    return int(_mem_total_bytes() * fraction)
+
+
+def _resolve_mem_cap(cfg):
+    """byte cap for lean/lake subprocesses, or None if the cap is off.
+    RLIMIT_DATA and RLIMIT_AS both count reserved/mapped address space rather than
+    memory actually charged to the process, and Lean's runtime reserves enough of
+    that per thread (scaling with core count) that no cap under the two counted
+    the whole machine even lets Lean start. a cgroup v2 scope (systemd-run --scope,
+    memory.max) counts real use instead, so that's what caps every lean/lake
+    subprocess below."""
+    if not cfg.get("memory_cap", True):
+        return None
+    cap = cfg.get("memory_cap_bytes")
+    if cap is None:
+        cap = _mem_cap_bytes(cfg.get("memory_fraction", 0.4))
+    if shutil.which("systemd-run") is None:
+        raise RuntimeError(
+            "lean_server: [server] memory_cap is on (default) but systemd-run was not found "
+            "on PATH. RLIMIT_DATA/RLIMIT_AS do not work for Lean (see project notes). "
+            "install systemd, or set memory_cap = false in lss.toml to run uncapped.")
+    probe = subprocess.run(
+        ["systemd-run", "--user", "--scope", "--quiet", "--collect", "--", "true"],
+        capture_output=True, text=True, timeout=10)
+    if probe.returncode != 0:
+        detail = (probe.stderr or probe.stdout or "").strip()[:300]
+        raise RuntimeError(
+            f"lean_server: [server] memory_cap is on (default) but systemd-run failed "
+            f"(rc={probe.returncode}): {detail}. set memory_cap = false in lss.toml to run uncapped.")
+    return cap
+
+
+def _wrap_cgroup(args, mem_cap_bytes):
+    """run args in a transient user cgroup scope capped at mem_cap_bytes of real
+    memory (memory.max), or args unchanged if mem_cap_bytes is None. --scope execs
+    args in place (same pid, same stdin/stdout), so callers need no other change."""
+    if mem_cap_bytes is None:
+        return args
+    return ["systemd-run", "--user", "--scope", "--quiet", "--collect",
+            "-p", f"MemoryMax={mem_cap_bytes}", "-p", "MemorySwapMax=0", "--"] + args
 
 
 def _extract_imports(code):
@@ -64,11 +118,16 @@ def _fmt(resp):
     return '', '\n'.join(lines), 1 if has_error else 0
 
 
-def run_lake(args, cwd, timeout):
+def run_lake(args, cwd, timeout, mem_cap_bytes=None):
     """Popen with start_new_session=True; SIGKILL process group on timeout.
-    Returns (stdout, stderr, rc, killed). On timeout rc=1 and stderr starts ':0:0: error: timeout'."""
+    Returns (stdout, stderr, rc, killed, mem_killed). On timeout rc=1 and stderr
+    starts ':0:0: error: timeout'. mem_killed=True when the process died by a
+    SIGKILL or SIGTERM the caller did not send (the cgroup memory cap, when
+    mem_cap_bytes is set, observed as either depending on whether the kernel's
+    cgroup OOM killer or systemd's own scope-stop sequence gets there first) --
+    a SIGABRT (e.g. a Lean stack overflow) is left as an ordinary crash."""
     p = subprocess.Popen(
-        args,
+        _wrap_cgroup(args, mem_cap_bytes),
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         text=True, encoding="utf-8", cwd=cwd,
         start_new_session=True,
@@ -76,7 +135,12 @@ def run_lake(args, cwd, timeout):
     killed = False
     try:
         stdout, stderr = p.communicate(timeout=timeout)
-        return stdout, stderr, p.returncode, killed
+        if mem_cap_bytes is not None and p.returncode in (-9, -15):
+            stderr = (stderr or "") + (
+                f"\n:0:0: error: lean memory cap exceeded (cgroup killed the process, "
+                f"cap={mem_cap_bytes} bytes)")
+            return stdout, stderr, 1, killed, True
+        return stdout, stderr, p.returncode, killed, False
     except subprocess.TimeoutExpired:
         try:
             os.killpg(os.getpgid(p.pid), _signal.SIGKILL)
@@ -84,20 +148,22 @@ def run_lake(args, cwd, timeout):
         except OSError:
             pass
         p.wait()
-        return "", f":0:0: error: timeout after {timeout}s", 1, killed
+        return "", f":0:0: error: timeout after {timeout}s", 1, killed, False
 
 
-def _run_lake(code, project_dir, timeout=120):
+def _run_lake(code, project_dir, timeout=120, mem_cap_bytes=None):
     fd, path = tempfile.mkstemp(suffix=".lean", dir=project_dir)
     t0 = time.time()
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(code)
-        stdout, stderr, rc, _ = run_lake(["lake", "env", "lean", path], project_dir, timeout)
+        stdout, stderr, rc, _, mem_killed = run_lake(["lake", "env", "lean", path], project_dir,
+                                                      timeout, mem_cap_bytes=mem_cap_bytes)
         timed_out = rc == 1 and stderr.startswith(":0:0: error: timeout")
         merged_stderr = '\n'.join(x for x in (stderr, stdout) if x)
         return CheckResult(stdout=stdout, stderr=merged_stderr, rc=rc,
-                           via="lake", elapsed=time.time() - t0, timed_out=timed_out)
+                           via="lake", elapsed=time.time() - t0, timed_out=timed_out,
+                           mem_killed=mem_killed)
     finally:
         try:
             os.unlink(path)
@@ -112,11 +178,13 @@ def _run_in_project_lake(code, project_dir):
 
 
 class ReplWorker:
-    def __init__(self, project_dir, cmd_timeout=30, import_timeout=180, env_cache_cap=8):
+    def __init__(self, project_dir, cmd_timeout=30, import_timeout=180, env_cache_cap=8,
+                 mem_cap_bytes=None):
         self._dir = project_dir
         self._cmd_timeout = cmd_timeout
         self._import_timeout = import_timeout
         self._cap = env_cache_cap
+        self._mem_cap = mem_cap_bytes
         self._proc = None
         self._envs = OrderedDict()
         self.restarts = 0
@@ -125,7 +193,7 @@ class ReplWorker:
 
     def _launch(self):
         self._proc = subprocess.Popen(
-            ["lake", "exe", "repl"],
+            _wrap_cgroup(["lake", "exe", "repl"], self._mem_cap),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding="utf-8", cwd=self._dir,
             start_new_session=True,
@@ -210,33 +278,54 @@ class ReplWorker:
         self._envs[""] = resp["env"]
         return True
 
-    def run(self, code, cmd_timeout=None):
-        """return CheckResult or None if import unavailable (caller falls back to lake)."""
+    def run(self, code, cmd_timeout=None, env=None):
+        """return CheckResult or None if import unavailable (caller falls back to lake).
+        env: run code as a command against this existing env id instead of an
+        import-derived base env (code is the whole command, no import extraction)."""
         if self._proc is None:
             return None
         _ct = cmd_timeout if cmd_timeout is not None else self._cmd_timeout
-        import_block, cmd = _extract_imports(code)
         t0 = time.time()
-        env_id = self._base_env_for(import_block)
-        if env_id is None:
-            restarted = self._restart()
-            return CheckResult(stdout="", stderr=":0:0: error: lean repl timeout",
-                               rc=1, via="repl", elapsed=time.time() - t0,
-                               timed_out=True, restarted=restarted)
-        if isinstance(env_id, str):
-            return CheckResult(stdout="", stderr=env_id, rc=1, via="repl",
-                               elapsed=time.time() - t0)
-        if env_id == -1:
-            return None
+        if env is not None:
+            env_id, cmd = env, code
+        else:
+            import_block, cmd = _extract_imports(code)
+            env_id = self._base_env_for(import_block)
+            if env_id is None:
+                return self._dead_result(t0)
+            if isinstance(env_id, str):
+                return CheckResult(stdout="", stderr=env_id, rc=1, via="repl",
+                                   elapsed=time.time() - t0)
+            if env_id == -1:
+                return None
         resp = self._send_raw({"cmd": cmd, "env": env_id}, timeout=_ct)
-        elapsed = time.time() - t0
         if resp is None:
-            restarted = self._restart()
-            return CheckResult(stdout="", stderr=":0:0: error: lean repl timeout",
-                               rc=1, via="repl", elapsed=elapsed,
-                               timed_out=True, restarted=restarted)
+            return self._dead_result(t0)
+        elapsed = time.time() - t0
         stdout, stderr, rc = _fmt(resp)
-        return CheckResult(stdout=stdout, stderr=stderr, rc=rc, via="repl", elapsed=elapsed)
+        return CheckResult(stdout=stdout, stderr=stderr, rc=rc, via="repl", elapsed=elapsed,
+                           new_env=resp.get("env"))
+
+    def _dead_result(self, t0):
+        """the process stopped responding: under a memory cap, a SIGKILL or SIGTERM
+        death here (-9 or -15, observed as either depending on whether the kernel's
+        cgroup OOM killer or systemd's own scope-stop sequence gets there first;
+        this code never signals a process while a command is in flight) is reported
+        as a memory-cap hit; anything else -- including a SIGABRT (-6) from a Lean
+        stack overflow -- is left as the existing generic repl-timeout path. either
+        way the worker restarts, same as before this distinction existed."""
+        poll = self._proc.poll() if self._proc is not None else None
+        mem_killed = self._mem_cap is not None and poll in (-9, -15)
+        restarted = self._restart()
+        if mem_killed:
+            err = (f":0:0: error: lean memory cap exceeded (cgroup killed the process, "
+                   f"cap={self._mem_cap} bytes)")
+            return CheckResult(stdout="", stderr=err, rc=1, via="repl",
+                               elapsed=time.time() - t0, timed_out=False,
+                               restarted=restarted, mem_killed=True)
+        return CheckResult(stdout="", stderr=":0:0: error: lean repl timeout",
+                           rc=1, via="repl", elapsed=time.time() - t0,
+                           timed_out=True, restarted=restarted)
 
     def _restart(self):
         self.close()
@@ -280,11 +369,13 @@ class LeanServer:
             raise ValueError(f"workers must be 1, got {workers}")
         self._dir = project_dir
         self._lake_timeout = cfg.get("lake_timeout", 120)
+        self._mem_cap = _resolve_mem_cap(cfg)
         self._worker = ReplWorker(
             project_dir,
             cmd_timeout=cfg.get("cmd_timeout", 30),
             import_timeout=cfg.get("import_timeout", 180),
             env_cache_cap=cfg.get("env_cache_cap", 8),
+            mem_cap_bytes=self._mem_cap,
         )
         if not self._worker.start():
             self._worker = None
@@ -294,11 +385,35 @@ class LeanServer:
         self._timeouts = 0
         self._lake_timeouts = 0
         self._lake_killed = 0
+        self._mem_killed_count = 0
         self._seconds_repl = 0.0
         self._seconds_lake = 0.0
 
-    def check(self, code, timeout=None):
+    def check(self, code, timeout=None, env=None):
+        """env: run code as a command against this existing repl env id (no
+        import extraction, no lake fallback) and report the resulting env id
+        on the returned CheckResult as new_env."""
         self._calls += 1
+        if env is not None:
+            if self._worker is None:
+                return CheckResult(stdout="", stderr=":0:0: error: lean repl unavailable",
+                                   rc=1, via="repl")
+            r = self._worker.run(code, cmd_timeout=timeout, env=env)
+            if r is None:
+                return CheckResult(stdout="", stderr=":0:0: error: lean repl unavailable",
+                                   rc=1, via="repl")
+            self._repl_calls += 1
+            self._seconds_repl += r.elapsed
+            if r.timed_out:
+                self._timeouts += 1
+            if r.mem_killed:
+                self._mem_killed_count += 1
+            n_err = r.stderr.count(": error:") if r.stderr else 0
+            sorry = "sorry" in (r.stderr or "") or "sorry" in (r.stdout or "")
+            events.emit("lean", via=r.via, rc=r.rc, elapsed=r.elapsed,
+                        timed_out=r.timed_out, restarted=r.restarted,
+                        n_errors=n_err, sorry=sorry, mem_killed=r.mem_killed)
+            return r
         if _should_use_repl(code) and self._worker is not None:
             r = self._worker.run(code, cmd_timeout=timeout)
             if r is not None:
@@ -306,24 +421,29 @@ class LeanServer:
                 self._seconds_repl += r.elapsed
                 if r.timed_out:
                     self._timeouts += 1
+                if r.mem_killed:
+                    self._mem_killed_count += 1
                 n_err = r.stderr.count(": error:") if r.stderr else 0
                 sorry = "sorry" in (r.stderr or "") or "sorry" in (r.stdout or "")
                 events.emit("lean", via=r.via, rc=r.rc, elapsed=r.elapsed,
                             timed_out=r.timed_out, restarted=r.restarted,
-                            n_errors=n_err, sorry=sorry)
+                            n_errors=n_err, sorry=sorry, mem_killed=r.mem_killed)
                 return r
-        r = _run_lake(code, self._dir, timeout=timeout if timeout is not None else self._lake_timeout)
+        r = _run_lake(code, self._dir, timeout=timeout if timeout is not None else self._lake_timeout,
+                      mem_cap_bytes=self._mem_cap)
         self._lake_calls += 1
         self._seconds_lake += r.elapsed
         if r.timed_out:
             self._timeouts += 1
             self._lake_timeouts += 1
             self._lake_killed += 1
+        if r.mem_killed:
+            self._mem_killed_count += 1
         n_err = r.stderr.count(": error:") if r.stderr else 0
         sorry = "sorry" in (r.stderr or "") or "sorry" in (r.stdout or "")
         events.emit("lean", via=r.via, rc=r.rc, elapsed=r.elapsed,
                     timed_out=r.timed_out, restarted=r.restarted,
-                    n_errors=n_err, sorry=sorry)
+                    n_errors=n_err, sorry=sorry, mem_killed=r.mem_killed)
         return r
 
     def stats(self):
@@ -337,6 +457,8 @@ class LeanServer:
             "timeouts": self._timeouts,
             "lake_timeouts": self._lake_timeouts,
             "lake_killed": self._lake_killed,
+            "mem_killed": self._mem_killed_count,
+            "mem_cap_bytes": self._mem_cap,
             "restarts": w.restarts if w else 0,
             "seconds_repl": round(self._seconds_repl, 1),
             "seconds_lake": round(self._seconds_lake, 1),

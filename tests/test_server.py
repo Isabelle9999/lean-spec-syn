@@ -91,7 +91,7 @@ try:
     try:
         with os.fdopen(fd9, "w", encoding="utf-8") as f:
             f.write("import Mathlib\nexample : True := trivial\n")
-        _, stderr9, rc9, killed9 = run_lake(["lake", "env", "lean", path9], PROJ, timeout=0.5)
+        _, stderr9, rc9, killed9, _ = run_lake(["lake", "env", "lean", path9], PROJ, timeout=0.5)
         check("run_lake timeout rc=1", rc9 == 1, f"rc={rc9}")
         check("run_lake timeout stderr", "timeout" in stderr9, f"stderr={stderr9[:80]}")
         check("run_lake killed", killed9, "killed=False; process group not killed")
@@ -128,6 +128,59 @@ try:
               f"rc={r11.rc} stderr={r11.stderr[:120]}")
         check("bad import stderr has module name", 'NoSuchModuleXyz' in r11.stderr,
               f"stderr={r11.stderr[:120]}")
+
+    # case 12: env threading: a command run against a returned env id sees a theorem
+    # defined in that env
+    r12a = s.check("import Aeneas\ntheorem _env_t12 : (1:Nat) = 1 := rfl")
+    check("case12 build returns new_env", r12a.rc == 0 and r12a.new_env is not None,
+          f"rc={r12a.rc} new_env={r12a.new_env}")
+    r12b = s.check("#check _env_t12", env=r12a.new_env)
+    check("case12 sees theorem defined in the returned env", r12b.rc == 0,
+          f"rc={r12b.rc} stderr={r12b.stderr[:120]}")
+
+    # case 13: memory cap (cgroup v2 via systemd-run --scope; RLIMIT_DATA/RLIMIT_AS
+    # don't work for Lean, see project notes). a cap set ~1GB above this REPL's own
+    # import baseline survives import, but a ~3GB allocation trips it: the result
+    # names the cap, the server restarts, the next command still works, and no lean
+    # process is left. ~3GB is enough to trip a working cap, and little enough that
+    # a silently non-working cap would not have cost more than that.
+    def _rss_anon(pid):
+        with open(f"/proc/{pid}/status", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("RssAnon:"):
+                    return int(line.split()[1]) * 1024
+        return None
+
+    s13_probe = LeanServer(PROJ, {"memory_cap": False})
+    s13_probe.check("import Aeneas\n#check Nat")
+    baseline13 = _rss_anon(s13_probe._worker._proc.pid) if s13_probe._worker else None
+    s13_probe.close()
+
+    if baseline13 is None:
+        check("case13 memory cap", False, "could not read import baseline RssAnon")
+    else:
+        cap13 = baseline13 + 1024 ** 3
+        s13 = LeanServer(PROJ, {"memory_cap_bytes": cap13})
+        r13a = s13.check("import Aeneas\n#check Nat")
+        check("case13 import ok under the small cap", r13a.rc == 0,
+              f"rc={r13a.rc} stderr={r13a.stderr[:150]}")
+        pid13_a = s13._worker._proc.pid if s13._worker else None
+
+        r13b = s13.check("#eval (Array.replicate 402653184 (0:Nat)).size", timeout=60)
+        check("case13 big alloc flagged as memory cap hit", r13b.mem_killed,
+              f"mem_killed={r13b.mem_killed} stderr={r13b.stderr[:200]}")
+        check("case13 error names the cap", str(cap13) in r13b.stderr,
+              f"stderr={r13b.stderr[:200]}")
+        check("case13 restarted", r13b.restarted, f"restarted={r13b.restarted}")
+
+        r13c = s13.check("#check Nat")
+        check("case13 next command works", r13c.rc == 0,
+              f"rc={r13c.rc} stderr={r13c.stderr[:120]}")
+        pid13_c = s13._worker._proc.pid if s13._worker else None
+
+        s13.close()
+        leaked13 = [pid for pid in {pid13_a, pid13_c} - {None} if os.path.exists(f"/proc/{pid}")]
+        check("case13 no lean process left", not leaked13, f"leaked pids: {leaked13}")
 
 finally:
     if s5 is not None:
