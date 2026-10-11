@@ -275,7 +275,6 @@ def load_rust_project(project_path):
 
         rust_name = decl.get("rust_name", "")
         lean_name = decl.get("lean_name", "")
-        short_name = lean_name.split(".")[-1] if "." in lean_name else lean_name
         ns_name = lean_name.replace(f"{crate}.", "")
 
         funs_body = funs_code
@@ -292,7 +291,7 @@ def load_rust_project(project_path):
         )
 
         benchmarks.append({
-            "name": f"rust_{short_name}",
+            "name": f"rust_{ns_name.replace('.', '_')}",
             "lean_code": (
                 f"import Aeneas\n"
                 f"import {crate}.Code.Funs\n"

@@ -1,6 +1,8 @@
 import os
 import sys
 import random
+import json
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.stdout.reconfigure(encoding="utf-8")
@@ -107,6 +109,29 @@ def run_static():
     nr = loader.normalize_declarations(raw_manifest)
     check("both manifest shapes normalize to the same benches", nf == nr, f"{nf} != {nr}")
 
+    # bench names collided when they were only the lean_name's last segment
+    # (every loop body became "rust_body"); they must be unique per crate
+    loop_bodies_manifest = {
+        "import": "Demo",
+        "declarations": [
+            {"kind": "function", "is_local": True, "lean_name": "Demo.f.loop.body",
+             "rust_name": "demo::f", "loop_id": 0, "loop_is_body": True,
+             "parent_lean_name": "Demo.f", "is_recursive": False, "can_fail": True,
+             "can_diverge": True, "is_opaque": False, "lean_file": "Demo/Code/Funs.lean"},
+            {"kind": "function", "is_local": True, "lean_name": "Demo.g.loop.body",
+             "rust_name": "demo::g", "loop_id": 0, "loop_is_body": True,
+             "parent_lean_name": "Demo.g", "is_recursive": False, "can_fail": True,
+             "can_diverge": True, "is_opaque": False, "lean_file": "Demo/Code/Funs.lean"},
+        ],
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, "rust-spec-synthesis.json"), "w", encoding="utf-8") as f:
+            json.dump(loop_bodies_manifest, f)
+        benches = loader.load_rust_project(tmp)
+        bench_names = [b["name"] for b in benches]
+        check("loop body bench names are unique", len(bench_names) == len(set(bench_names)),
+              str(bench_names))
+
 
 FIXTURE = '''
 def inc (n : Nat) : Nat := n + 1
@@ -159,6 +184,9 @@ def run_full():
     check("server started", server._worker is not None)
 
     g = callgraph.build_call_graph(FIXTURE)
+
+    check("crate_text excludes the unit-graph driver",
+          "LssUnitGraph" not in g.crate_text, g.crate_text[-200:])
 
     check("inc callees", g.callees("inc") == set())
     check("twice callees", g.callees("twice") == {"inc"})
