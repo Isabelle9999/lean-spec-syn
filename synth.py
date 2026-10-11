@@ -10,6 +10,7 @@ from lean import (_errors, run_in_project, classify_function, MutationEngine, Ca
 from strategies import generate_from_examples, generate_from_negatives, generate_with_proof
 import events
 import pricing
+import lss_config as _lss_config
 
 def _fix_aeneas_spec(stmt):
     """Auto-fix common Aeneas syntax mistakes in LLM-generated specs."""
@@ -1384,7 +1385,7 @@ def _llm_repair(llm, lean_code, spec, prev_proofs=None, verbose=False, debug_dir
             return
     spec["status"] = "validated"
 
-def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_store=None, func_name=None, verbose=False, debug_dir=None, project_dir=None, func_source=None):
+def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_store=None, func_name=None, verbose=False, debug_dir=None, project_dir=None, func_source=None, source=None):
     func = func_name or _func_name(lean_code)
     wrong = _make_wrong(lean_code, func) if func else _replace_body(lean_code)
     all_funcs = re.findall(r'def\s+([a-zA-Z_][a-zA-Z0-9_\'!?]*)', lean_code)
@@ -1550,6 +1551,18 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                                     print(f"         stmt: {stmt[:100]}")
                                 events.emit("verdict", status="rejected", method="", fail_gate="g3")
                                 continue
+                # gate 4a: aeneas tactic layer, rust units only
+                if source == "rust-aeneas" and _lss_config.proof_cfg()["aeneas_layer"]:
+                    pr0 = lean_checker.try_aeneas(spec["stmt"], func, project_dir, candidate_id=spec["name"])
+                    if pr0.proved:
+                        spec["status"] = "proved"
+                        spec["method"] = pr0.method
+                        spec["proof"] = pr0.proof_text
+                        if verbose:
+                            print(f"  [g4] {spec['name']}: proved (aeneas) by {pr0.method}")
+                        events.emit("verdict", status="proved", method=pr0.method)
+                        continue
+
                 # gate 4: three-layer proof search
                 # layer 1: mathlib tactic portfolio
                 pr = lean_checker.try_proof(eff, spec["stmt"], func_name=func, project_dir=project_dir)
@@ -1938,11 +1951,11 @@ def run_adversarial_tier(specs, lean_code, func_name, lean_checker, llm, example
 
 def refine(specs, lean_code, func_name, test_inputs, lean_checker, llm, example_store,
            max_iterations=5, max_tier=3, verbose=False, debug_dir=None, project_dir=None,
-           func_source=None):
+           func_source=None, source=None):
     try:
         return _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm,
                              example_store, max_iterations, max_tier, verbose, debug_dir,
-                             project_dir=project_dir, func_source=func_source)
+                             project_dir=project_dir, func_source=func_source, source=source)
     except Exception as e:
         import traceback
         print(f"  [refine] CRASH: {e}")
@@ -1952,7 +1965,7 @@ def refine(specs, lean_code, func_name, test_inputs, lean_checker, llm, example_
 
 def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, example_store,
                   max_iterations=5, max_tier=3, verbose=False, debug_dir=None, project_dir=None,
-                  func_source=None):
+                  func_source=None, source=None):
     print(f"  [refine] entered, verbose={verbose}, {len([s for s in specs if s['status']=='proved'])} proved specs")
     with events.context(stage="refine"):
         engine = MutationEngine(lean_checker)
@@ -2408,7 +2421,8 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
                     if not ent["forward_holds"] or not ent["backward_fails"]:
                         continue
                     ns = {"name": spec["name"], "stmt": candidate, "status": "pending", "method": ""}
-                    r = validate([ns], lean_code, test_inputs, lean_checker, llm=llm)
+                    r = validate([ns], lean_code, test_inputs, lean_checker, llm=llm,
+                                 func_name=func_name, project_dir=project_dir, source=source)
                     if r[0]["status"] in ("proved", "validated"):
                         spec.update({"stmt": candidate, "status": r[0]["status"], "method": r[0]["method"]})
                 if verbose:
@@ -2613,7 +2627,7 @@ def _normalize_stmt(stmt):
 
 
 def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_store,
-               use_obligations=False, func_name=None, verbose=False, debug_dir=None, postcond_defs=None, project_dir=None, func_source=None):
+               use_obligations=False, func_name=None, verbose=False, debug_dir=None, postcond_defs=None, project_dir=None, func_source=None, source=None):
     fn = func_name or _func_name(lean_code)
     with events.context(func=fn, stage="generate"):
         if not templates:
@@ -2712,7 +2726,7 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
 
         specs = validate(specs, lean_code, test_inputs, lean_checker,
                          llm=llm, example_store=example_store, func_name=func_name, verbose=verbose,
-                         debug_dir=debug_dir, project_dir=project_dir)
+                         debug_dir=debug_dir, project_dir=project_dir, source=source)
 
         # round 2: SpecGen-style mutation-guided repair (not raw error messages)
         g1_fails = [s for s in specs if s.get("fail_gate") == "g1"]
@@ -2795,7 +2809,7 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
                 repaired_validated = validate(repaired, lean_code, test_inputs, lean_checker,
                     llm=llm, example_store=example_store, func_name=func_name,
                     verbose=verbose, debug_dir=debug_dir, project_dir=project_dir,
-                    func_source=func_source)
+                    func_source=func_source, source=source)
                 new_proved = [s for s in repaired_validated if s["status"] == "proved"]
                 specs.extend(new_proved)
                 if verbose:
@@ -2816,7 +2830,8 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
                     print(f"  [gen] round 3 produced {len(round3)} safe specs")
                 round3_validated = validate(round3, lean_code, test_inputs, lean_checker,
                                             llm=llm, example_store=example_store, func_name=func_name,
-                                            verbose=verbose, debug_dir=debug_dir, project_dir=project_dir)
+                                            verbose=verbose, debug_dir=debug_dir, project_dir=project_dir,
+                                            source=source)
                 new_proved = [s for s in round3_validated if s["status"] == "proved"]
                 specs.extend(new_proved)
                 if verbose:
@@ -2931,7 +2946,7 @@ def mergeSort (xs : List Nat) : List Nat := merge (split xs).1 (split xs).2"""
     print(f"got {len(specs)} specs")
 
     print("validating...")
-    specs = validate(specs, lean_code, test_inputs, checker, llm=llm, example_store=store)
+    specs = validate(specs, lean_code, test_inputs, checker, llm=llm, example_store=store, source=None)
     for s in specs:
         tag = f" via {s['method']}" if s["method"] else ""
         print(f"  {s['status']:12}{tag}  {s['name']}: {s['stmt']}")

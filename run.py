@@ -134,12 +134,12 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
             return _naive_run(bm, llm, checker)
         postcond_defs = bm.get("postcond_defs", {})
         lean_code = bm["lean_code"] + bm.get("lean_preamble", "")
-        s = synthesize(lean_code, ti, tpl, llm, checker, store, func_name=fn, verbose=vb, debug_dir=debug_dir, postcond_defs=postcond_defs, project_dir=project_dir, func_source=func_source)
+        s = synthesize(lean_code, ti, tpl, llm, checker, store, func_name=fn, verbose=vb, debug_dir=debug_dir, postcond_defs=postcond_defs, project_dir=project_dir, func_source=func_source, source=bm.get("source"))
         if baseline == "no-mutation":
             return s
         if not args.quick:
             max_tier = 1 if baseline == "no-adversarial" else 3
-            s = refine(s, bm["lean_code"], fn, ti, checker, llm, store, max_tier=max_tier, verbose=vb, project_dir=project_dir, func_source=func_source)
+            s = refine(s, bm["lean_code"], fn, ti, checker, llm, store, max_tier=max_tier, verbose=vb, project_dir=project_dir, func_source=func_source, source=bm.get("source"))
         return s
 
     timeout = getattr(args, "timeout", 600)
