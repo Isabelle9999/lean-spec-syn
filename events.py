@@ -70,3 +70,7 @@ def emit(kind, **fields):
 
 def get_stats():
     return dict(_stats)
+
+
+def current_context():
+    return dict(_ctx.get())
