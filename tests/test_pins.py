@@ -6,7 +6,7 @@ import sys
 import tomllib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.stdout.reconfigure(encoding="utf-8")
+sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 import lss_config
 
 repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

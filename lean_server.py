@@ -22,7 +22,7 @@ class CheckResult:
     elapsed: float = 0.0
     timed_out: bool = False
     restarted: bool = False
-    new_env: int = None  # repl env id after this command, if via="repl" and it ran
+    new_env: int | None = None  # repl env id after this command, if via="repl" and it ran
     mem_killed: bool = False  # process died by a SIGKILL the server did not send (cgroup memory cap)
 
 
@@ -200,13 +200,15 @@ class ReplWorker:
         )
 
     def _send_raw(self, cmd_dict, timeout):
+        proc = self._proc
+        assert proc is not None and proc.stdin is not None and proc.stdout is not None
         try:
-            self._proc.stdin.write(json.dumps(cmd_dict) + "\n\n")
-            self._proc.stdin.flush()
+            proc.stdin.write(json.dumps(cmd_dict) + "\n\n")
+            proc.stdin.flush()
         except (OSError, BrokenPipeError):
             return None
         q = _queue_mod.Queue()
-        proc_stdout = self._proc.stdout
+        proc_stdout = proc.stdout
         def _r():
             buf = []
             try:
@@ -347,7 +349,9 @@ class ReplWorker:
         self._envs.clear()
         if p is None:
             return
-        try: p.stdin.close()
+        try:
+            if p.stdin is not None:
+                p.stdin.close()
         except: pass
         try:
             pgid = os.getpgid(p.pid)

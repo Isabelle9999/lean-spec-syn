@@ -330,7 +330,7 @@ def load_all_benchmarks(verina_path, clever_path, limit=None):
 
 if __name__ == "__main__":
     import sys
-    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
     VERINA = r"C:\Users\User\projects\verina"
     CLEVER = r"C:\Users\User\projects\clever"

@@ -3,7 +3,7 @@ import subprocess
 import sys
 import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.stdout.reconfigure(encoding="utf-8")
+sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
 import lss_config
 import lean_server
@@ -153,7 +153,8 @@ try:
 
     s13_probe = LeanServer(PROJ, {"memory_cap": False})
     s13_probe.check("import Aeneas\n#check Nat")
-    baseline13 = _rss_anon(s13_probe._worker._proc.pid) if s13_probe._worker else None
+    baseline13 = (_rss_anon(s13_probe._worker._proc.pid)
+                  if s13_probe._worker and s13_probe._worker._proc else None)
     s13_probe.close()
 
     if baseline13 is None:
@@ -164,7 +165,7 @@ try:
         r13a = s13.check("import Aeneas\n#check Nat")
         check("case13 import ok under the small cap", r13a.rc == 0,
               f"rc={r13a.rc} stderr={r13a.stderr[:150]}")
-        pid13_a = s13._worker._proc.pid if s13._worker else None
+        pid13_a = s13._worker._proc.pid if s13._worker and s13._worker._proc else None
 
         r13b = s13.check("#eval (Array.replicate 402653184 (0:Nat)).size", timeout=60)
         check("case13 big alloc flagged as memory cap hit", r13b.mem_killed,
@@ -176,7 +177,7 @@ try:
         r13c = s13.check("#check Nat")
         check("case13 next command works", r13c.rc == 0,
               f"rc={r13c.rc} stderr={r13c.stderr[:120]}")
-        pid13_c = s13._worker._proc.pid if s13._worker else None
+        pid13_c = s13._worker._proc.pid if s13._worker and s13._worker._proc else None
 
         s13.close()
         leaked13 = [pid for pid in {pid13_a, pid13_c} - {None} if os.path.exists(f"/proc/{pid}")]
