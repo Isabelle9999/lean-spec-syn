@@ -1,7 +1,6 @@
 import subprocess
 import tempfile
 import os
-import shutil
 import signal as _signal
 import json
 import time
@@ -23,7 +22,7 @@ class CheckResult:
     timed_out: bool = False
     restarted: bool = False
     new_env: int | None = None  # repl env id after this command, if via="repl" and it ran
-    mem_killed: bool = False  # process died by a SIGKILL the server did not send (cgroup memory cap)
+    mem_killed: bool = False  # process was killed by this server's own memory watchdog
 
 
 def _mem_total_bytes():
@@ -43,38 +42,67 @@ def _resolve_mem_cap(cfg):
     RLIMIT_DATA and RLIMIT_AS both count reserved/mapped address space rather than
     memory actually charged to the process, and Lean's runtime reserves enough of
     that per thread (scaling with core count) that no cap under the two counted
-    the whole machine even lets Lean start. a cgroup v2 scope (systemd-run --scope,
-    memory.max) counts real use instead, so that's what caps every lean/lake
-    subprocess below."""
+    the whole machine even lets Lean start. a cgroup v2 cap (memory.max) counts real
+    use, but that includes page cache the process faults in -- including mmapped
+    .olean files -- so a cold cache pins a loaded project's own cap during import.
+    a watchdog that sums RssAnon (private, non-file-backed memory) across the
+    process group avoids both problems, so this only computes the byte cap; see
+    _MemWatchdog for the enforcement."""
     if not cfg.get("memory_cap", True):
         return None
     cap = cfg.get("memory_cap_bytes")
     if cap is None:
         cap = _mem_cap_bytes(cfg.get("memory_fraction", 0.4))
-    if shutil.which("systemd-run") is None:
-        raise RuntimeError(
-            "lean_server: [server] memory_cap is on (default) but systemd-run was not found "
-            "on PATH. RLIMIT_DATA/RLIMIT_AS do not work for Lean (see project notes). "
-            "install systemd, or set memory_cap = false in lss.toml to run uncapped.")
-    probe = subprocess.run(
-        ["systemd-run", "--user", "--scope", "--quiet", "--collect", "--", "true"],
-        capture_output=True, text=True, timeout=10)
-    if probe.returncode != 0:
-        detail = (probe.stderr or probe.stdout or "").strip()[:300]
-        raise RuntimeError(
-            f"lean_server: [server] memory_cap is on (default) but systemd-run failed "
-            f"(rc={probe.returncode}): {detail}. set memory_cap = false in lss.toml to run uncapped.")
     return cap
 
 
-def _wrap_cgroup(args, mem_cap_bytes):
-    """run args in a transient user cgroup scope capped at mem_cap_bytes of real
-    memory (memory.max), or args unchanged if mem_cap_bytes is None. --scope execs
-    args in place (same pid, same stdin/stdout), so callers need no other change."""
-    if mem_cap_bytes is None:
-        return args
-    return ["systemd-run", "--user", "--scope", "--quiet", "--collect",
-            "-p", f"MemoryMax={mem_cap_bytes}", "-p", "MemorySwapMax=0", "--"] + args
+def _rss_anon_bytes(pgid):
+    """sum RssAnon, in bytes, over every live process whose process group is pgid."""
+    total = 0
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        try:
+            with open(f"/proc/{entry}/stat") as f:
+                stat = f.read()
+            fields = stat[stat.rindex(")") + 2:].split()
+            if int(fields[2]) != pgid:
+                continue
+            with open(f"/proc/{entry}/status") as f:
+                for line in f:
+                    if line.startswith("RssAnon:"):
+                        total += int(line.split()[1]) * 1024
+                        break
+        except (OSError, ValueError, IndexError):
+            continue
+    return total
+
+
+class _MemWatchdog:
+    """every 0.25s, sums RssAnon across proc's process group (pgid); once that
+    exceeds cap_bytes, SIGKILLs the group and records the hit. the thread ends
+    when proc ends, by itself or by this kill."""
+
+    def __init__(self, proc, pgid, cap_bytes):
+        self.hit = False
+        self.rss_at_hit = 0
+        self._proc = proc
+        self._pgid = pgid
+        self._cap = cap_bytes
+        _threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        while self._proc.poll() is None:
+            rss = _rss_anon_bytes(self._pgid)
+            if rss > self._cap:
+                self.hit = True
+                self.rss_at_hit = rss
+                try:
+                    os.killpg(self._pgid, _signal.SIGKILL)
+                except OSError:
+                    pass
+                return
+            time.sleep(0.25)
 
 
 def _extract_imports(code):
@@ -121,23 +149,22 @@ def _fmt(resp):
 def run_lake(args, cwd, timeout, mem_cap_bytes=None):
     """Popen with start_new_session=True; SIGKILL process group on timeout.
     Returns (stdout, stderr, rc, killed, mem_killed). On timeout rc=1 and stderr
-    starts ':0:0: error: timeout'. mem_killed=True when the process died by a
-    SIGKILL or SIGTERM the caller did not send (the cgroup memory cap, when
-    mem_cap_bytes is set, observed as either depending on whether the kernel's
-    cgroup OOM killer or systemd's own scope-stop sequence gets there first) --
-    a SIGABRT (e.g. a Lean stack overflow) is left as an ordinary crash."""
+    starts ':0:0: error: timeout'. mem_killed=True when a _MemWatchdog killed the
+    process group for exceeding mem_cap_bytes of RssAnon -- a SIGABRT (e.g. a Lean
+    stack overflow) is left as an ordinary crash."""
     p = subprocess.Popen(
-        _wrap_cgroup(args, mem_cap_bytes),
+        args,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         text=True, encoding="utf-8", cwd=cwd,
         start_new_session=True,
     )
+    watch = _MemWatchdog(p, p.pid, mem_cap_bytes) if mem_cap_bytes is not None else None
     killed = False
     try:
         stdout, stderr = p.communicate(timeout=timeout)
-        if mem_cap_bytes is not None and p.returncode in (-9, -15):
+        if watch is not None and watch.hit:
             stderr = (stderr or "") + (
-                f"\n:0:0: error: lean memory cap exceeded (cgroup killed the process, "
+                f"\n:0:0: error: lean memory cap exceeded (the watchdog killed the process, "
                 f"cap={mem_cap_bytes} bytes)")
             return stdout, stderr, 1, killed, True
         return stdout, stderr, p.returncode, killed, False
@@ -186,6 +213,7 @@ class ReplWorker:
         self._cap = env_cache_cap
         self._mem_cap = mem_cap_bytes
         self._proc = None
+        self._mem_watch = None
         self._envs = OrderedDict()
         self.restarts = 0
         self._env_hits = 0
@@ -193,11 +221,13 @@ class ReplWorker:
 
     def _launch(self):
         self._proc = subprocess.Popen(
-            _wrap_cgroup(["lake", "exe", "repl"], self._mem_cap),
+            ["lake", "exe", "repl"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding="utf-8", cwd=self._dir,
             start_new_session=True,
         )
+        self._mem_watch = (_MemWatchdog(self._proc, self._proc.pid, self._mem_cap)
+                            if self._mem_cap is not None else None)
 
     def _send_raw(self, cmd_dict, timeout):
         proc = self._proc
@@ -309,18 +339,15 @@ class ReplWorker:
                            new_env=resp.get("env"))
 
     def _dead_result(self, t0):
-        """the process stopped responding: under a memory cap, a SIGKILL or SIGTERM
-        death here (-9 or -15, observed as either depending on whether the kernel's
-        cgroup OOM killer or systemd's own scope-stop sequence gets there first;
-        this code never signals a process while a command is in flight) is reported
-        as a memory-cap hit; anything else -- including a SIGABRT (-6) from a Lean
-        stack overflow -- is left as the existing generic repl-timeout path. either
-        way the worker restarts, same as before this distinction existed."""
-        poll = self._proc.poll() if self._proc is not None else None
-        mem_killed = self._mem_cap is not None and poll in (-9, -15)
+        """the process stopped responding: a hit recorded by this worker's
+        _MemWatchdog is reported as a memory-cap hit; anything else -- including a
+        SIGABRT (-6) from a Lean stack overflow -- is left as the existing generic
+        repl-timeout path. either way the worker restarts."""
+        watch = self._mem_watch
+        mem_killed = watch is not None and watch.hit
         restarted = self._restart()
         if mem_killed:
-            err = (f":0:0: error: lean memory cap exceeded (cgroup killed the process, "
+            err = (f":0:0: error: lean memory cap exceeded (the watchdog killed the process, "
                    f"cap={self._mem_cap} bytes)")
             return CheckResult(stdout="", stderr=err, rc=1, via="repl",
                                elapsed=time.time() - t0, timed_out=False,

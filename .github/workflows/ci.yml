@@ -118,11 +118,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Export systemd user session env
-        run: |
-          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
-          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
-
       - name: Pin check
         run: $LSS_PYTHON tests/test_pins.py
 

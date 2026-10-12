@@ -29,7 +29,10 @@ max_restarts = 20
 hammer_timeout = 90
 # RLIMIT_DATA/RLIMIT_AS count reserved/mapped address space, not real use, and Lean
 # reserves enough of that per thread to make both useless as a cap. a cgroup v2
-# scope (systemd-run --user --scope, memory.max) counts real use instead.
+# cap (memory.max) counts real use, but that includes page cache (mmapped .olean
+# files), so a cold cache pins it during import. a watchdog thread that sums
+# RssAnon across the process group every 0.25s and kills it over the cap avoids
+# both problems.
 memory_cap = true
 memory_fraction = 0.4
 

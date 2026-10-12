@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
@@ -183,6 +184,71 @@ try:
         s13.close()
         leaked13 = [pid for pid in {pid13_a, pid13_c} - {None} if os.path.exists(f"/proc/{pid}")]
         check("case13 no lean process left", not leaked13, f"leaked pids: {leaked13}")
+
+    # case 14: the RssAnon watchdog survives a cold-cache lean-native import that
+    # pinned the old cgroup cap (which also charged mmapped .olean page cache) at
+    # its limit until it timed out (see project notes). drop the page cache, probe
+    # an uncapped import's peak RssAnon, size a cap off that, drop the cache again,
+    # then require the capped import to still succeed.
+    HAMMER_IMPORT14 = "import Mathlib\nimport Hammer\n#check Nat"
+
+    def _drop_olean_cache(root):
+        for dirpath, _, filenames in os.walk(root):
+            for fn in filenames:
+                if not fn.endswith(".olean"):
+                    continue
+                fd = os.open(os.path.join(dirpath, fn), os.O_RDONLY)
+                try:
+                    os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
+                finally:
+                    os.close(fd)
+
+    def _peak_rss_anon_during(server, code):
+        # sums over the whole process group, like lean_server._MemWatchdog does --
+        # the repl binary is a child of the lake process the worker holds, and
+        # that child is where almost all of the RssAnon actually is.
+        worker = server._worker
+        pgid = worker._proc.pid if worker and worker._proc else None
+        peak = [0]
+        stop = threading.Event()
+
+        def _poll():
+            while not stop.is_set():
+                if pgid is not None:
+                    peak[0] = max(peak[0], lean_server._rss_anon_bytes(pgid))
+                stop.wait(0.25)
+
+        th = threading.Thread(target=_poll, daemon=True)
+        th.start()
+        r = server.check(code)
+        stop.set()
+        th.join(timeout=2)
+        return r, peak[0]
+
+    if not os.path.isdir(lndir):
+        print("SKIP: case14 (lean-native not built)")
+    else:
+        _drop_olean_cache(os.path.join(lndir, ".lake"))
+        s14_probe = LeanServer(lndir, {"memory_cap": False})
+        r14_probe, peak14_probe = _peak_rss_anon_during(s14_probe, HAMMER_IMPORT14)
+        check("case14 probe import ok", r14_probe.rc == 0,
+              f"rc={r14_probe.rc} stderr={r14_probe.stderr[:150]}")
+        s14_probe.close()
+
+        cap14 = int(1.5 * peak14_probe)
+        check("case14 cap is below the 6GB RssFile ceiling measured earlier",
+              cap14 < 6 * 1024 ** 3, f"cap14={cap14}")
+
+        _drop_olean_cache(os.path.join(lndir, ".lake"))
+        s14 = LeanServer(lndir, {"memory_cap_bytes": cap14})
+        r14, peak14 = _peak_rss_anon_during(s14, HAMMER_IMPORT14)
+        check("case14 cold import under the RssAnon cap: rc=0", r14.rc == 0,
+              f"rc={r14.rc} stderr={r14.stderr[:200]}")
+        check("case14 cold import under the RssAnon cap: not mem_killed",
+              not r14.mem_killed, f"mem_killed={r14.mem_killed} stderr={r14.stderr[:200]}")
+        s14.close()
+        print(f"  case14: cap={cap14} probe_peak_rss_anon={peak14_probe} "
+              f"capped_run_peak_rss_anon={peak14}")
 
 finally:
     if s5 is not None:
