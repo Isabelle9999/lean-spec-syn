@@ -58,6 +58,13 @@ def run_static():
     check("aeneas_heartbeats has a default",
           lss_config.proof_cfg()["aeneas_heartbeats"] > 0)
 
+    import lean
+    check("premise_selector defaults to local in lss.toml",
+          lss_config.proof_cfg()["premise_selector"] == "local")
+    hammer_code14 = lean._hammer_code('', '∀ (n : Nat), n + 0 = n')
+    check("hammer_code emits the local selector line when premise_selector is local",
+          "sineQuaNonSelector" in hammer_code14, hammer_code14[:200])
+
     orig = lss_config.proof_cfg
 
     # toggle off: aeneas never called, falls to try_proof

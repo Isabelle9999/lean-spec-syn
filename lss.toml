@@ -36,3 +36,7 @@ memory_fraction = 0.4
 [proof]
 aeneas_layer = true
 aeneas_heartbeats = 200000
+# "local" keeps hammer off leanpremise.net (Hammer/Tactic.lean's own default
+# falls back to it anyway, but only after trying the cloud selector first);
+# "cloud" leaves hammer's own default alone.
+premise_selector = "local"

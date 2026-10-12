@@ -119,8 +119,9 @@ try:
               f"rc={r10a.rc} stderr={r10a.stderr[:120]}")
         t_first = r10a.elapsed
         r10b = sln.check(hammer_code, timeout=90)
-        check("lean-native hammer second call faster", r10b.elapsed < t_first,
-              f"first={t_first:.2f}s second={r10b.elapsed:.2f}s")
+        check("lean-native hammer second call faster",
+              r10a.rc == 0 and r10b.rc == 0 and r10b.elapsed < t_first,
+              f"rc={r10a.rc}/{r10b.rc} first={t_first:.2f}s second={r10b.elapsed:.2f}s")
 
         # case 11: bad import in lean-native -> rc=1 with module name in stderr (not silent fallback)
         r11 = sln.check('import NoSuchModuleXyz\nexample : True := trivial')
