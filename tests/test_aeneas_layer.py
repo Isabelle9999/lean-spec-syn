@@ -2,7 +2,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.stdout.reconfigure(encoding="utf-8")
+sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
 static = "--static" in sys.argv
 fails = []
@@ -57,6 +57,13 @@ def run_static():
           lss_config.proof_cfg()["aeneas_layer"] is True)
     check("aeneas_heartbeats has a default",
           lss_config.proof_cfg()["aeneas_heartbeats"] > 0)
+
+    import lean
+    check("premise_selector defaults to local in lss.toml",
+          lss_config.proof_cfg()["premise_selector"] == "local")
+    hammer_code14 = lean._hammer_code('', '∀ (n : Nat), n + 0 = n')
+    check("hammer_code emits the local selector line when premise_selector is local",
+          "sineQuaNonSelector" in hammer_code14, hammer_code14[:200])
 
     orig = lss_config.proof_cfg
 

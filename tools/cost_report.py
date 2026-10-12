@@ -58,7 +58,7 @@ def main():
                 if func:
                     for k, v in [("llm_calls", 1), ("input", inp), ("output", out),
                                  ("cached", cr), ("usd", usd)]:
-                        by_func[func][k] += v
+                        by_func[func][k] += v  # type: ignore[operator]
             elif kind == "lean":
                 s = ev.get("elapsed", 0.0)
                 totals["lean_calls"] += 1
@@ -74,7 +74,7 @@ def main():
                     d["restarted"] += 1
                 d["max_elapsed"] = max(d["max_elapsed"], s)
                 if func:
-                    by_func[func]["lean_calls"] += 1
+                    by_func[func]["lean_calls"] += 1  # type: ignore[operator]
                     by_func[func]["lean_s"] += s
                 lean_events.append({
                     "elapsed": s, "stage": stage,

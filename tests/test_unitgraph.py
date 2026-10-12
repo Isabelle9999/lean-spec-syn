@@ -5,7 +5,7 @@ import json
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.stdout.reconfigure(encoding="utf-8")
+sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
 import callgraph
 import loader
@@ -209,7 +209,7 @@ def run_full():
           g.generic("wrap") and not any(g.generic(n) for n in g.names if n != "wrap"))
 
     check("def_text(inc) matches its source line",
-          g.def_text("inc").strip() == "def inc (n : Nat) : Nat := n + 1",
+          (g.def_text("inc") or "").strip() == "def inc (n : Nat) : Nat := n + 1",
           repr(g.def_text("inc")))
 
     lean_server.shutdown_all()

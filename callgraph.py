@@ -64,7 +64,7 @@ def _topo_order_code_files(code_dir, crate):
     deps = {}
     for p, text in texts.items():
         targets = [l.strip()[len(prefix):] for l in text.splitlines() if l.strip().startswith(prefix)]
-        deps[p] = sorted({resolve(t) for t in targets} - {None, p})
+        deps[p] = sorted({d for d in map(resolve, targets) if d is not None} - {p})
 
     ordered, seen = [], set()
 
@@ -97,7 +97,7 @@ class CallGraph:
         self.lean_version = None
         self.aeneas_version = None
         self.charon_version = None
-        self.crate = None
+        self.crate: str | None = None
         self.project_path = None
         self._callees = {}
         self._generic = {}
@@ -362,7 +362,7 @@ if __name__ == "__main__":
         n_sccs = len(g.sccs)
         rec_sccs = sum(1 for scc in g.sccs if len(scc) > 1)
         n_self_rec = sum(1 for n in names
-                          if n in g.callees(n) and len(g.sccs[g.scc_of(n)]) == 1)
+                          if n in g.callees(n) and g._scc_size(n) == 1)
         largest = max((len(scc) for scc in g.sccs), default=0)
         n_diverge = sum(1 for n in names if g.can_diverge(n))
         n_generic = sum(1 for n in names if g.generic(n))

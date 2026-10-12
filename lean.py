@@ -200,6 +200,12 @@ def classify_function(lean_env, func_name):
 
 def _hammer_code(lean_env, theorem_stmt):
     code = 'import Mathlib\nimport Hammer\n' + lean_env.rstrip() + '\n'
+    if _lss_config.proof_cfg()['premise_selector'] == 'local':
+        # Hammer's own default is `Cloud.premiseSelector <|> sineQuaNonSelector...`
+        # (Hammer/Tactic.lean:22); this re-sets the same local fallback alone, so
+        # hammer never calls out to leanpremise.net.
+        code += ('set_library_suggestions open Lean.LibrarySuggestions in '
+                 'sineQuaNonSelector.intersperse currentFile\n')
     code += f'theorem _hammer_proof : {theorem_stmt} := by hammer {{ disableGrind := true }}'
     return code
 

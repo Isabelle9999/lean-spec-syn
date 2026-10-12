@@ -1,0 +1,19 @@
+{
+  "typeCheckingMode": "basic",
+  "pythonVersion": "3.12",
+  "extraPaths": ["scripts"],
+  "include": [
+    "lean_server.py",
+    "callgraph.py",
+    "events.py",
+    "lss_config.py",
+    "loader.py",
+    "pricing.py",
+    "tools",
+    "tests/test_server.py",
+    "tests/test_unitgraph.py",
+    "tests/test_aeneas_layer.py",
+    "tests/test_pins.py",
+    "tests/test_events.py"
+  ]
+}

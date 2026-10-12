@@ -29,6 +29,7 @@ class _CtxMgr:
         return self
 
     def __exit__(self, *_):
+        assert self._token is not None
         _ctx.reset(self._token)
 
 

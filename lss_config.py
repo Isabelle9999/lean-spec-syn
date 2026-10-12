@@ -58,6 +58,7 @@ def server_cfg():
 
 
 def proof_cfg():
-    defaults = {"aeneas_layer": True, "aeneas_heartbeats": 200000}
+    defaults = {"aeneas_layer": True, "aeneas_heartbeats": 200000,
+                "premise_selector": "local"}
     p = _cfg().get("proof", {})
     return {k: p.get(k, v) for k, v in defaults.items()}

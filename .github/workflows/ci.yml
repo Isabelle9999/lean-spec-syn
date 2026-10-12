@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  static:
+  lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -33,6 +33,41 @@ jobs:
       - name: Lint
         run: ruff check .
 
+  types:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyright==1.1.391
+
+      - name: Type check
+        run: pyright
+
+  static-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
       - name: Compile every module
         run: python -m compileall -q .
 
@@ -41,8 +76,8 @@ jobs:
           python -c "import lean, synth, strategies, metrics, benchmarks, loader, run"
           python -c "import callgraph, modularity, incremental, traits, divergence"
 
-      - name: Pin check
-        run: python tests/test_pins.py --static
+      - name: Test scripts are syntactically valid
+        run: python -m compileall -q tests/
 
       - name: Unit graph check
         run: python tests/test_unitgraph.py --static
@@ -50,8 +85,87 @@ jobs:
       - name: Aeneas layer check
         run: python tests/test_aeneas_layer.py --static
 
+      - name: Events and pricing check
+        run: python tests/test_events.py
+
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Pin check
+        run: python tests/test_pins.py --static
+
       - name: Manifest check
         run: python scripts/derive_manifest.py --check
 
-      - name: Test scripts are syntactically valid
-        run: python -m compileall -q tests/
+  lean-tests:
+    needs: static-tests
+    if: github.event_name == 'pull_request'
+    runs-on: [self-hosted, linux, lean]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pin check
+        run: $LSS_PYTHON tests/test_pins.py
+
+      - name: Server check
+        run: $LSS_PYTHON tests/test_server.py
+
+      - name: Unit graph check
+        run: $LSS_PYTHON tests/test_unitgraph.py
+
+      - name: Aeneas layer check
+        run: $LSS_PYTHON tests/test_aeneas_layer.py
+
+      - name: No leftover lean/lake/repl processes
+        if: always()
+        run: |
+          if [ -z "${RUNNER_TRACKING_ID:-}" ]; then
+            echo "RUNNER_TRACKING_ID is empty; cannot scope the leftover-process check to this job"
+            exit 1
+          fi
+
+          scan() {
+            for p in /proc/[0-9]*; do
+              pid=${p#/proc/}
+              exe=$(readlink "$p/exe" 2>/dev/null) || continue
+              case "$(basename "$exe" 2>/dev/null)" in
+                lean|lake|repl) ;;
+                *) continue ;;
+              esac
+              if tr '\0' '\n' < "$p/environ" 2>/dev/null \
+                | grep -qx "RUNNER_TRACKING_ID=${RUNNER_TRACKING_ID}"; then
+                echo "$pid"
+              fi
+            done
+          }
+
+          deadline=$((SECONDS + 10))
+          leftover=$(scan)
+          while [ -n "$leftover" ] && [ "$SECONDS" -lt "$deadline" ]; do
+            sleep 1
+            leftover=$(scan)
+          done
+
+          if [ -n "$leftover" ]; then
+            echo "leftover lean/lake/repl processes for this job:"
+            for pid in $leftover; do
+              cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null) || cmd="(exited)"
+              echo "  pid=$pid cmd=$cmd"
+            done
+            exit 1
+          fi
+          echo "no leftover lean/lake/repl processes"
