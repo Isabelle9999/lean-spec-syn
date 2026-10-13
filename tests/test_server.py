@@ -3,6 +3,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
@@ -249,6 +250,55 @@ try:
         s14.close()
         print(f"  case14: cap={cap14} probe_peak_rss_anon={peak14_probe} "
               f"capped_run_peak_rss_anon={peak14}")
+
+    # case 15: an #eval's output arrives as an info message, not stdout/stderr
+    r15 = s.check("#eval 1 + 1")
+    info15 = [m for m in r15.messages if m["severity"] == "info"]
+    check("eval output arrives as an info message", any("2" in m["text"] for m in info15),
+          f"messages={r15.messages}")
+    check("eval output is not in stdout/stderr", r15.stdout == "" and "2" not in r15.stderr,
+          f"stdout={r15.stdout!r} stderr={r15.stderr!r}")
+
+    # case 16: this server's own process dying -- any way, including an
+    # uncatchable SIGKILL -- must still take its lean/lake process group down
+    # within a few seconds. lake, not this server, is the repl's immediate
+    # parent, so PR_SET_PDEATHSIG on the repl wouldn't fire here; the reaper
+    # (its own session, outside the group) kills it from outside instead.
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    child_script = (
+        "import sys\n"
+        f"sys.path.insert(0, {repo_root!r})\n"
+        "import lean_server, lss_config\n"
+        f"s = lean_server.LeanServer({PROJ!r}, lss_config.server_cfg())\n"
+        "pid = s._worker._proc.pid if s._worker and s._worker._proc else None\n"
+        "print(pid, flush=True)\n"
+        "import time\n"
+        "time.sleep(120)\n"
+    )
+    child16 = subprocess.Popen([sys.executable, "-c", child_script],
+                                stdout=subprocess.PIPE, text=True)
+    try:
+        line = (child16.stdout.readline() if child16.stdout else "").strip()
+        pid16 = int(line) if line.isdigit() else None
+        check("case16 child reported a repl pid", pid16 is not None, f"line={line!r}")
+        if pid16 is not None:
+            child16.kill()
+            child16.wait(timeout=5)
+            deadline = time.time() + 3
+            gone = False
+            while time.time() < deadline:
+                try:
+                    os.killpg(pid16, 0)
+                except OSError:
+                    gone = True
+                    break
+                time.sleep(0.1)
+            check("case16 repl process group gone within 3s of the server being SIGKILLed",
+                  gone, f"pgid={pid16} still alive 3s after kill")
+    finally:
+        if child16.poll() is None:
+            child16.kill()
+            child16.wait(timeout=5)
 
 finally:
     if s5 is not None:
