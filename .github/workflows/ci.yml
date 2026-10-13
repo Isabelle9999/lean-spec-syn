@@ -88,6 +88,9 @@ jobs:
       - name: Events and pricing check
         run: python tests/test_events.py
 
+      - name: Translation check (static)
+        run: python tests/test_translation_check.py --static
+
   drift:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -129,6 +132,9 @@ jobs:
 
       - name: Aeneas layer check
         run: $LSS_PYTHON tests/test_aeneas_layer.py
+
+      - name: Translation check
+        run: $LSS_PYTHON tests/test_translation_check.py
 
       - name: No leftover lean/lake/repl processes
         if: always()
