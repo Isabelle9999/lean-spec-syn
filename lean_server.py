@@ -8,7 +8,7 @@ import threading as _threading
 import queue as _queue_mod
 import atexit as _atexit
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import events
 
 
@@ -23,6 +23,7 @@ class CheckResult:
     restarted: bool = False
     new_env: int | None = None  # repl env id after this command, if via="repl" and it ran
     mem_killed: bool = False  # process was killed by this server's own memory watchdog
+    messages: list = field(default_factory=list)  # [{severity, line, column, text}], info included
 
 
 def _mem_total_bytes():
@@ -78,6 +79,23 @@ def _rss_anon_bytes(pgid):
     return total
 
 
+def _start_reaper(pgid):
+    """a process outside pgid, in its own session, that kills pgid within
+    ~1s of this server process dying -- no matter how it dies, including a
+    signal the server can't catch. PR_SET_PDEATHSIG isn't enough here: lake,
+    not this server, is the repl's immediate parent, and that only fires on
+    the creating *thread* exiting, not on this process being killed."""
+    script = (
+        f"while kill -0 {os.getpid()} 2>/dev/null && kill -0 -{pgid} 2>/dev/null; "
+        f"do sleep 0.5; done; kill -KILL -{pgid} 2>/dev/null"
+    )
+    subprocess.Popen(
+        ["sh", "-c", script],
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+
 class _MemWatchdog:
     """every 0.25s, sums RssAnon across proc's process group (pgid); once that
     exceeds cap_bytes, SIGKILLs the group and records the hit. the thread ends
@@ -127,12 +145,14 @@ def _should_use_repl(code):
 def _fmt(resp):
     msgs = resp.get("messages", [])
     lines = []
+    messages = []
     for m in msgs:
         sev = m.get("severity", "")
         p = m.get("pos", {})
         ln = p.get('line', 0)
         col = p.get('column', 0)
         data = m.get('data', '')
+        messages.append({"severity": sev, "line": ln, "column": col, "text": data})
         if sev == "error":
             lines.append(f":{ln}:{col}: error: {data}")
         elif sev == "warning":
@@ -143,7 +163,7 @@ def _fmt(resp):
         col = p.get('column', 0)
         lines.append(f":{ln}:{col}: warning: declaration uses 'sorry'")
     has_error = any(": error:" in l for l in lines)
-    return '', '\n'.join(lines), 1 if has_error else 0
+    return '', '\n'.join(lines), 1 if has_error else 0, messages
 
 
 def run_lake(args, cwd, timeout, mem_cap_bytes=None):
@@ -158,6 +178,7 @@ def run_lake(args, cwd, timeout, mem_cap_bytes=None):
         text=True, encoding="utf-8", cwd=cwd,
         start_new_session=True,
     )
+    _start_reaper(p.pid)
     watch = _MemWatchdog(p, p.pid, mem_cap_bytes) if mem_cap_bytes is not None else None
     killed = False
     try:
@@ -226,6 +247,7 @@ class ReplWorker:
             text=True, encoding="utf-8", cwd=self._dir,
             start_new_session=True,
         )
+        _start_reaper(self._proc.pid)
         self._mem_watch = (_MemWatchdog(self._proc, self._proc.pid, self._mem_cap)
                             if self._mem_cap is not None else None)
 
@@ -334,9 +356,9 @@ class ReplWorker:
         if resp is None:
             return self._dead_result(t0)
         elapsed = time.time() - t0
-        stdout, stderr, rc = _fmt(resp)
+        stdout, stderr, rc, messages = _fmt(resp)
         return CheckResult(stdout=stdout, stderr=stderr, rc=rc, via="repl", elapsed=elapsed,
-                           new_env=resp.get("env"))
+                           new_env=resp.get("env"), messages=messages)
 
     def _dead_result(self, t0):
         """the process stopped responding: a hit recorded by this worker's
