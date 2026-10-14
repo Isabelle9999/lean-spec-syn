@@ -9,12 +9,14 @@
     "lss_config.py",
     "loader.py",
     "pricing.py",
+    "gate.py",
     "tools",
     "tests/test_server.py",
     "tests/test_unitgraph.py",
     "tests/test_aeneas_layer.py",
     "tests/test_pins.py",
     "tests/test_events.py",
-    "tests/test_translation_check.py"
+    "tests/test_translation_check.py",
+    "tests/test_spec_gate.py"
   ]
 }
