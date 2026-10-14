@@ -52,6 +52,12 @@ def run_static():
     print("=== static ===")
     import synth
     import lss_config
+    import gate
+
+    # the well-formedness gate needs a real Lean server, and only the order of
+    # the proof layers is under test here, so every candidate passes the gate
+    gate.check_candidate = lambda *a, **k: [
+        {"gate": "wf", "check": c, "ok": True, "detail": ""} for c in gate.CHECK_ORDER]
 
     check("aeneas_layer defaults to true in lss.toml",
           lss_config.proof_cfg()["aeneas_layer"] is True)
