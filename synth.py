@@ -11,20 +11,7 @@ from strategies import generate_from_examples, generate_from_negatives, generate
 import events
 import pricing
 import lss_config as _lss_config
-
-def _fix_aeneas_spec(stmt):
-    """Auto-fix common Aeneas syntax mistakes in LLM-generated specs."""
-    s = stmt
-    s = s.replace('Result.ok', 'ok')
-    s = s.replace('Except.ok', 'ok')
-    s = s.replace('Lean.Result.ok', 'ok')
-    s = re.sub(r'\.x\b', '.first', s)
-    s = re.sub(r'\.y\b', '.second', s)
-    s = re.sub(r'\.fst\b', '.first', s)
-    s = re.sub(r'\.snd\b', '.second', s)
-    s = re.sub(r'\(([^)]+)\)\.isOk\s*=\s*true', r'∃ r, \1 = ok r', s)
-    s = re.sub(r'\(([^)]+)\)\.isOk', r'∃ r, \1 = ok r', s)
-    return s
+import gate as _gate
 
 def _key():
     import os
@@ -232,20 +219,26 @@ class LLMClient:
         if returns_result:
             prompt += (
                 "\nIMPORTANT: This function returns Result T (it can fail).\n"
+                "SPEC FORM: every theorem's conclusion must be a Hoare triple on the call itself:\n"
+                "  f args ⦃ r => P r ⦄\n"
+                "meaning: if `f args` succeeds, its success value is `r` and `P r` holds. you never\n"
+                "write `ok`, `Result.ok`, `.isOk` or `exists r, ... = ok r` yourself — the ⦃ ⦄\n"
+                "notation already extracts the success value as `r` for you.\n"
                 "AENEAS SYNTAX RULES:\n"
-                "- Use ok value, NEVER Result.ok or Except.ok\n"
                 "- Use exact struct field names from type definitions (first/second, NOT x/y/fst/snd)\n"
-                "- Do NOT use .isOk or .isErr. Write: exists r, f x = ok r\n"
                 "- Numeric literals may need type annotation: (0 : Std.U32)\n"
                 "- Arithmetic can fail: a + b returns Result, not a plain value\n"
                 "- Vec type is alloc.vec.Vec Std.U32, not Vec or List\n"
+                "- if (and only if) this function loops or recurses, you may instead write\n"
+                "  f args ⦃ r => P r ⦄div (non-termination is then vacuously allowed); never use\n"
+                "  ⦃ ⦄div on a function that always terminates\n"
                 "CORRECT EXAMPLES:\n"
-                "  theorem swap_correct : forall (p : records.Pair), records.swap p = ok { first := p.second, second := p.first } := sorry\n"
-                "  theorem head_or_nil : forall (d : Std.U32), lists.head_or lists.List.Nil d = ok d := sorry\n"
-                "  theorem swap_ok : forall (p : records.Pair), exists r, records.swap p = ok r := sorry\n"
+                "  theorem swap_correct : forall (p : records.Pair), records.swap p ⦃ r => r.first = p.second ∧ r.second = p.first ⦄ := sorry\n"
+                "  theorem head_or_spec (xs : lists.List) (d : Std.U32) : lists.head_or xs d ⦃ r => r = match xs with | .Nil => d | .Cons x _ => x ⦄ := sorry\n"
+                "  theorem swap_ordered (p : records.Pair) (h : p.first.val ≤ p.second.val) : records.swap p ⦃ r => r.second.val ≤ r.first.val ⦄ := sorry\n"
                 "WRONG (never write these):\n"
-                "  records.swap p = Result.ok r\n"
-                "  records.swap p = Except.ok r\n"
+                "  records.swap p = ok { first := p.second, second := p.first }\n"
+                "  exists r, records.swap p = ok r ∧ r.first = p.second\n"
                 "  r.x = p.y  (use .first .second)\n"
                 "  (records.swap p).isOk\n"
             )
@@ -1392,11 +1385,6 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
 
     processed_stmts = set()
 
-    # Auto-fix Aeneas syntax
-    for s in specs:
-        if s.get("stmt"):
-            s["stmt"] = _fix_aeneas_spec(s["stmt"])
-
     with events.context(stage="validate"):
         for spec_idx, spec in enumerate(specs):
             with events.context(candidate_id=spec["name"]):
@@ -1441,31 +1429,36 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                 if verbose:
                     print(f"  [g0] {spec['name']}: example store check {'flagged' if spec.get('gate0_flag') else 'ok'}")
 
-                # gate 1: well-typed proposition
-                code = eff + f"\ntheorem {spec['name']} : {spec['stmt']} := sorry"
-                ok, err = lean_checker.typecheck(code, project_dir=project_dir)
-                via_mathlib = False
-                if not ok:
-                    ml_full = ("import Mathlib.Data.List.Sort\nimport Mathlib.Data.List.Perm\n"
-                               "import Mathlib.Data.Nat.GCD.Basic\n" + code)
-                    ok2, _ = lean_checker.typecheck_project(ml_full)
-                    if ok2:
-                        ok = True
-                        via_mathlib = True
-                        spec["_uses_mathlib"] = True
+                # gate 1: well-formedness gate (shape, vocabulary, decidability -
+                # replaces the old bare typecheck; a candidate that passes it is
+                # already known to typecheck, since the gate elaborates it for real)
+                candidate_text = f"theorem {spec['name']} : {spec['stmt']} := sorry"
+                verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source)
+                ok = _gate.is_well_formed(verdicts)
+                if _gate.failing_check(verdicts) == "env":
+                    # the crate/base environment never came up -- a setup error,
+                    # not anything about this candidate, so no amount of LLM
+                    # repair can fix it. fail loudly instead of burning a retry.
+                    detail = next((v["detail"] for v in verdicts if not v.get("ok")), "")
+                    raise RuntimeError(f"well-formedness gate environment unavailable: {detail}")
                 if not ok and llm and spec.get("_g1_retries", 0) < 1:
                     spec["_g1_retries"] = 1
-                    error_msg = err[0][:200] if err else "typecheck failed"
+                    bad_check = _gate.failing_check(verdicts)
+                    detail = next((v["detail"] for v in verdicts if not v.get("ok")), "")
                     fix_prompt = (
-                        f"This Lean 4 theorem failed to typecheck:\n"
-                        f"  theorem {spec['name']} : {spec['stmt']} := sorry\n\n"
-                        f"Error message:\n  {error_msg}\n\n"
+                        f"This Lean 4 theorem failed the well-formedness gate:\n"
+                        f"  {candidate_text}\n\n"
+                        f"Failing check: {bad_check}\n"
+                        f"Detail: {detail}\n\n"
                         f"Function it is about:\n{func_source if func_source else lean_code}\n\n"
-                        f"Fix the theorem statement so it typechecks. Common fixes:\n"
+                        f"Fix the theorem statement so it passes the gate. Common fixes:\n"
                         f"- wrong argument count: check the function signature\n"
                         f"- undefined name: use the exact names from the function definition\n"
                         f"- type mismatch: match the exact types in the function signature\n"
-                        f"- missing precondition parameter: include (h : f_precond args) if the function has one\n\n"
+                        f"- missing precondition parameter: include (h : f_precond args) if the function has one\n"
+                        f"- conclusion_shape: the conclusion must apply the function to its own distinct bound variables, exactly once\n"
+                        f"- vocabulary: the postcondition may not name the unit itself or any other crate function outside the call\n"
+                        f"- decidable: use a decidable postcondition (avoid unbounded quantifiers)\n\n"
                         f"Return ONLY the fixed theorem line: theorem name : fixed_statement := sorry"
                     )
                     fixed = llm._ask(fix_prompt)
@@ -1473,21 +1466,23 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                         fm = re.search(r':\s*(.*?)\s*:=', fixed)
                         if fm:
                             spec["stmt"] = fm.group(1).strip()
-                            full_code2 = eff.rstrip() + "\n" + f"theorem {spec['name']} : {spec['stmt']} := sorry"
-                            ok3, _ = lean_checker.typecheck(full_code2, project_dir=project_dir)
-                            if ok3:
+                            candidate_text = f"theorem {spec['name']} : {spec['stmt']} := sorry"
+                            verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source)
+                            if _gate.is_well_formed(verdicts):
                                 ok = True
                                 if verbose:
-                                    print(f"  [g1] {spec['name']}: fixed stmt typechecks")
+                                    print(f"  [g1] {spec['name']}: fixed stmt passes the gate")
+                spec["wf_verdicts"] = verdicts
                 if verbose:
                     if ok:
-                        suffix = " (via mathlib)" if via_mathlib else ""
-                        print(f"  [g1] {spec['name']}: typecheck pass{suffix}")
+                        print(f"  [g1] {spec['name']}: wf gate pass")
                     else:
-                        print(f"  [g1] {spec['name']}: typecheck FAIL: {str(err)[:60]}")
+                        fail_detail = next((v["detail"] for v in verdicts if not v.get("ok")), "")
+                        print(f"  [g1] {spec['name']}: wf gate FAIL: {_gate.failing_check(verdicts)}: {fail_detail[:80]}")
                 if not ok:
                     spec["status"] = "rejected"
                     spec["fail_gate"] = "g1"
+                    spec["wf_fail_check"] = _gate.failing_check(verdicts)
                     if verbose:
                         print(f"         stmt: {spec['stmt'][:100]}")
                     events.emit("verdict", status="rejected", method="", fail_gate="g1")

@@ -74,7 +74,7 @@ jobs:
       - name: Imports resolve
         run: |
           python -c "import lean, synth, strategies, metrics, benchmarks, loader, run"
-          python -c "import callgraph, modularity, incremental, traits, divergence"
+          python -c "import callgraph, modularity, incremental, traits, divergence, gate"
 
       - name: Test scripts are syntactically valid
         run: python -m compileall -q tests/
@@ -84,6 +84,9 @@ jobs:
 
       - name: Aeneas layer check
         run: python tests/test_aeneas_layer.py --static
+
+      - name: Spec gate check (static)
+        run: python tests/test_spec_gate.py --static
 
       - name: Events and pricing check
         run: python tests/test_events.py
@@ -132,6 +135,9 @@ jobs:
 
       - name: Aeneas layer check
         run: $LSS_PYTHON tests/test_aeneas_layer.py
+
+      - name: Spec gate check
+        run: $LSS_PYTHON tests/test_spec_gate.py
 
       - name: Translation check
         run: $LSS_PYTHON tests/test_translation_check.py
