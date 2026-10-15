@@ -275,6 +275,56 @@ def run_static_verdicts():
     check("synth proof check: an accepted verdict proves", ok is True)
 
 
+# every function that may set status "proved", and how many times; each one takes
+# it from an LSS_PROOF verdict (a ProofResult from lean.py, synth._try_lean_proof
+# or lean.check_proof). a new site must be checked the same way before it is added.
+PROVED_SITES = {"validate": 4, "_llm_repair": 3, "_try_proof_sketch": 2, "synthesize": 2,
+                "generate_with_proof": 1}
+
+
+def _proved_sites():
+    import ast
+    import collections
+    found = collections.Counter()
+
+    def visit(node, fn):
+        for ch in ast.iter_child_nodes(node):
+            f = ch.name if isinstance(ch, (ast.FunctionDef, ast.AsyncFunctionDef)) else fn
+            hit = False
+            if isinstance(ch, ast.Assign) and isinstance(ch.value, ast.Constant) and ch.value.value == "proved":
+                hit = any(isinstance(t, ast.Subscript) and isinstance(t.slice, ast.Constant)
+                          and t.slice.value == "status" for t in ch.targets)
+            if isinstance(ch, ast.Dict):
+                hit = any(isinstance(k, ast.Constant) and k.value == "status" and isinstance(v, ast.Constant)
+                          and v.value == "proved" for k, v in zip(ch.keys, ch.values))
+            if hit and f is not None:  # module-level demo data under __main__ is not a pipeline path
+                found[f] += 1
+            visit(ch, f)
+
+    for name in sorted(os.listdir(ROOT)):
+        if name.endswith(".py"):
+            with open(os.path.join(ROOT, name), encoding="utf-8") as fh:
+                visit(ast.parse(fh.read()), None)
+    return dict(found)
+
+
+def run_static_no_unverdicted():
+    print("=== static: nothing marks proved without a verdict ===")
+    import lean
+    import synth
+
+    sites = _proved_sites()
+    check("the only places that set status proved are the verdict-backed ones",
+          sites == PROVED_SITES, f"found {sites}")
+    check("SpecMutator is gone", not hasattr(lean, "SpecMutator"))
+    check("no strengthening swap is left (LLMClient.strengthen_spec is gone)",
+          not hasattr(synth.LLMClient, "strengthen_spec"))
+    with open(os.path.join(ROOT, "synth.py"), encoding="utf-8") as fh:
+        src = fh.read()
+    check("the batched strengthening checks (_sq, _psq) are gone",
+          "_sq{" not in src and "_psq{" not in src, "found a _sq/_psq absence check")
+
+
 def run_full():
     print("=== full ===")
     import lean
@@ -343,6 +393,7 @@ def run_full():
 if static:
     run_static()
     run_static_verdicts()
+    run_static_no_unverdicted()
 else:
     run_full()
 

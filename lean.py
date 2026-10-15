@@ -1931,59 +1931,6 @@ class MutationEngine:
         return r.proved
 
 
-class SpecMutator:
-    WEAKEN = {"<": "<=", ">": ">=", "∧": "∨"}
-    _SKIP = {"<=", ">=", "≤", "≥"}
-
-    def find_unnecessarily_weak(self, specs, lean_code, lean_checker, project_dir=None):
-        checks = []
-        entries = []
-        all_tokens = sorted(set(self.WEAKEN.keys()) | self._SKIP, key=len, reverse=True)
-        for spec in specs:
-            if spec["status"] != "proved":
-                continue
-            stmt = spec["stmt"]
-            pos = 0
-            while pos < len(stmt):
-                found = False
-                for tok in all_tokens:
-                    if stmt[pos:pos+len(tok)] == tok:
-                        if tok in self.WEAKEN:
-                            weaker = self.WEAKEN[tok]
-                            mutated = stmt[:pos] + weaker + stmt[pos+len(tok):]
-                            entries.append(f"private theorem _sw{len(checks)} : {mutated} := sorry")
-                            checks.append({
-                                "spec_name": spec["name"],
-                                "mutation": f"{tok} -> {weaker} at {pos}",
-                            })
-                        pos += len(tok)
-                        found = True
-                        break
-                if not found:
-                    pos += 1
-        if not checks:
-            return []
-        env = lean_code.rstrip()
-        env_lines = env.count("\n") + 1
-        code = env + "\n" + "\n".join(entries)
-        stdout, stderr, _ = run_in_project(code, project_dir=project_dir)
-        combined = (stdout or "") + "\n" + (stderr or "")
-        err_line_nums = set()
-        for l in combined.splitlines():
-            m = re.search(r':(\d+):', l)
-            if m and (': error:' in l or 'type mismatch' in l or 'unknown identifier' in l or 'Unknown constant' in l):
-                err_line_nums.add(int(m.group(1)))
-        results = []
-        for i, check in enumerate(checks):
-            line_no = env_lines + 1 + i
-            results.append({
-                "spec_name": check["spec_name"],
-                "mutation": check["mutation"],
-                "still_holds": line_no not in err_line_nums,
-            })
-        return results
-
-
 class ExampleStore:
     def __init__(self):
         os.makedirs(".lss", exist_ok=True)
