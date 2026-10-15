@@ -17,6 +17,7 @@
     "tests/test_pins.py",
     "tests/test_events.py",
     "tests/test_translation_check.py",
-    "tests/test_spec_gate.py"
+    "tests/test_spec_gate.py",
+    "tests/test_proof_trust.py"
   ]
 }

@@ -212,6 +212,18 @@ def _hammer_code(lean_env, theorem_stmt):
 
 _AENEAS_LAYER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean", "aeneas_layer.lean")
 _aeneas_layer_cache = None
+_PROOF_CHECK_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean", "proof_check.lean")
+_proof_check_cache = None
+
+
+def proof_check_text():
+    """lean/proof_check.lean: the lss_check_proof command every proof verdict
+    comes from (no Aeneas or Mathlib dependency, so both tracks send it)."""
+    global _proof_check_cache
+    if _proof_check_cache is None:
+        with open(_PROOF_CHECK_PATH, encoding="utf-8") as f:
+            _proof_check_cache = f.read()
+    return _proof_check_cache
 
 
 def _aeneas_layer_text():
@@ -633,7 +645,7 @@ class LeanChecker:
         text = (g.crate_text +
                 "\nset_option maxRecDepth 2048\n"
                 f"open Aeneas Aeneas.Std Result ControlFlow Error\nopen {g.crate}\n" +
-                _aeneas_layer_text())
+                proof_check_text() + "\n" + _aeneas_layer_text())
         t0 = time.time()
         r = server.check(text, timeout=600)
         elapsed = time.time() - t0

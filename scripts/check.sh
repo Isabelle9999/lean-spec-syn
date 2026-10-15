@@ -34,6 +34,7 @@ run "aeneas layer (static)" bare tests/test_aeneas_layer.py --static
 run "spec gate (static)" bare tests/test_spec_gate.py --static
 run "events and pricing" bare tests/test_events.py
 run "translation check (static)" bare tests/test_translation_check.py --static
+run "proof trust (static)" bare tests/test_proof_trust.py --static
 rm -rf "$bare_home"
 
 if [ "$mode" != "static" ]; then
@@ -49,6 +50,7 @@ if [ "$mode" != "static" ]; then
   run "aeneas layer" "$PY" tests/test_aeneas_layer.py
   run "spec gate" "$PY" tests/test_spec_gate.py
   run "translation check" "$PY" tests/test_translation_check.py
+  run "proof trust" "$PY" tests/test_proof_trust.py
 
   leftover() {
     for p in /proc/[0-9]*; do
