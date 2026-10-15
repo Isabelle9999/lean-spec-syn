@@ -81,6 +81,15 @@ NATIVE_AXIOMS = {
     "planted_decide_native": ["planted_decide_native._native.decide.ax_1"],
 }
 
+# FeatureSuite's records.order_pair calls records.swap (see test_aeneas_layer.py)
+ORDER_PAIR_GOAL = "forall (p : records.Pair), exists r, records.order_pair p = ok r ∧ r.first ≤ r.second"
+SWAP_HOARE = "forall (p : records.Pair), records.swap p ⦃ r => r.first = p.second ∧ r.second = p.first ⦄"
+SWAP_HOARE_HALF1 = "forall (p : records.Pair), records.swap p ⦃ r => r.first = p.second ⦄"
+CLOSERS = "step* <;> first | scalar_tac | simp_scalar | (simp_all <;> simp_lists [*]) | grind"
+CALLER_TACTIC = "lss_spec_form\nunfold records.order_pair\n" + CLOSERS
+# looks inside the callee: unfolds swap instead of using its spec
+CALLER_THROUGH_CALLEE = "lss_spec_form\nunfold records.order_pair\nunfold records.swap\n" + CLOSERS
+
 # a tactic that fails when either option the checker forces is not in force;
 # defined outside the checked text (the checker only accepts theorems).
 OPTION_PROBE = """
@@ -387,7 +396,77 @@ def run_full():
         pr = lean.LeanChecker().try_proof_batch("", "∀ n : Nat, n + 0 = n", project_dir=native)
         check("native track: the tactic portfolio proves through verdicts", pr.proved, pr.error[:200])
 
+    run_full_modularity()
     lean_server.shutdown_all()
+
+
+def _mod(tag, tactic, abstract, inline):
+    import lean
+    return (f'lss_modular {tag} unit:records.order_pair stmt:"{lean._escape_lean_str(ORDER_PAIR_GOAL)}" '
+            f'tactic:"{lean._escape_lean_str(tactic)}" abstract:[{abstract}] inline:[{inline}] heartbeats:0\n')
+
+
+def _theorem(name, stmt, tactic):
+    import lean
+    body = "\n".join("  " + line for line in tactic.split("\n"))
+    return lean.proof_check_call(f"theorem {name} : {stmt} := by\n{body}", name, 0) + "\n"
+
+
+def run_full_modularity():
+    print("=== full: ∀-abstraction and blame on FeatureSuite ===")
+    import lean
+    import lean_server
+    import lss_config
+    import callgraph
+
+    rust_dir = os.path.expanduser("~/rust_benchmarks")
+    if not os.path.isdir(os.path.join(rust_dir, "FeatureSuite", "Code")):
+        check("~/rust_benchmarks/FeatureSuite/Code exists", False, "not a directory")
+        return
+    server = lean_server.get_server(lss_config.project_dir("aeneas"), lss_config.server_cfg())
+    g = callgraph.for_project(rust_dir)
+    base = (g.crate_text + "\nset_option maxRecDepth 2048\n"
+            f"open Aeneas Aeneas.Std Result ControlFlow Error\nopen {g.crate}\n" +
+            lean.proof_check_text() + "\n" + lean._aeneas_layer_text() + "\n")
+    r0 = server.check(base, timeout=600)
+    check("crate env built", r0.rc == 0 and r0.new_env is not None, (r0.stderr or "")[:300])
+    if r0.new_env is None:
+        return
+    env0 = r0.new_env
+
+    # the planted proof that looks inside swap passes plain checking ...
+    r = server.check(_theorem("planted_through", ORDER_PAIR_GOAL, CALLER_THROUGH_CALLEE), env=env0, timeout=120)
+    v = lean.parse_proof_verdicts(r.stderr).get("planted_through")
+    check("planted proof through the callee passes plain checking", v is not None and v["ok"], str(v))
+    # ... and fails the abstraction theorem, even with swap's full spec available
+    r = server.check(_theorem("swap_full", SWAP_HOARE, "lss_spec_form\nunfold records.swap\nstep*") +
+                     "lss_register_step swap_full\n" +
+                     _mod("planted_through_mod", CALLER_THROUGH_CALLEE, "records.swap swap_full.step", "") +
+                     _mod("planted_clean_mod", CALLER_TACTIC, "records.swap swap_full.step", "") +
+                     _mod("planted_unconstrained_mod", CALLER_TACTIC, "records.swap _", ""),
+                     env=env0, timeout=300)
+    got = lean.parse_proof_verdicts(r.stderr)
+    check("callee spec admitted", got.get("swap_full", {}).get("ok") is True, str(got.get("swap_full")))
+    v = got.get("planted_through_mod.proof")
+    check("planted proof through the callee fails the abstraction theorem",
+          v is not None and v["ok"] is False and v["stage"] == "elab", str(v))
+    v = got.get("planted_clean_mod.proof")
+    check("planted clean proof passes the abstraction theorem (audit included)",
+          v is not None and v["ok"] is True, str(v))
+    v = got.get("planted_unconstrained_mod.proof")
+    check("with the callee unconstrained the clean proof fails", v is not None and v["ok"] is False, str(v))
+
+    # a weak callee spec: the caller fails; inlining the callee's body rescues it
+    r = server.check(_theorem("swap_weak", SWAP_HOARE_HALF1, "lss_spec_form\nunfold records.swap\nstep*") +
+                     "lss_register_step swap_weak\n" +
+                     _theorem("caller_weak", ORDER_PAIR_GOAL, CALLER_TACTIC) +
+                     _mod("weak_inline_mod", CALLER_TACTIC, "", "records.swap"),
+                     env=env0, timeout=300)
+    got = lean.parse_proof_verdicts(r.stderr)
+    check("weak callee spec: the caller's proof fails", got.get("caller_weak", {}).get("ok") is False,
+          str(got.get("caller_weak")))
+    check("weak callee spec: inlining the callee's body rescues it",
+          got.get("weak_inline_mod.proof", {}).get("ok") is True, str(got.get("weak_inline_mod.proof")))
 
 
 if static:
