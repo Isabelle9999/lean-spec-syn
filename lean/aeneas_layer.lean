@@ -1,6 +1,7 @@
 -- sent through the lean server as text, appended after the crate text (built the
 -- way callgraph.py builds it: import Aeneas + the crate's Code/*.lean files,
--- callees-first) and before the per-candidate attempts. not a lake target.
+-- callees-first) and proof_check.lean, before the per-candidate attempts. not a
+-- lake target. proof verdicts come from proof_check.lean's lss_check_proof.
 -- needs Aeneas's step infra (`step`, `@[step]`) and Aeneas.Std.WP (spec, dspec,
 -- spec_imp_exists, dspec_imp_forall), both already in scope via import Aeneas.
 -- no top-level open: this text stays in scope for every later candidate theorem,
@@ -169,27 +170,3 @@ elab "lss_log_goals" : tactic => do
       let text := (<- Lean.Meta.ppExpr ty).pretty
       let json := Lean.Json.mkObj [("head", Lean.Json.str head), ("text", Lean.Json.str text)]
       logWarning m!"LSS_GOALS {Lean.Json.compress json}"
-
--- report each named theorem's proof verdict, one LSS_ATTEMPT warning per name (a
--- warning, since the server drops info messages): ok iff the constant exists and
--- does not depend on sorryAx (collectAxioms is what `#print axioms` uses); a
--- missing constant (elaboration never added it) is ok=false.
-open Lean Elab Command Meta in
-elab "lss_report_attempts" ids:ident+ : command => do
-  let cnt := ids.size
-  for i in [0:cnt] do
-    let nm := ids[i]!.getId
-    let env <- getEnv
-    let json <-
-      if env.find? nm |>.isSome then
-        let axs <- Lean.collectAxioms nm
-        pure (Lean.Json.mkObj [
-          ("name", Lean.Json.str (toString nm)),
-          ("ok", Lean.Json.bool (!(axs.contains `sorryAx))),
-          ("axioms", Lean.Json.arr (axs.map (fun a => Lean.Json.str (toString a))))])
-      else
-        pure (Lean.Json.mkObj [
-          ("name", Lean.Json.str (toString nm)),
-          ("ok", Lean.Json.bool false),
-          ("axioms", Lean.Json.arr #[])])
-    logWarning m!"LSS_ATTEMPT {Lean.Json.compress json}"

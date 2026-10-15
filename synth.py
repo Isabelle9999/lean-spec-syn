@@ -5,7 +5,7 @@ import time
 import hashlib
 import anthropic
 from lean import (_errors, run_in_project, classify_function, MutationEngine, Cache,
-                  ProofResult, TACTICS, SpecMutator, _find_def_in_text,
+                  ProofResult, TACTICS, SpecMutator, _find_def_in_text, check_proof,
                   _witnesses_for_type, _diverse_tuples, _parse_struct_defs)
 from strategies import generate_from_examples, generate_from_negatives, generate_with_proof
 import events
@@ -984,16 +984,14 @@ def _make_wrong_for_spec_identity(lean_code, spec_stmt, all_funcs):
     return wrong
 
 def _try_lean_proof(lean_code, stmt, proof_text, project_dir=None):
+    """(proved, output): proved is the LSS_PROOF verdict of `theorem _t : stmt := by
+    <proof_text>`; output keeps the Lean errors for repair prompts."""
     lines = [l.strip() for l in proof_text.splitlines() if l.strip()]
     if not lines:
         return False, "empty proof"
     indented = "\n".join("  " + l for l in lines)
-    code = lean_code.rstrip() + f"\ntheorem _t : {stmt} := by\n{indented}"
-    stdout, stderr, rc = run_in_project(code, project_dir=project_dir)
-    combined = stdout + stderr
-    errs = _errors(combined)
-    ok = rc == 0 and not errs and "sorry" not in combined
-    return ok, combined.strip()
+    v, out = check_proof(lean_code, f"theorem _t : {stmt} := by\n{indented}", "_t", project_dir=project_dir)
+    return v["ok"], out.strip()
 
 def _try_lean_proof_partial(lean_code, stmt, proof_text, project_dir=None):
     """like _try_lean_proof but allows remaining sorry (for per-sorry filling verification)."""
@@ -1092,12 +1090,11 @@ def decompose_and_prove(lean_code, theorem_stmt, lean_checker, llm, project_dir=
     preamble = (("import Mathlib\n" if _ml_ok else "") +
                 ("import Hammer\n" if _hm_ok else "") +
                 lean_code.rstrip() + "\n")
-    verbatim = preamble + f"theorem _sketch_check : {theorem_stmt} := by\n"
+    verbatim = f"theorem _sketch_check : {theorem_stmt} := by\n"
     verbatim += "\n".join("  " + l for l in sketch.splitlines())
-    stdout, stderr, rc = run_in_project(verbatim, project_dir=project_dir)
-    combined = (stdout or "") + (stderr or "")
-    if rc == 0 and not _errors(combined) and "sorry" not in combined:
-        return ProofResult(proved=True, method="l3:llm_sketch", error="")
+    v, _ = check_proof(preamble, verbatim, "_sketch_check", project_dir=project_dir)
+    if v["ok"]:
+        return ProofResult(proved=True, method="l3:llm_sketch", error="", axioms=v["axioms"])
 
     # step 2: parse have statements; match := sorry OR := by <single or multi-line tactic>
     have_re = re.compile(
@@ -1129,12 +1126,11 @@ def decompose_and_prove(lean_code, theorem_stmt, lean_checker, llm, project_dir=
         return ProofResult(proved=False, method="", error="residual sorry after filling")
 
     # step 3: one final lean invocation — kernel checks the whole proof
-    check_code = preamble + f"theorem _decomp_final : {theorem_stmt} := by\n"
+    check_code = f"theorem _decomp_final : {theorem_stmt} := by\n"
     check_code += "\n".join("  " + l for l in filled.splitlines())
-    stdout, stderr, rc = run_in_project(check_code, project_dir=project_dir)
-    combined = (stdout or "") + (stderr or "")
-    if rc == 0 and not _errors(combined) and "sorry" not in combined:
-        return ProofResult(proved=True, method="l3:decompose", error="")
+    v, combined = check_proof(preamble, check_code, "_decomp_final", project_dir=project_dir)
+    if v["ok"]:
+        return ProofResult(proved=True, method="l3:decompose", error="", axioms=v["axioms"])
 
     # step 4: repair — replace LLM's closing tactic; filled_haves already correct
     have_body = "\n".join("  " + l for l in "\n".join(filled_haves).splitlines())
@@ -1144,12 +1140,11 @@ def decompose_and_prove(lean_code, theorem_stmt, lean_checker, llm, project_dir=
     if have_names:
         candidates.append(f"simp [{', '.join(have_names)}, *]")
     for ct in candidates[:10]:
-        repair_code = preamble + f"theorem _decomp_repaired : {theorem_stmt} := by\n"
+        repair_code = f"theorem _decomp_repaired : {theorem_stmt} := by\n"
         repair_code += have_body + "\n  " + ct
-        out2, err2, rc2 = run_in_project(repair_code, project_dir=project_dir)
-        c2 = (out2 or "") + (err2 or "")
-        if rc2 == 0 and not _errors(c2) and "sorry" not in c2:
-            return ProofResult(proved=True, method="l3:decompose_repaired", error="")
+        v, _ = check_proof(preamble, repair_code, "_decomp_repaired", project_dir=project_dir)
+        if v["ok"]:
+            return ProofResult(proved=True, method="l3:decompose_repaired", error="", axioms=v["axioms"])
     return ProofResult(proved=False, method="", error="repair failed: " + combined.strip()[:200])
 
 
@@ -1553,6 +1548,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                         spec["status"] = "proved"
                         spec["method"] = pr0.method
                         spec["proof"] = pr0.proof_text
+                        spec["axioms"] = pr0.axioms
                         if verbose:
                             print(f"  [g4] {spec['name']}: proved (aeneas) by {pr0.method}")
                         events.emit("verdict", status="proved", method=pr0.method)
@@ -1564,6 +1560,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                 if pr.proved:
                     spec["status"] = "proved"
                     spec["method"] = pr.method
+                    spec["axioms"] = pr.axioms
                     if verbose:
                         print(f"  [g4] {spec['name']}: proved (l1) by {pr.method}")
                     events.emit("verdict", status="proved", method=pr.method)
@@ -1574,6 +1571,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                 if pr2.proved:
                     spec["status"] = "proved"
                     spec["method"] = pr2.method
+                    spec["axioms"] = pr2.axioms
                     if verbose:
                         print(f"  [g4] {spec['name']}: proved (l2) by {pr2.method}")
                     events.emit("verdict", status="proved", method=pr2.method)
@@ -1585,6 +1583,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                     if r3.proved:
                         spec["status"] = "proved"
                         spec["method"] = r3.method
+                        spec["axioms"] = r3.axioms
                         if verbose:
                             print(f"  [g4] {spec['name']}: proved (l3) by {r3.method}")
                         events.emit("verdict", status="proved", method=r3.method)
@@ -2874,7 +2873,7 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
                     f"{lean_code}\n"
                     f"theorem {spec['name']} : {spec['stmt']} := sorry\n\n"
                     f"write a complete proof. no sorry allowed. the function is {fn}.\n"
-                    f"try: induction, cases, simp [{fn}], or define a helper lemma first.\n"
+                    f"try: induction, cases, simp [{fn}], or prove a helper theorem first.\n"
                     "return the full theorem with proof in a ```lean block."
                 )
                 text = llm._ask(prompt)
@@ -2884,12 +2883,14 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
                         print(f"  [2nd] {spec['name']}: FAIL")
                     continue
                 block = m.group(1).strip()
-                full = lean_code.rstrip() + "\n" + block
-                stdout, stderr, rc = run_in_project(full, project_dir=project_dir)
-                combined = stdout + stderr
-                if rc == 0 and not _errors(combined) and "sorry" not in combined:
+                # the block's theorems are checked as given; `_lss_second` restates the
+                # spec itself, so a block that proved some other statement does not count
+                v, _ = check_proof(lean_code, block + f"\ntheorem _lss_second : {spec['stmt']} := by\n"
+                                   f"  exact {spec['name']}", "_lss_second", project_dir=project_dir)
+                if v["ok"]:
                     spec["status"] = "proved"
                     spec["method"] = "llm-second-pass"
+                    spec["axioms"] = v["axioms"]
                 if verbose:
                     print(f"  [2nd] {spec['name']}: {'PROVED' if spec['status'] == 'proved' else 'FAIL'}")
 

@@ -67,7 +67,7 @@ def run_static():
     import lean
     check("premise_selector defaults to local in lss.toml",
           lss_config.proof_cfg()["premise_selector"] == "local")
-    hammer_code14 = lean._hammer_code('', '∀ (n : Nat), n + 0 = n')
+    hammer_code14, _ = lean._hammer_code('', '∀ (n : Nat), n + 0 = n')
     check("hammer_code emits the local selector line when premise_selector is local",
           "sineQuaNonSelector" in hammer_code14, hammer_code14[:200])
 
@@ -113,19 +113,6 @@ SWAP_DIFF_BINDER = ("forall (p : records.Pair) (h : p.first = p.first), "
 ORDER_PAIR_GOAL = "forall (p : records.Pair), exists r, records.order_pair p = ok r ∧ r.first ≤ r.second"
 
 
-def _parse_attempts(text):
-    import json
-    import re
-    out = {}
-    for m in re.finditer(r"LSS_ATTEMPT (\{[^\n]*\})", text or ""):
-        try:
-            v = json.loads(m.group(1))
-        except json.JSONDecodeError:
-            continue
-        out[v.get("name")] = v
-    return out
-
-
 def _parse_steps(text):
     import json
     import re
@@ -159,7 +146,7 @@ def run_full():
 
     g = callgraph.for_project(rust_dir)
     layer = lean._aeneas_layer_text()
-    base = g.crate_text + f"\nopen {g.crate}\n" + layer + "\n"
+    base = g.crate_text + f"\nopen {g.crate}\n" + lean.proof_check_text() + "\n" + layer + "\n"
 
     def run(label, extra, timeout=90):
         r = server.check(base + extra, timeout=timeout)
@@ -337,20 +324,12 @@ theorem order_pair_weak_then_strong : {ORDER_PAIR_GOAL} := by
           r.rc == 0, (r.stderr or "")[:300])
 
     restarts_before = server._worker.restarts
-    r = run("heartbeat trip", f"""
-set_option maxHeartbeats 1 in
-theorem trips : {ORDER_PAIR_GOAL} := by
-  lss_spec_form
-  unfold records.order_pair
-  grind
-
-theorem after_trip : forall (p : records.Pair), p = p := by
-  intro p
-  rfl
-
-lss_report_attempts trips after_trip
-""")
-    verdicts = _parse_attempts(r.stderr)
+    trips = (f"theorem trips : {ORDER_PAIR_GOAL} := by\n  lss_spec_form\n"
+             "  unfold records.order_pair\n  grind")
+    after = "theorem after_trip : forall (p : records.Pair), p = p := by\n  intro p\n  rfl"
+    r = run("heartbeat trip", lean.proof_check_call(trips, "trips", 1) + "\n" +
+            lean.proof_check_call(after, "after_trip", 0) + "\n")
+    verdicts = lean.parse_proof_verdicts(r.stderr)
     check("heartbeat trip: trips ok=false", verdicts.get("trips", {}).get("ok") is False,
           str(verdicts.get("trips")))
     check("heartbeat trip: after_trip still proves, ok=true", verdicts.get("after_trip", {}).get("ok") is True,

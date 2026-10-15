@@ -1,7 +1,7 @@
 import os
 import re
 import callgraph
-from lean import LeanChecker, _errors, run_in_project
+from lean import LeanChecker, _errors, run_in_project, check_proof
 import events
 
 
@@ -149,16 +149,15 @@ def generate_with_proof(lean_code, func_name, llm, lean_checker, project_dir=Non
                 env = helpers.rstrip()
             else:
                 env = lean_code.rstrip() + ("\n" + helpers.rstrip() if helpers else "")
-            full = env + "\n" + chunk
-            stdout, stderr, rc = run_in_project(full, project_dir=project_dir)
-            combined = stdout + stderr
-            if rc == 0 and not _errors(combined) and "sorry" not in combined:
+            v, _ = check_proof(env, chunk, name, project_dir=project_dir)
+            if v["ok"]:
                 results.append({
                     "name": name,
                     "stmt": stmt,
                     "status": "proved",
                     "method": "llm-gen-with-proof",
                     "proof": proof,
+                    "axioms": v["axioms"],
                 })
         return results
 

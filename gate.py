@@ -31,10 +31,6 @@ def _wf_gate_aeneas_text():
     return _wf_gate_aeneas_cache
 
 
-def _escape_lean_str(s):
-    return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
-
-
 def _env_fail(detail):
     # "env" is not one of CHECK_ORDER's six named checks: this is a meta-level
     # failure (crate/base environment never came up), not a verdict on the
@@ -60,7 +56,7 @@ def check_candidate(lean_checker, candidate_text, func_name, lean_code, project_
     itself applies). a candidate is well-formed iff all six checks ran and passed.
     """
     is_rust = source == "rust-aeneas" and _lss_config.proof_cfg()["aeneas_layer"]
-    esc = _escape_lean_str(candidate_text)
+    esc = _lean._escape_lean_str(candidate_text)
 
     if is_rust:
         state = lean_checker._aeneas_env_for(project_dir)

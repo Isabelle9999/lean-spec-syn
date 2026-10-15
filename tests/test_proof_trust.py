@@ -39,18 +39,37 @@ def _lean_defs(path):
 
 
 class _FakeServer:
-    """records every text sent, answers like a REPL that elaborated it cleanly."""
+    """records every text sent (and its prelude); answers with `reply(code)`, by
+    default an empty, error-free result -- a REPL that elaborated it cleanly."""
 
-    def __init__(self):
+    def __init__(self, reply=None):
         self.sent = []
+        self.preludes = []
+        self.reply = reply or (lambda code: "")
 
-    def check(self, code, timeout=None, env=None):
+    def check(self, code, timeout=None, env=None, prelude=""):
         import lean_server
         self.sent.append(code)
-        return lean_server.CheckResult(stdout="", stderr="", rc=0, via="repl", new_env=1)
+        self.preludes.append(prelude)
+        return lean_server.CheckResult(stdout="", stderr=self.reply(code), rc=0, via="repl", new_env=1)
 
     def stats(self):
         return {"restarts": 0}
+
+
+def _verdict_line(name, ok, stage="ok", axioms=()):
+    return "LSS_PROOF " + json.dumps({"name": name, "ok": ok, "stage": stage, "detail": "",
+                                      "axioms": list(axioms)}) + "\n"
+
+
+def _with_fake(fake, fn):
+    import lean_server
+    orig = lean_server.get_server
+    lean_server.get_server = lambda *a, **k: fake
+    try:
+        return fn()
+    finally:
+        lean_server.get_server = orig
 
 
 # the axiom each native-evaluation tactic adds on the pinned toolchain, for a
@@ -121,8 +140,8 @@ CHECKER_CASES = [
 
 
 def _call(theorems, name, heartbeats):
-    import gate
-    return f'lss_check_proof "{gate._escape_lean_str(theorems)}" name:{name} heartbeats:{heartbeats}'
+    import lean
+    return lean.proof_check_call(theorems, name, heartbeats)
 
 
 def run_static():
@@ -178,6 +197,84 @@ def run_static():
     check("crate env holds proof_check.lean before aeneas_layer.lean", 0 <= i_pc < i_layer, f"{i_pc} {i_layer}")
 
 
+def run_static_verdicts():
+    print("=== static: every layer reads its verdict ===")
+    import lean
+    import synth
+
+    got = lean.parse_proof_verdicts("noise\n" + _verdict_line("a", True) + "LSS_PROOF {broken\n" +
+                                    _verdict_line("b", False, "axioms", ["sorryAx"]))
+    check("parse_proof_verdicts reads every verdict and skips broken lines",
+          set(got) == {"a", "b"} and got["a"]["ok"] is True and got["b"]["stage"] == "axioms", str(got))
+
+    fake = _FakeServer()
+    v, _ = _with_fake(fake, lambda: lean.check_proof("def f := 1", "theorem t : f = 1 := rfl", "t"))
+    check("check_proof adds import Lean when the context has no import",
+          fake.sent[-1].startswith("import Lean\n"), fake.sent[-1][:40])
+    check("check_proof sends proof_check.lean as the server prelude", fake.preludes[-1] == lean.proof_check_text())
+    check("no verdict in the output is not a proof", v["ok"] is False and v["stage"] == "no_verdict", str(v))
+
+    # an error-free run with no verdicts proves nothing (the old rc == 0 shortcut)
+    checker = lean.LeanChecker(project_dir="/nonexistent")
+    setattr(checker, "_precheck_env", lambda project_dir, requires_hammer=False: (True, ""))
+    fake = _FakeServer()
+    pr = _with_fake(fake, lambda: checker.try_proof_batch("def f (n : Nat) : Nat := n", "∀ n, f n = n",
+                                                          func_name="f", project_dir="/nonexistent"))
+    check("tactic portfolio: a clean run with no verdict is not proved", pr.proved is False, str(pr))
+
+    # the first accepted entry, in portfolio order, wins; rejected entries before it do not count
+    def reply_batch(code):
+        return (_verdict_line("_lss_p0", False, "axioms", ["sorryAx"]) + _verdict_line("_lss_p3", True) +
+                _verdict_line("_lss_p5", True, "ok", ["propext"]))
+    fake = _FakeServer(reply_batch)
+    pr = _with_fake(fake, lambda: checker.try_proof_batch("def f (n : Nat) : Nat := n", "∀ n, f n = n",
+                                                          func_name="f", project_dir="/nonexistent"))
+    check("tactic portfolio: the first accepted entry wins", pr.proved and pr.method == "l1:decide", str(pr))
+    check("tactic portfolio: every entry goes through lss_check_proof",
+          fake.sent[-1].count("lss_check_proof ") >= 30 and "private theorem" not in fake.sent[-1],
+          str(fake.sent[-1].count("lss_check_proof ")))
+
+    # hammer: an accepted verdict proves, an axiom rejection does not
+    import lss_config
+    orig_hp = lss_config.hammer_project_dir
+    lss_config.hammer_project_dir = lambda: "/nonexistent"
+    try:
+        fake = _FakeServer(lambda code: _verdict_line("_hammer_proof", True, "ok", ["propext"]))
+        pr = _with_fake(fake, lambda: checker.try_hammer("", "∀ n : Nat, n = n"))
+        check("hammer: an accepted verdict proves", pr.proved and pr.axioms == ["propext"], str(pr))
+        fake = _FakeServer(lambda code: _verdict_line("_hammer_proof", False, "axioms", ["x._native.native_decide.ax_1"]))
+        pr = _with_fake(fake, lambda: checker.try_hammer("", "∀ n : Nat, n = n"))
+        check("hammer: an axiom rejection does not prove", pr.proved is False, str(pr))
+    finally:
+        lss_config.hammer_project_dir = orig_hp
+
+    # the aeneas layer: an attempt counts only with an accepted verdict, and only then is it admitted
+    state = {"ok": True, "env": 3, "admitted": [], "restarts": 0}
+    setattr(checker, "_aeneas_env_for", lambda project_dir: state)
+    fake = _FakeServer(lambda code: _verdict_line("_aeneas_a", False, "axioms", ["sorryAx"]))
+    pr = _with_fake(fake, lambda: checker.try_aeneas("stmt", "f", "/nonexistent"))
+    check("aeneas layer: a rejected attempt and a missing verdict prove nothing",
+          not pr.proved and not state["admitted"], str(pr)[:200])
+
+    def reply_aeneas(code):
+        out = _verdict_line("_aeneas_a", False, "elab") + _verdict_line("_aeneas_b", True, "ok", ["propext"])
+        return out + (_verdict_line("lss_admitted_0", True) if "name:lss_admitted_0 " in code else "")
+    fake = _FakeServer(reply_aeneas)
+    pr = _with_fake(fake, lambda: checker.try_aeneas("stmt", "f", "/nonexistent"))
+    check("aeneas layer: an accepted attempt proves and is admitted through its own verdict",
+          pr.proved and pr.method == "aeneas:b" and pr.axioms == ["propext"] and len(state["admitted"]) == 1
+          and state["env"] == 1, f"{pr} {state}"[:300])
+
+    # synth's LLM proof check: the verdict decides, the output carries the errors
+    fake = _FakeServer(lambda code: "error: unsolved goals\n" + _verdict_line("_t", False, "elab"))
+    ok, raw = _with_fake(fake, lambda: synth._try_lean_proof("", "1 = 1", "simp"))
+    check("synth proof check: a rejected verdict is not proved and keeps the error text",
+          ok is False and "unsolved goals" in raw, raw[:100])
+    fake = _FakeServer(lambda code: _verdict_line("_t", True))
+    ok, _ = _with_fake(fake, lambda: synth._try_lean_proof("", "1 = 1", "rfl"))
+    check("synth proof check: an accepted verdict proves", ok is True)
+
+
 def run_full():
     print("=== full ===")
     import lean
@@ -219,6 +316,13 @@ def run_full():
     check("control: the option probe fails outside the checker",
           "debug.skipKernelTC is on" in out, out[-300:])
 
+    # the LLM proof path end to end: native_decide is refused, decide is accepted
+    import synth
+    ok_native, out_native = synth._try_lean_proof("", "2 + 2 = 4", "native_decide")
+    ok_decide, _ = synth._try_lean_proof("", "2 + 2 = 4", "decide")
+    check("synth proof check refuses native_decide end to end", ok_native is False, out_native[-200:])
+    check("synth proof check accepts decide end to end", ok_decide is True)
+
     # native track: the same file elaborates after import Mathlib
     native = lss_config.project_dir("lean-native")
     if not os.path.isdir(native):
@@ -230,12 +334,15 @@ def run_full():
                      timeout=300)
         v = _verdicts((r.stdout or "") + (r.stderr or "")).get("planted_mathlib")
         check("native track: a Mathlib proof passes after import Mathlib", v is not None and v.get("ok") is True, str(v))
+        pr = lean.LeanChecker().try_proof_batch("", "∀ n : Nat, n + 0 = n", project_dir=native)
+        check("native track: the tactic portfolio proves through verdicts", pr.proved, pr.error[:200])
 
     lean_server.shutdown_all()
 
 
 if static:
     run_static()
+    run_static_verdicts()
 else:
     run_full()
 

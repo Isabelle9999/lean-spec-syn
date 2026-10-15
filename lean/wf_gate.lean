@@ -3,7 +3,7 @@
 -- named checks (one_theorem, is_theorem, no_attribute, conclusion_shape,
 -- vocabulary, decidable), stopping at the first failure. each check reports one
 -- LSS_WF {json} warning (a warning, since the server drops info messages), same
--- convention as aeneas_layer.lean's LSS_ATTEMPT/LSS_STEP/LSS_GOALS.
+-- convention as proof_check.lean's LSS_PROOF and aeneas_layer.lean's LSS_STEP/LSS_GOALS.
 --
 -- sent through the lean server the same way aeneas_layer.lean is: appended after
 -- the crate text (rust track) or after `import Mathlib` + the lean-native source
