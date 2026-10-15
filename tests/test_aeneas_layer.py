@@ -111,6 +111,10 @@ SWAP_HALF2 = "forall (p : records.Pair), exists r, records.swap p = ok r ∧ r.s
 SWAP_DIFF_BINDER = ("forall (p : records.Pair) (h : p.first = p.first), "
                      "exists r, records.swap p = ok r ∧ r.first = p.second ∧ r.second = p.first")
 ORDER_PAIR_GOAL = "forall (p : records.Pair), exists r, records.order_pair p = ok r ∧ r.first ≤ r.second"
+# the rust candidates' own form since the gate: a Hoare triple on the call
+SWAP_HOARE = "forall (p : records.Pair), records.swap p ⦃ r => r.first = p.second ∧ r.second = p.first ⦄"
+SWAP_HOARE_HALF1 = "forall (p : records.Pair), records.swap p ⦃ r => r.first = p.second ⦄"
+SWAP_HOARE_HALF2 = "forall (p : records.Pair), records.swap p ⦃ r => r.second = p.first ⦄"
 
 
 def _parse_steps(text):
@@ -181,6 +185,49 @@ theorem caller_registered : {ORDER_PAIR_GOAL} := by
   step*
 """)
     check("caller proved once callee's spec is registered, callee not unfolded", r.rc == 0, (r.stderr or "")[:300])
+
+    # a Hoare-triple spec is registered as it stands (it already has the shape of a
+    # step lemma), and a caller then proves through it without unfolding swap
+    r = run("hoare spec registered", f"""
+theorem swap_hoare : {SWAP_HOARE} := by
+  lss_spec_form
+  unfold records.swap
+  step*
+lss_register_step swap_hoare
+
+theorem order_pair_via_hoare : {ORDER_PAIR_GOAL} := by
+  lss_spec_form
+  unfold records.order_pair
+  step*
+""")
+    steps = _parse_steps(r.stderr)
+    check("hoare spec: registered as a new step lemma, not skipped",
+          "LSS_SKIP_STEP swap_hoare" not in (r.stderr or "") and
+          any(s.get("action") == "new" and s.get("active") == "swap_hoare.step" for s in steps), str(steps))
+    check("hoare spec: caller proves through it", r.rc == 0, (r.stderr or "")[:300])
+
+    r = run("hoare halves combine", f"""
+theorem swap_hoare_h1 : {SWAP_HOARE_HALF1} := by
+  lss_spec_form
+  unfold records.swap
+  step*
+lss_register_step swap_hoare_h1
+
+theorem swap_hoare_h2 : {SWAP_HOARE_HALF2} := by
+  lss_spec_form
+  unfold records.swap
+  step*
+lss_register_step swap_hoare_h2
+
+theorem order_pair_via_hoare_halves : {ORDER_PAIR_GOAL} := by
+  lss_spec_form
+  unfold records.order_pair
+  step*
+""")
+    steps = _parse_steps(r.stderr)
+    check("hoare halves: combined into one step lemma",
+          any(s.get("action") == "combined" and s.get("active") == "swap_hoare_h2.comb" for s in steps), str(steps))
+    check("hoare halves: caller proves through the combination", r.rc == 0, (r.stderr or "")[:300])
 
     # the AND combinator (point 1) fixes the former known gap: step tries @[step]
     # lemmas for the same call newest-first and uses the first that applies

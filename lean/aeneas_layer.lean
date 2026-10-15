@@ -72,9 +72,10 @@ theorem lss_spec_and {a} {m : Aeneas.Std.Result a} {p q : a → Prop}
   simp only [Aeneas.Std.Result.ok.injEq] at hy'
   exact Aeneas.Std.WP.exists_imp_spec ⟨y, hy, hpy, hy' ▸ hqy⟩
 
--- register a proved ∃/equation-shaped theorem's spec-form restatement as a @[step]
--- lemma, so later step* calls (for this theorem's callers, in the same growing env)
--- can use it without unfolding it. skips ∀-arrow-shaped theorems, logging
+-- register a proved theorem as a @[step] lemma, so later step* calls (for this
+-- theorem's callers, in the same growing env) can use it without unfolding it: a
+-- Hoare triple as it stands, an ∃/equation shape through its spec-form
+-- restatement. skips ∀-arrow-shaped theorems, logging
 -- LSS_SKIP_STEP (a warning, since the server drops info messages); any failure in
 -- the conversion is caught and logged the same way, since an uncaught error here
 -- would otherwise poison the whole (shared, growing) environment.
@@ -92,13 +93,18 @@ elab "lss_register_step " id:ident : command => do
   try
     liftTermElabM do
       let ci <- getConstInfo declName
-      forallTelescope ci.type fun fvars core => do
-        let core <- whnf core
-        match lssConverterFor core with
+      forallTelescope ci.type fun fvars core0 => do
+        let thApp := mkAppN (mkConst declName (ci.levelParams.map mkLevelParam)) fvars
+        -- a Hoare triple `f args ⦃ r => P r ⦄` (the rust candidates' own form since the
+        -- gate) already has the shape of a step lemma; read it before `whnf`, which
+        -- unfolds `spec` itself. other shapes go through their converter.
+        let proof? <- if core0.isAppOfArity ``Aeneas.Std.WP.spec 3 then pure (some thApp)
+          else match lssConverterFor (<- whnf core0) with
+            | none => pure none
+            | some conv => some <$> mkAppM conv #[thApp]
+        match proof? with
         | none => logWarning m!"LSS_SKIP_STEP {declName}"
-        | some conv =>
-          let thApp := mkAppN (mkConst declName (ci.levelParams.map mkLevelParam)) fvars
-          let proof <- mkAppM conv #[thApp]
+        | some proof =>
           let proofTerm <- mkLambdaFVars fvars proof
           let newTy <- inferType proof
           let thmTy <- mkForallFVars fvars newTy
