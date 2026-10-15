@@ -4,6 +4,7 @@ import json
 import hashlib
 import time
 import difflib
+import textwrap
 from dataclasses import dataclass, field
 import lss_config as _lss_config
 import lean_server as _lean_server
@@ -89,6 +90,11 @@ class ProofResult:
     hammer_available: bool = True
     proof_text: str = ""
     axioms: list = field(default_factory=list)  # from the proof's LSS_PROOF verdict
+    # rust units: does the proof hold with every external callee replaced by a
+    # variable that only satisfies the callee's spec? None when not checked
+    modular: bool | None = None
+    needs_callee_body: list = field(default_factory=list)  # callees the proof looks inside
+    blamed_callees: list = field(default_factory=list)  # on failure: callees whose spec is too weak
 
 @dataclass
 class PBTResult:
@@ -294,8 +300,11 @@ class LeanChecker:
         self.lean_calls = 0
         self.project_dir = project_dir
         self._env_cache = {}  # (project_dir, requires_hammer) -> (ok, error)
-        self._aeneas_env = {}  # project_dir -> {env, admitted: [(name,stmt,tactic)], restarts, ok, error}
+        # project_dir -> {env, admitted: [(name, stmt, tactic, unit)], active: {unit: step lemma},
+        #                 restarts, ok, error}
+        self._aeneas_env = {}
         self._aeneas_admit_counter = {}  # project_dir -> next admitted-name index, never reused
+        self._modular_counter = 0
 
     @with_context(layer="typecheck")
     def typecheck(self, code, project_dir=None):
@@ -668,7 +677,7 @@ class LeanChecker:
         if not ok:
             errs = _errors(combined)
             print(f"  aeneas env build failed: {(errs[0] if errs else combined.strip())[:200]}")
-        state = {"env": r.new_env, "admitted": [], "restarts": server.stats()["restarts"],
+        state = {"env": r.new_env, "admitted": [], "active": {}, "restarts": server.stats()["restarts"],
                  "ok": ok, "error": combined[:300]}
         self._aeneas_env[project_dir] = state
         return state
@@ -685,16 +694,17 @@ class LeanChecker:
             admitted = state["admitted"]
             state = self._aeneas_build_env(project_dir)
             if state["ok"]:
-                for name, stmt, tactic in admitted:
-                    self._aeneas_admit(project_dir, state, name, stmt, tactic)
+                for name, stmt, tactic, unit in admitted:
+                    self._aeneas_admit(project_dir, state, name, stmt, tactic, unit)
         return state
 
-    def _aeneas_admit(self, project_dir, state, name, stmt, tactic):
+    def _aeneas_admit(self, project_dir, state, name, stmt, tactic, unit):
         """extend the crate's env once with the winning proof, @[step]-registered.
         only on success: a failing admit (lower cap, flaky tactic, ...) keeps the
         old env and is not recorded, so it can't leave a sorry-backed @[step] lemma.
         success is the theorem's own LSS_PROOF verdict (kernel-checked, axioms
-        audited), the same check the proof attempts themselves get."""
+        audited), the same check the proof attempts themselves get. the unit's
+        active step lemma (LSS_STEP's "active") is recorded for the modularity check."""
         aeneas_dir = _lss_config.project_dir("aeneas")
         heartbeats = _lss_config.proof_cfg()["aeneas_heartbeats"]
         server = _lean_server.get_server(aeneas_dir)
@@ -707,7 +717,14 @@ class LeanChecker:
         ok = r.rc == 0 and r.new_env is not None and verdict is not None and verdict.get("ok") is True
         if ok:
             state["env"] = r.new_env
-            state["admitted"].append((name, stmt, tactic))
+            state["admitted"].append((name, stmt, tactic, unit))
+            for m in re.finditer(r"LSS_STEP (\{[^\n]*\})", combined):
+                try:
+                    step = json.loads(m.group(1))
+                except json.JSONDecodeError:
+                    continue
+                if step.get("call") == name and step.get("active"):
+                    state["active"][unit] = step["active"]
         else:
             errs = _errors(combined)
             print(f"  aeneas admit failed: {name}: {(errs[0] if errs else combined.strip())[:200]}")
@@ -755,17 +772,74 @@ class LeanChecker:
 
         verdicts = parse_proof_verdicts(combined)
 
+        g = _callgraph.for_project(rust_project_dir)
+        unit = func_name if func_name in g.names else f"{g.crate}.{func_name}"
         for label, tactic in attempts[:2]:
             v = verdicts.get(f"_aeneas_{label}")
             if v and v.get("ok"):
+                modular, body = self._modularity(g, state, unit, candidate_stmt, tactic)
                 n = self._aeneas_admit_counter.get(rust_project_dir, 0)
                 self._aeneas_admit_counter[rust_project_dir] = n + 1
                 name = f"lss_admitted_{n}"
-                self._aeneas_admit(rust_project_dir, state, name, candidate_stmt, tactic)
+                self._aeneas_admit(rust_project_dir, state, name, candidate_stmt, tactic, unit)
                 return ProofResult(proved=True, method=f"aeneas:{label}", error="",
-                                   proof_text=tactic, axioms=v.get("axioms", []))
+                                   proof_text=tactic, axioms=v.get("axioms", []),
+                                   modular=modular, needs_callee_body=body)
 
-        return ProofResult(proved=False, method="", error=combined.strip()[:200])
+        blamed = self._blame(g, state, unit, candidate_stmt, attempts[1][1])
+        return ProofResult(proved=False, method="", error=combined.strip()[:200], blamed_callees=blamed)
+
+    def _modular_check(self, state, unit, stmt, tactic, abstract, inline):
+        """one ∀-abstraction variant (lss_modular): `abstract` is [(callee, spec
+        lemma or None)], `inline` the callees replaced by their bodies. the env is
+        never kept. returns the LSS_PROOF verdict."""
+        server = _lean_server.get_server(_lss_config.project_dir("aeneas"))
+        heartbeats = _lss_config.proof_cfg()["aeneas_heartbeats"]
+        tag = f"lss_mod_{self._modular_counter}"
+        self._modular_counter += 1
+        # the proof's lines go into one tactic block, so they must share one indentation
+        first, _, rest = tactic.partition("\n")
+        flat = first.strip() + ("\n" + textwrap.dedent(rest) if rest else "")
+        abs_txt = ", ".join(f"{c} {lemma or '_'}" for c, lemma in abstract)
+        text = (f'lss_modular {tag} unit:{unit} stmt:"{_escape_lean_str(stmt)}" '
+                f'tactic:"{_escape_lean_str(flat)}" abstract:[{abs_txt}] inline:[{", ".join(inline)}] '
+                f'heartbeats:{heartbeats}')
+        r = server.check(text, timeout=90, env=state["env"])
+        self.lean_calls += 1
+        out = (r.stdout or "") + (r.stderr or "")
+        v = parse_proof_verdicts(out).get(f"{tag}.proof") or _no_verdict(f"{tag}.proof", r, out)
+        events.emit("modular", unit=unit, ok=v["ok"], stage=v["stage"],
+                    abstract=[c for c, _ in abstract], inline=list(inline))
+        return v
+
+    def _modularity(self, g, state, unit, stmt, tactic):
+        """(modular, needs_callee_body) for a proof that just passed: re-run it with
+        every external callee (outside the unit's own SCC) replaced by a variable
+        that satisfies only that callee's active spec. when that fails, each callee
+        is left concrete in turn; the ones that make it pass are the callees whose
+        body the proof needs. recursive units are not checked (None)."""
+        if g.recursive(unit):
+            return None, []
+        callees = [(c, state["active"].get(c)) for c in g.callees_outside_scc(unit)]
+        if not callees:
+            return True, []
+        if self._modular_check(state, unit, stmt, tactic, callees, [])["ok"]:
+            return True, []
+        body = [c for c, _ in callees
+                if self._modular_check(state, unit, stmt, tactic, [x for x in callees if x[0] != c], [])["ok"]]
+        return False, body
+
+    def _blame(self, g, state, unit, stmt, tactic):
+        """callees whose spec is too weak for a proof that failed: with one
+        callee's body inlined (the others keep their step lemmas) the proof goes
+        through. recursive units are not checked."""
+        if g.recursive(unit):
+            return []
+        blamed = [c for c in g.callees_outside_scc(unit)
+                  if self._modular_check(state, unit, stmt, tactic, [], [c])["ok"]]
+        for c in blamed:
+            events.emit("blame", unit=unit, callee=c)
+        return blamed
 
     def check_specs_against_mutants_batch(self, mutant_code, specs, func_name=None):
         """check which specs hold against a mutant, all in one lean call.

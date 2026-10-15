@@ -206,6 +206,17 @@ def run_static():
     check("crate env holds proof_check.lean before aeneas_layer.lean", 0 <= i_pc < i_layer, f"{i_pc} {i_layer}")
 
 
+class _FakeGraph:
+    crate = "C"
+    names = {"C.top", "C.swap", "C.rec", "C.leaf"}
+
+    def callees_outside_scc(self, unit):
+        return {"C.top": ["C.leaf", "C.swap"], "C.rec": ["C.swap"]}.get(unit, [])
+
+    def recursive(self, unit):
+        return unit == "C.rec"
+
+
 def run_static_verdicts():
     print("=== static: every layer reads its verdict ===")
     import lean
@@ -258,8 +269,11 @@ def run_static_verdicts():
         lss_config.hammer_project_dir = orig_hp
 
     # the aeneas layer: an attempt counts only with an accepted verdict, and only then is it admitted
-    state = {"ok": True, "env": 3, "admitted": [], "restarts": 0}
+    import callgraph
+    state = {"ok": True, "env": 3, "admitted": [], "active": {}, "restarts": 0}
     setattr(checker, "_aeneas_env_for", lambda project_dir: state)
+    orig_for = callgraph.for_project
+    callgraph.for_project = lambda p: _FakeGraph()  # C.f: no external callee, so no modularity call
     fake = _FakeServer(lambda code: _verdict_line("_aeneas_a", False, "axioms", ["sorryAx"]))
     pr = _with_fake(fake, lambda: checker.try_aeneas("stmt", "f", "/nonexistent"))
     check("aeneas layer: a rejected attempt and a missing verdict prove nothing",
@@ -270,6 +284,7 @@ def run_static_verdicts():
         return out + (_verdict_line("lss_admitted_0", True) if "name:lss_admitted_0 " in code else "")
     fake = _FakeServer(reply_aeneas)
     pr = _with_fake(fake, lambda: checker.try_aeneas("stmt", "f", "/nonexistent"))
+    callgraph.for_project = orig_for
     check("aeneas layer: an accepted attempt proves and is admitted through its own verdict",
           pr.proved and pr.method == "aeneas:b" and pr.axioms == ["propext"] and len(state["admitted"]) == 1
           and state["env"] == 1, f"{pr} {state}"[:300])
@@ -332,6 +347,62 @@ def run_static_no_unverdicted():
         src = fh.read()
     check("the batched strengthening checks (_sq, _psq) are gone",
           "_sq{" not in src and "_psq{" not in src, "found a _sq/_psq absence check")
+
+
+def run_static_modularity():
+    print("=== static: modularity and blame orchestration ===")
+    import lean
+
+    checker = lean.LeanChecker()
+    state = {"env": 7, "active": {"C.swap": "lss_admitted_0.step"}}
+    g = _FakeGraph()
+
+    def modular_reply(passing):
+        def reply(code):
+            tag = re.search(r"lss_modular (\S+)", code)
+            name = (tag.group(1) if tag else "?") + ".proof"
+            return _verdict_line(name, passing(code), "ok" if passing(code) else "elab")
+        return reply
+
+    tactic = "lss_spec_form\n  unfold C.top\n  step*"
+    fake = _FakeServer(modular_reply(lambda code: True))
+    got = _with_fake(fake, lambda: checker._modularity(g, state, "C.top", "stmt", tactic))
+    check("modular: a proof that passes the abstraction is modular, in one check",
+          got == (True, []) and len(fake.sent) == 1, f"{got} after {len(fake.sent)} checks")
+    sent = fake.sent[0] if fake.sent else ""
+    check("modular: every external callee is abstracted, with its active spec lemma or _",
+          "abstract:[C.leaf _, C.swap lss_admitted_0.step] inline:[]" in sent, sent[-200:])
+    check("modular: the tactic is sent with one indentation",
+          'tactic:"lss_spec_form\\nunfold C.top\\nstep*"' in sent, sent[:300])
+
+    # abstraction fails; keeping swap concrete passes: the proof needs swap's body
+    fake = _FakeServer(modular_reply(lambda code: "abstract:[C.leaf _]" in code))
+    got = _with_fake(fake, lambda: checker._modularity(g, state, "C.top", "stmt", tactic))
+    check("modular: the callee whose concrete body rescues the proof is named",
+          got == (False, ["C.swap"]), str(got))
+
+    fake = _FakeServer(modular_reply(lambda code: True))
+    got = _with_fake(fake, lambda: checker._modularity(g, state, "C.rec", "stmt", tactic))
+    check("modular: recursive units are not checked", got == (None, []) and not fake.sent, str(got))
+    got = _with_fake(fake, lambda: checker._modularity(g, state, "C.leaf", "stmt", tactic))
+    check("modular: a unit without external callees is modular without a check",
+          got == (True, []) and not fake.sent, str(got))
+
+    # blame: inlining swap rescues the failed proof, inlining leaf does not
+    fake = _FakeServer(modular_reply(lambda code: "inline:[C.swap]" in code))
+    got = _with_fake(fake, lambda: checker._blame(g, state, "C.top", "stmt", tactic))
+    check("blame: the callee whose inlined body rescues the proof is blamed by name",
+          got == ["C.swap"] and len(fake.sent) == 2, f"{got} after {len(fake.sent)} checks")
+    check("blame: other callees keep their step lemmas (nothing abstracted)",
+          all("abstract:[]" in c for c in fake.sent), str([c[-120:] for c in fake.sent]))
+
+    # admit records the unit's active step lemma from LSS_STEP
+    st = {"env": 0, "admitted": [], "active": {}}
+    fake = _FakeServer(lambda code: _verdict_line("lss_admitted_3", True) + 'LSS_STEP {"call":"lss_admitted_3",'
+                       '"action":"combined","active":"lss_admitted_3.comb","replaced":"lss_admitted_1.step"}\n')
+    _with_fake(fake, lambda: checker._aeneas_admit("/p", st, "lss_admitted_3", "stmt", "step*", "C.swap"))
+    check("admit records the unit's active step lemma",
+          st["active"] == {"C.swap": "lss_admitted_3.comb"} and st["env"] == 1 and len(st["admitted"]) == 1, str(st))
 
 
 def run_full():
@@ -468,11 +539,27 @@ def run_full_modularity():
     check("weak callee spec: inlining the callee's body rescues it",
           got.get("weak_inline_mod.proof", {}).get("ok") is True, str(got.get("weak_inline_mod.proof")))
 
+    # the same through the pipeline: modular flag on success, blame by name on failure
+    swap_q = f"{g.crate}.records.swap"
+    checker = lean.LeanChecker()
+    pr = checker.try_aeneas(SWAP_HOARE, "records.swap", rust_dir, candidate_id="mod_swap")
+    check("pipeline: swap proved and modular (no external callee)", pr.proved and pr.modular is True, str(pr)[:300])
+    pr = checker.try_aeneas(ORDER_PAIR_GOAL, "records.order_pair", rust_dir, candidate_id="mod_order_pair")
+    check("pipeline: order_pair proved and modular through swap's spec",
+          pr.proved and pr.modular is True and pr.needs_callee_body == [], str(pr)[:300])
+    weak = lean.LeanChecker()
+    pr = weak.try_aeneas(SWAP_HOARE_HALF1, "records.swap", rust_dir, candidate_id="mod_swap_weak")
+    check("pipeline: weak swap spec proved", pr.proved, str(pr)[:300])
+    pr = weak.try_aeneas(ORDER_PAIR_GOAL, "records.order_pair", rust_dir, candidate_id="mod_order_pair_weak")
+    check("pipeline: order_pair fails and blames swap's spec by name",
+          not pr.proved and pr.blamed_callees == [swap_q], str(pr)[:300])
+
 
 if static:
     run_static()
     run_static_verdicts()
     run_static_no_unverdicted()
+    run_static_modularity()
 else:
     run_full()
 

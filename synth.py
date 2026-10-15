@@ -1525,11 +1525,15 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                 # gate 4a: aeneas tactic layer, rust units only
                 if source == "rust-aeneas" and _lss_config.proof_cfg()["aeneas_layer"]:
                     pr0 = lean_checker.try_aeneas(spec["stmt"], func, project_dir, candidate_id=spec["name"])
+                    if pr0.blamed_callees:
+                        spec["blamed_callees"] = pr0.blamed_callees
                     if pr0.proved:
                         spec["status"] = "proved"
                         spec["method"] = pr0.method
                         spec["proof"] = pr0.proof_text
                         spec["axioms"] = pr0.axioms
+                        spec["modular"] = pr0.modular
+                        spec["needs_callee_body"] = pr0.needs_callee_body
                         if verbose:
                             print(f"  [g4] {spec['name']}: proved (aeneas) by {pr0.method}")
                         events.emit("verdict", status="proved", method=pr0.method)
