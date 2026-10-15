@@ -8,3 +8,4 @@ CLAUDE.md
 all_prompts.txt
 rust16.txt
 *.log
+private/
