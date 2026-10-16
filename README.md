@@ -55,16 +55,20 @@ concrete evidence that the specification set is too weak. A second tier searches
 for an alternative implementation satisfying every proved specification while
 differing from the original, which is a stronger form of the same evidence.
 
-**Modularity.** For each function, the system checks whether its specification
-follows from its callees' specifications alone, with callee implementations
-abstracted away. Where it does not, it identifies which callee is underspecified
-and whether the failure is a weak specification or an undischarged
-precondition.
+**Modularity.** For each Rust function, a proved specification is proved again
+with every callee replaced by a function variable that satisfies only that
+callee's specification. A proof that looks inside a callee fails this check, and
+the callee whose body it needs is named. When a proof fails outright, the callee
+whose specification is too weak is named: the one whose inlined body lets the
+proof through.
 
 ## Trust boundary
 
-A status is never inferred from the absence of evidence. Every proved,
-killed, survived or equivalent verdict rests on a proof confirmed in isolation.
+A status is never inferred from the absence of evidence. Every proof is
+checked by the Lean kernel and its axioms are audited: only `propext`,
+`Classical.choice` and `Quot.sound` are allowed, so `sorry`, `native_decide`
+and any declared axiom are rejected. Every killed, survived or equivalent
+verdict rests on a proof confirmed in isolation.
 A failed or timed-out check is reported as unresolved and excluded from the
 denominator of any score.
 

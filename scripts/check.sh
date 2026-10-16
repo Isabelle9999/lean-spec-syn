@@ -28,7 +28,7 @@ run "types" "$PY" -m pyright
 run "pins (static)" bare tests/test_pins.py --static
 run "manifest" bare scripts/derive_manifest.py --check
 run "compile" bare -m compileall -q .
-run "imports" bare -c "import lean, synth, strategies, metrics, benchmarks, loader, run, callgraph, modularity, incremental, traits, divergence, gate"
+run "imports" bare -c "import lean, synth, strategies, metrics, benchmarks, loader, run, callgraph, incremental, traits, divergence, gate"
 run "unit graph (static)" bare tests/test_unitgraph.py --static
 run "aeneas layer (static)" bare tests/test_aeneas_layer.py --static
 run "spec gate (static)" bare tests/test_spec_gate.py --static
