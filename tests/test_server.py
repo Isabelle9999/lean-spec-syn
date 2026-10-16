@@ -108,12 +108,13 @@ try:
         except OSError:
             pass
 
-    # case 10: lean-native hammer via warm REPL (code built through the same path as try_hammer)
+    # case 10: lean-native hammer via warm REPL (try_hammer's context and theorem, as one file)
     lndir = lss_config.project_dir('lean-native')
     if not os.path.isdir(lndir):
         print("SKIP: lean-native not built")
     else:
-        hammer_code = _hammer_code('', '∀ (n : Nat), n + 0 = n')
+        context, theorem = _hammer_code('', '∀ (n : Nat), n + 0 = n')
+        hammer_code = context + theorem
         cfg = lss_config.server_cfg()
         sln = get_server(lndir, cfg)
         r10a = sln.check(hammer_code, timeout=90)
