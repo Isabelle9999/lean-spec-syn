@@ -108,12 +108,13 @@ try:
         except OSError:
             pass
 
-    # case 10: lean-native hammer via warm REPL (code built through the same path as try_hammer)
+    # case 10: lean-native hammer via warm REPL (try_hammer's context and theorem, as one file)
     lndir = lss_config.project_dir('lean-native')
     if not os.path.isdir(lndir):
         print("SKIP: lean-native not built")
     else:
-        hammer_code = _hammer_code('', '∀ (n : Nat), n + 0 = n')
+        context, theorem = _hammer_code('', '∀ (n : Nat), n + 0 = n')
+        hammer_code = context + theorem
         cfg = lss_config.server_cfg()
         sln = get_server(lndir, cfg)
         r10a = sln.check(hammer_code, timeout=90)
@@ -258,6 +259,21 @@ try:
           f"messages={r15.messages}")
     check("eval output is not in stdout/stderr", r15.stdout == "" and "2" not in r15.stderr,
           f"stdout={r15.stdout!r} stderr={r15.stderr!r}")
+
+    # case 17: a prelude runs once on top of its imports and is reused
+    pre17 = "def lss_pre17 : Nat := 17"
+    r17a = s.check("import Aeneas\n#eval lss_pre17", prelude=pre17)
+    hits17 = s.stats()["env_hits"]
+    r17b = s.check("import Aeneas\n#eval lss_pre17 + 1", prelude=pre17)
+    check("case17 prelude visible to the command", r17a.rc == 0 and any(m["text"] == "17" for m in r17a.messages),
+          f"rc={r17a.rc} messages={r17a.messages}")
+    check("case17 second check reuses the prelude env", r17b.rc == 0 and s.stats()["env_hits"] > hits17
+          and any(m["text"] == "18" for m in r17b.messages), f"rc={r17b.rc} messages={r17b.messages}")
+    r17c = s.check("import Aeneas\n#eval lss_pre17")
+    check("case17 the same imports without the prelude do not see it", r17c.rc == 1, f"rc={r17c.rc}")
+    r17d = s.check("import Aeneas\n#eval 1", prelude="def lss_pre17_bad : Nat := \"x\"")
+    check("case17 a failing prelude is reported as an error", r17d.rc == 1 and "prelude" in r17d.stderr,
+          f"rc={r17d.rc} stderr={r17d.stderr[:200]}")
 
     # case 16: this server's own process dying -- any way, including an
     # uncatchable SIGKILL -- must still take its lean/lake process group down

@@ -4,7 +4,8 @@ import json
 import hashlib
 import time
 import difflib
-from dataclasses import dataclass
+import textwrap
+from dataclasses import dataclass, field
 import lss_config as _lss_config
 import lean_server as _lean_server
 import callgraph as _callgraph
@@ -88,6 +89,12 @@ class ProofResult:
     mathlib_available: bool = True
     hammer_available: bool = True
     proof_text: str = ""
+    axioms: list = field(default_factory=list)  # from the proof's LSS_PROOF verdict
+    # rust units: does the proof hold with every external callee replaced by a
+    # variable that only satisfies the callee's spec? None when not checked
+    modular: bool | None = None
+    needs_callee_body: list = field(default_factory=list)  # callees the proof looks inside
+    blamed_callees: list = field(default_factory=list)  # on failure: callees whose spec is too weak
 
 @dataclass
 class PBTResult:
@@ -199,6 +206,8 @@ def classify_function(lean_env, func_name):
 
 
 def _hammer_code(lean_env, theorem_stmt):
+    """(context, theorem): the context sets up hammer, the theorem is checked by
+    lss_check_proof."""
     code = 'import Mathlib\nimport Hammer\n' + lean_env.rstrip() + '\n'
     if _lss_config.proof_cfg()['premise_selector'] == 'local':
         # Hammer's own default is `Cloud.premiseSelector <|> sineQuaNonSelector...`
@@ -206,12 +215,75 @@ def _hammer_code(lean_env, theorem_stmt):
         # hammer never calls out to leanpremise.net.
         code += ('set_library_suggestions open Lean.LibrarySuggestions in '
                  'sineQuaNonSelector.intersperse currentFile\n')
-    code += f'theorem _hammer_proof : {theorem_stmt} := by hammer {{ disableGrind := true }}'
-    return code
+    return code, f'theorem _hammer_proof : {theorem_stmt} := by hammer {{ disableGrind := true }}'
 
 
 _AENEAS_LAYER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean", "aeneas_layer.lean")
 _aeneas_layer_cache = None
+_PROOF_CHECK_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean", "proof_check.lean")
+_proof_check_cache = None
+
+
+def proof_check_text():
+    """lean/proof_check.lean: the lss_check_proof command every proof verdict
+    comes from (no Aeneas or Mathlib dependency, so both tracks send it)."""
+    global _proof_check_cache
+    if _proof_check_cache is None:
+        with open(_PROOF_CHECK_PATH, encoding="utf-8") as f:
+            _proof_check_cache = f.read()
+    return _proof_check_cache
+
+
+def _escape_lean_str(s):
+    return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+
+def proof_check_call(theorems, name, heartbeats=0):
+    """the lss_check_proof command for `theorems` (theorem declarations only,
+    `name` among them); heartbeats=0 keeps the current maxHeartbeats."""
+    return f'lss_check_proof "{_escape_lean_str(theorems)}" name:{name} heartbeats:{heartbeats}'
+
+
+def parse_proof_verdicts(text):
+    """every LSS_PROOF verdict in `text`, keyed by theorem name."""
+    out = {}
+    for m in re.finditer(r"LSS_PROOF (\{[^\n]*\})", text or ""):
+        try:
+            v = json.loads(m.group(1))
+        except json.JSONDecodeError:
+            continue
+        out[v.get("name")] = v
+    return out
+
+
+def _no_verdict(name, r, out):
+    stage = "timeout" if r.timed_out else "memory" if r.mem_killed else "no_verdict"
+    return {"name": name, "ok": False, "stage": stage, "detail": out.strip()[:300], "axioms": []}
+
+
+def check_proofs(context, named, project_dir=None, timeout=None, heartbeats=0):
+    """kernel verdicts for several proofs in one Lean call: `named` is
+    [(name, theorems)], each checked by lss_check_proof after `context` (imports
+    plus definitions; `import Lean` is added when it has no import, since the
+    checker needs Lean). proof_check.lean is the server prelude, elaborated once
+    per import block. returns ({name: verdict}, output); a verdict's "ok" is the
+    only thing that may mark a proof proved."""
+    global _lean_call_count
+    _lean_call_count += 1
+    if not any(line.strip().startswith("import ") for line in context.splitlines()):
+        context = "import Lean\n" + context
+    calls = "\n".join(proof_check_call(theorems, name, heartbeats) for name, theorems in named)
+    server = _lean_server.get_server(project_dir or _PROJECT_DIR)
+    r = server.check(context.rstrip() + "\n" + calls, timeout=timeout, prelude=proof_check_text())
+    out = (r.stdout or "") + (r.stderr or "")
+    got = parse_proof_verdicts(out)
+    return {name: got.get(name) or _no_verdict(name, r, out) for name, _ in named}, out
+
+
+def check_proof(context, theorems, name, project_dir=None, timeout=None, heartbeats=0):
+    """one kernel verdict, see check_proofs. returns (verdict, output)."""
+    verdicts, out = check_proofs(context, [(name, theorems)], project_dir, timeout, heartbeats)
+    return verdicts[name], out
 
 
 def _aeneas_layer_text():
@@ -228,8 +300,11 @@ class LeanChecker:
         self.lean_calls = 0
         self.project_dir = project_dir
         self._env_cache = {}  # (project_dir, requires_hammer) -> (ok, error)
-        self._aeneas_env = {}  # project_dir -> {env, admitted: [(name,stmt,tactic)], restarts, ok, error}
+        # project_dir -> {env, admitted: [(name, stmt, tactic, unit)], active: {unit: step lemma},
+        #                 restarts, ok, error}
+        self._aeneas_env = {}
         self._aeneas_admit_counter = {}  # project_dir -> next admitted-name index, never reused
+        self._modular_counter = 0
 
     @with_context(layer="typecheck")
     def typecheck(self, code, project_dir=None):
@@ -516,66 +591,33 @@ class LeanChecker:
             ]
 
         env_stripped = lean_env.rstrip()
-        env_line_count = env_stripped.count("\n") + 1
-        parts = [env_stripped]
-        for i, (suffix, _) in enumerate(entries):
-            parts.append(f"private theorem _p{i} : {theorem_stmt} := {suffix}")
-        batch = imports + "\n".join(parts)
-        cache_key = batch
+        named = [(f"_lss_p{i}", f"theorem _lss_p{i} : {theorem_stmt} := {suffix}")
+                 for i, (suffix, _) in enumerate(entries)]
+        cache_key = "v:" + imports + env_stripped + "\n" + "\n".join(t for _, t in named)
         if self._cache:
             hit = self._cache.get_proof(cache_key)
             if hit is not None:
                 return ProofResult(proved=hit["proved"], method=hit["method"],
                                    error=hit.get("error", ""),
-                                   mathlib_available=hit.get("mathlib_available", True))
+                                   mathlib_available=hit.get("mathlib_available", True),
+                                   axioms=hit.get("axioms", []))
 
-        stdout, stderr, rc = run_in_project(batch, project_dir=pdir)
+        verdicts, out = check_proofs(imports + env_stripped, named, project_dir=pdir)
         self.lean_calls += 1
-
-        combined = stdout + stderr
-        import_lines = imports.count("\n")
-
-        if rc == 0:
-            # positive confirmation: the whole file compiled
-            result = ProofResult(proved=True, method=entries[0][1], error="",
-                                 mathlib_available=mathlib_ok)
-        else:
-            # file-level failure — env error, not a theorem error
-            if _is_env_error(combined, import_lines):
-                return ProofResult(proved=False, method="",
-                                   error=f"env error: {combined.strip()[:200]}",
-                                   mathlib_available=mathlib_ok)
-
-            # map errors to line numbers
-            error_lines = set()
-            for line in _errors(combined):
-                lm = re.search(r':(\d+):', line)
-                if lm:
-                    error_lines.add(int(lm.group(1)))
-
-            # per-theorem ranges; stmt may span multiple lines
-            stmt_lines = theorem_stmt.count('\n') + 1
-            base = import_lines + env_line_count
-            result = ProofResult(proved=False, method="", error=combined.strip()[:200],
-                                 mathlib_available=mathlib_ok)
-            for i, (suffix, label) in enumerate(entries):
-                start = base + 1 + i * stmt_lines
-                end = base + (i + 1) * stmt_lines
-                if not any(start <= el <= end for el in error_lines):
-                    # isolate and confirm — never proved from absence alone
-                    confirm = imports + env_stripped + f"\ntheorem _conf : {theorem_stmt} := {suffix}"
-                    cout, cerr, crc = run_in_project(confirm, project_dir=pdir)
-                    self.lean_calls += 1
-                    ccombined = (cout or "") + (cerr or "")
-                    if crc == 0 and not _errors(ccombined) and "sorry" not in ccombined:
-                        result = ProofResult(proved=True, method=label, error="",
-                                             mathlib_available=mathlib_ok)
-                        break
+        result = ProofResult(proved=False, method="", error=out.strip()[:200],
+                             mathlib_available=mathlib_ok)
+        # entries are in priority order: the first one the checker accepts wins
+        for (name, _), (_, label) in zip(named, entries):
+            v = verdicts[name]
+            if v["ok"]:
+                result = ProofResult(proved=True, method=label, error="",
+                                     mathlib_available=mathlib_ok, axioms=v["axioms"])
+                break
 
         if self._cache:
             self._cache.put_proof(cache_key, {
                 "proved": result.proved, "method": result.method, "error": result.error,
-                "mathlib_available": result.mathlib_available,
+                "mathlib_available": result.mathlib_available, "axioms": result.axioms,
             })
         return result
 
@@ -598,27 +640,18 @@ class LeanChecker:
             return ProofResult(proved=False, method='l2:skipped (hammer unavailable)',
                                error=f'hammer unavailable: {hammer_err}', hammer_available=False)
         hammer_timeout = _lss_config.server_cfg()['hammer_timeout']
-        code = _hammer_code(lean_env, theorem_stmt)
+        context, theorem = _hammer_code(lean_env, theorem_stmt)
         t0 = time.time()
-        r = _lean_server.get_server(pdir).check(code, timeout=hammer_timeout)
+        v, out = check_proof(context, theorem, "_hammer_proof", project_dir=pdir, timeout=hammer_timeout)
         elapsed = time.time() - t0
-        global _lean_call_count
-        _lean_call_count += 1
         self.lean_calls += 1
-        if r.timed_out:
+        if v["stage"] == "timeout":
             return ProofResult(proved=False, method='', error=f'timeout after {hammer_timeout}s',
                                hammer_available=True)
-        combined = (r.stdout or '') + (r.stderr or '')
-        # filter premise-server info lines before error check
-        filtered = '\n'.join(
-            l for l in combined.splitlines()
-            if 'unindexed premises' not in l
-        )
-        ok = r.rc == 0 and not _errors(filtered)
-        if ok:
+        if v["ok"]:
             return ProofResult(proved=True, method=f'l2:hammer ({elapsed:.1f}s)', error='',
-                               hammer_available=True)
-        return ProofResult(proved=False, method='', error=combined.strip()[:200],
+                               hammer_available=True, axioms=v["axioms"])
+        return ProofResult(proved=False, method='', error=out.strip()[:200],
                            hammer_available=True)
 
     def _aeneas_build_env(self, project_dir):
@@ -633,7 +666,7 @@ class LeanChecker:
         text = (g.crate_text +
                 "\nset_option maxRecDepth 2048\n"
                 f"open Aeneas Aeneas.Std Result ControlFlow Error\nopen {g.crate}\n" +
-                _aeneas_layer_text())
+                proof_check_text() + "\n" + _aeneas_layer_text())
         t0 = time.time()
         r = server.check(text, timeout=600)
         elapsed = time.time() - t0
@@ -644,7 +677,7 @@ class LeanChecker:
         if not ok:
             errs = _errors(combined)
             print(f"  aeneas env build failed: {(errs[0] if errs else combined.strip())[:200]}")
-        state = {"env": r.new_env, "admitted": [], "restarts": server.stats()["restarts"],
+        state = {"env": r.new_env, "admitted": [], "active": {}, "restarts": server.stats()["restarts"],
                  "ok": ok, "error": combined[:300]}
         self._aeneas_env[project_dir] = state
         return state
@@ -661,38 +694,37 @@ class LeanChecker:
             admitted = state["admitted"]
             state = self._aeneas_build_env(project_dir)
             if state["ok"]:
-                for name, stmt, tactic in admitted:
-                    self._aeneas_admit(project_dir, state, name, stmt, tactic)
+                for name, stmt, tactic, unit in admitted:
+                    self._aeneas_admit(project_dir, state, name, stmt, tactic, unit)
         return state
 
-    def _aeneas_admit(self, project_dir, state, name, stmt, tactic):
+    def _aeneas_admit(self, project_dir, state, name, stmt, tactic, unit):
         """extend the crate's env once with the winning proof, @[step]-registered.
         only on success: a failing admit (lower cap, flaky tactic, ...) keeps the
         old env and is not recorded, so it can't leave a sorry-backed @[step] lemma.
-        success is lss_report_attempts's ok=true (collectAxioms, no sorryAx), the
-        same check the proof attempts themselves get: a plain error-message check
-        can't see a tactic that silently closes the goal with sorry."""
+        success is the theorem's own LSS_PROOF verdict (kernel-checked, axioms
+        audited), the same check the proof attempts themselves get. the unit's
+        active step lemma (LSS_STEP's "active") is recorded for the modularity check."""
         aeneas_dir = _lss_config.project_dir("aeneas")
         heartbeats = _lss_config.proof_cfg()["aeneas_heartbeats"]
         server = _lean_server.get_server(aeneas_dir)
-        text = (f"set_option maxHeartbeats {heartbeats} in\n"
-                f"theorem {name} : {stmt} := by\n  {tactic}\n"
-                f"lss_register_step {name}\nlss_report_attempts {name}")
+        text = (proof_check_call(f"theorem {name} : {stmt} := by\n  {tactic}", name, heartbeats) +
+                f"\nlss_register_step {name}")
         r = server.check(text, timeout=90, env=state["env"])
         self.lean_calls += 1
         combined = (r.stdout or "") + (r.stderr or "")
-        verdict = None
-        for m in re.finditer(r"LSS_ATTEMPT (\{[^\n]*\})", combined):
-            try:
-                v = json.loads(m.group(1))
-            except json.JSONDecodeError:
-                continue
-            if v.get("name") == name:
-                verdict = v
+        verdict = parse_proof_verdicts(combined).get(name)
         ok = r.rc == 0 and r.new_env is not None and verdict is not None and verdict.get("ok") is True
         if ok:
             state["env"] = r.new_env
-            state["admitted"].append((name, stmt, tactic))
+            state["admitted"].append((name, stmt, tactic, unit))
+            for m in re.finditer(r"LSS_STEP (\{[^\n]*\})", combined):
+                try:
+                    step = json.loads(m.group(1))
+                except json.JSONDecodeError:
+                    continue
+                if step.get("call") == name and step.get("active"):
+                    state["active"][unit] = step["active"]
         else:
             errs = _errors(combined)
             print(f"  aeneas admit failed: {name}: {(errs[0] if errs else combined.strip())[:200]}")
@@ -717,12 +749,14 @@ class LeanChecker:
             ("c", f"lss_spec_form\n  unfold {func_name}\n  step*\n  lss_log_goals\n  all_goals sorry"),
         ]
 
-        def entry_text(label, tactic):
-            return (f"set_option maxHeartbeats {heartbeats} in\n"
-                    f"theorem _aeneas_{label} : {candidate_stmt} := by\n  {tactic}")
-
-        full = "\n".join(entry_text(label, tactic) for label, tactic in attempts)
-        full += "\nlss_report_attempts _aeneas_a _aeneas_b"
+        # a and b are proof attempts, each checked by lss_check_proof; c only logs
+        # the goals step* leaves open (closed by sorry, never a verdict)
+        full = "\n".join(proof_check_call(f"theorem _aeneas_{label} : {candidate_stmt} := by\n  {tactic}",
+                                           f"_aeneas_{label}", heartbeats)
+                         for label, tactic in attempts[:2])
+        label_c, tactic_c = attempts[2]
+        full += (f"\nset_option maxHeartbeats {heartbeats} in\n"
+                 f"theorem _aeneas_{label_c} : {candidate_stmt} := by\n  {tactic_c}")
 
         r = server.check(full, timeout=90, env=state["env"])
         self.lean_calls += 1
@@ -736,25 +770,76 @@ class LeanChecker:
             events.emit("open_goal", unit=func_name, candidate_id=candidate_id,
                         head=goal.get("head", "?"))
 
-        verdicts = {}
-        for m in re.finditer(r"LSS_ATTEMPT (\{[^\n]*\})", combined):
-            try:
-                v = json.loads(m.group(1))
-            except json.JSONDecodeError:
-                continue
-            verdicts[v.get("name")] = v
+        verdicts = parse_proof_verdicts(combined)
 
+        g = _callgraph.for_project(rust_project_dir)
+        unit = func_name if func_name in g.names else f"{g.crate}.{func_name}"
         for label, tactic in attempts[:2]:
             v = verdicts.get(f"_aeneas_{label}")
             if v and v.get("ok"):
+                modular, body = self._modularity(g, state, unit, candidate_stmt, tactic)
                 n = self._aeneas_admit_counter.get(rust_project_dir, 0)
                 self._aeneas_admit_counter[rust_project_dir] = n + 1
                 name = f"lss_admitted_{n}"
-                self._aeneas_admit(rust_project_dir, state, name, candidate_stmt, tactic)
+                self._aeneas_admit(rust_project_dir, state, name, candidate_stmt, tactic, unit)
                 return ProofResult(proved=True, method=f"aeneas:{label}", error="",
-                                   proof_text=tactic)
+                                   proof_text=tactic, axioms=v.get("axioms", []),
+                                   modular=modular, needs_callee_body=body)
 
-        return ProofResult(proved=False, method="", error=combined.strip()[:200])
+        blamed = self._blame(g, state, unit, candidate_stmt, attempts[1][1])
+        return ProofResult(proved=False, method="", error=combined.strip()[:200], blamed_callees=blamed)
+
+    def _modular_check(self, state, unit, stmt, tactic, abstract, inline):
+        """one ∀-abstraction variant (lss_modular): `abstract` is [(callee, spec
+        lemma or None)], `inline` the callees replaced by their bodies. the env is
+        never kept. returns the LSS_PROOF verdict."""
+        server = _lean_server.get_server(_lss_config.project_dir("aeneas"))
+        heartbeats = _lss_config.proof_cfg()["aeneas_heartbeats"]
+        tag = f"lss_mod_{self._modular_counter}"
+        self._modular_counter += 1
+        # the proof's lines go into one tactic block, so they must share one indentation
+        first, _, rest = tactic.partition("\n")
+        flat = first.strip() + ("\n" + textwrap.dedent(rest) if rest else "")
+        abs_txt = ", ".join(f"{c} {lemma or '_'}" for c, lemma in abstract)
+        text = (f'lss_modular {tag} unit:{unit} stmt:"{_escape_lean_str(stmt)}" '
+                f'tactic:"{_escape_lean_str(flat)}" abstract:[{abs_txt}] inline:[{", ".join(inline)}] '
+                f'heartbeats:{heartbeats}')
+        r = server.check(text, timeout=90, env=state["env"])
+        self.lean_calls += 1
+        out = (r.stdout or "") + (r.stderr or "")
+        v = parse_proof_verdicts(out).get(f"{tag}.proof") or _no_verdict(f"{tag}.proof", r, out)
+        events.emit("modular", unit=unit, ok=v["ok"], stage=v["stage"],
+                    abstract=[c for c, _ in abstract], inline=list(inline))
+        return v
+
+    def _modularity(self, g, state, unit, stmt, tactic):
+        """(modular, needs_callee_body) for a proof that just passed: re-run it with
+        every external callee (outside the unit's own SCC) replaced by a variable
+        that satisfies only that callee's active spec. when that fails, each callee
+        is left concrete in turn; the ones that make it pass are the callees whose
+        body the proof needs. recursive units are not checked (None)."""
+        if g.recursive(unit):
+            return None, []
+        callees = [(c, state["active"].get(c)) for c in g.callees_outside_scc(unit)]
+        if not callees:
+            return True, []
+        if self._modular_check(state, unit, stmt, tactic, callees, [])["ok"]:
+            return True, []
+        body = [c for c, _ in callees
+                if self._modular_check(state, unit, stmt, tactic, [x for x in callees if x[0] != c], [])["ok"]]
+        return False, body
+
+    def _blame(self, g, state, unit, stmt, tactic):
+        """callees whose spec is too weak for a proof that failed: with one
+        callee's body inlined (the others keep their step lemmas) the proof goes
+        through. recursive units are not checked."""
+        if g.recursive(unit):
+            return []
+        blamed = [c for c in g.callees_outside_scc(unit)
+                  if self._modular_check(state, unit, stmt, tactic, [], [c])["ok"]]
+        for c in blamed:
+            events.emit("blame", unit=unit, callee=c)
+        return blamed
 
     def check_specs_against_mutants_batch(self, mutant_code, specs, func_name=None):
         """check which specs hold against a mutant, all in one lean call.
@@ -1920,59 +2005,6 @@ class MutationEngine:
         return r.proved
 
 
-class SpecMutator:
-    WEAKEN = {"<": "<=", ">": ">=", "∧": "∨"}
-    _SKIP = {"<=", ">=", "≤", "≥"}
-
-    def find_unnecessarily_weak(self, specs, lean_code, lean_checker, project_dir=None):
-        checks = []
-        entries = []
-        all_tokens = sorted(set(self.WEAKEN.keys()) | self._SKIP, key=len, reverse=True)
-        for spec in specs:
-            if spec["status"] != "proved":
-                continue
-            stmt = spec["stmt"]
-            pos = 0
-            while pos < len(stmt):
-                found = False
-                for tok in all_tokens:
-                    if stmt[pos:pos+len(tok)] == tok:
-                        if tok in self.WEAKEN:
-                            weaker = self.WEAKEN[tok]
-                            mutated = stmt[:pos] + weaker + stmt[pos+len(tok):]
-                            entries.append(f"private theorem _sw{len(checks)} : {mutated} := sorry")
-                            checks.append({
-                                "spec_name": spec["name"],
-                                "mutation": f"{tok} -> {weaker} at {pos}",
-                            })
-                        pos += len(tok)
-                        found = True
-                        break
-                if not found:
-                    pos += 1
-        if not checks:
-            return []
-        env = lean_code.rstrip()
-        env_lines = env.count("\n") + 1
-        code = env + "\n" + "\n".join(entries)
-        stdout, stderr, _ = run_in_project(code, project_dir=project_dir)
-        combined = (stdout or "") + "\n" + (stderr or "")
-        err_line_nums = set()
-        for l in combined.splitlines():
-            m = re.search(r':(\d+):', l)
-            if m and (': error:' in l or 'type mismatch' in l or 'unknown identifier' in l or 'Unknown constant' in l):
-                err_line_nums.add(int(m.group(1)))
-        results = []
-        for i, check in enumerate(checks):
-            line_no = env_lines + 1 + i
-            results.append({
-                "spec_name": check["spec_name"],
-                "mutation": check["mutation"],
-                "still_holds": line_no not in err_line_nums,
-            })
-        return results
-
-
 class ExampleStore:
     def __init__(self):
         os.makedirs(".lss", exist_ok=True)
@@ -2002,7 +2034,7 @@ class ExampleStore:
 
 
 class Cache:
-    CACHE_VERSION = 2
+    CACHE_VERSION = 3  # 3: proof results come from LSS_PROOF verdicts
 
     def __init__(self, path=".lss/cache.json"):
         self._path = path

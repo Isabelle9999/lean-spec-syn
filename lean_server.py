@@ -283,12 +283,33 @@ class ReplWorker:
         except json.JSONDecodeError:
             return None
 
-    def _base_env_for(self, import_block):
-        if import_block in self._envs:
-            self._envs.move_to_end(import_block)
+    def _base_env_for(self, import_block, prelude=""):
+        """env id for an import block, or for that block plus `prelude` (a command
+        text elaborated once on top of it and reused, e.g. proof_check.lean)."""
+        key = (import_block, prelude)
+        if key in self._envs:
+            self._envs.move_to_end(key)
             self._env_hits += 1
-            return self._envs[import_block]
+            return self._envs[key]
         self._env_misses += 1
+        if prelude:
+            base = self._base_env_for(import_block)
+            if base is None or isinstance(base, str) or base == -1:
+                return base
+            resp = self._send_raw({"cmd": prelude, "env": base}, timeout=self._import_timeout)
+            if resp is None:
+                return None
+            err_msgs = [m for m in resp.get("messages", []) if m.get("severity") == "error"]
+            if err_msgs or "env" not in resp:
+                m0 = err_msgs[0] if err_msgs else {}
+                p0 = m0.get("pos", {})
+                err = f":{p0.get('line', 0)}:{p0.get('column', 0)}: error: prelude: {m0.get('data', 'no env')}"
+                self._envs[key] = err
+                return err
+            if len(self._envs) >= self._cap:
+                self._envs.popitem(last=False)
+            self._envs[key] = resp["env"]
+            return resp["env"]
         cmd_text = import_block if import_block else "-- base"
         resp = self._send_raw({"cmd": cmd_text}, timeout=self._import_timeout)
         if resp is None:
@@ -296,7 +317,7 @@ class ReplWorker:
         top_msg = resp.get("message", "")
         if top_msg:
             err = f":0:0: error: {top_msg}"
-            self._envs[import_block] = err
+            self._envs[key] = err
             return err
         err_msgs = [m for m in resp.get("messages", []) if m.get("severity") == "error"]
         if "env" not in resp or err_msgs:
@@ -304,20 +325,20 @@ class ReplWorker:
                 m0 = err_msgs[0]
                 p0 = m0.get("pos", {})
                 err = f":{p0.get('line',0)}:{p0.get('column',0)}: error: {m0.get('data','')}"
-                self._envs[import_block] = err
+                self._envs[key] = err
             else:
-                self._envs[import_block] = -1
-            return self._envs[import_block]
+                self._envs[key] = -1
+            return self._envs[key]
         env_id = resp["env"]
         # probe: verify env is functional (unbuilt modules return {"env": 0} with no messages)
         probe = self._send_raw({"cmd": "example : (1 : Nat) = 1 := rfl", "env": env_id},
                                timeout=self._cmd_timeout)
         if probe is None or any(m.get("severity") == "error" for m in probe.get("messages", [])):
-            self._envs[import_block] = -1
+            self._envs[key] = -1
             return -1
         if len(self._envs) >= self._cap:
             self._envs.popitem(last=False)
-        self._envs[import_block] = env_id
+        self._envs[key] = env_id
         return env_id
 
     def start(self):
@@ -329,13 +350,14 @@ class ReplWorker:
         if resp is None or "env" not in resp:
             self.close()
             return False
-        self._envs[""] = resp["env"]
+        self._envs[("", "")] = resp["env"]
         return True
 
-    def run(self, code, cmd_timeout=None, env=None):
+    def run(self, code, cmd_timeout=None, env=None, prelude=""):
         """return CheckResult or None if import unavailable (caller falls back to lake).
         env: run code as a command against this existing env id instead of an
-        import-derived base env (code is the whole command, no import extraction)."""
+        import-derived base env (code is the whole command, no import extraction).
+        prelude: text elaborated once on top of the imports and reused (no env)."""
         if self._proc is None:
             return None
         _ct = cmd_timeout if cmd_timeout is not None else self._cmd_timeout
@@ -344,7 +366,7 @@ class ReplWorker:
             env_id, cmd = env, code
         else:
             import_block, cmd = _extract_imports(code)
-            env_id = self._base_env_for(import_block)
+            env_id = self._base_env_for(import_block, prelude)
             if env_id is None:
                 return self._dead_result(t0)
             if isinstance(env_id, str):
@@ -388,7 +410,7 @@ class ReplWorker:
             if resp is None or "env" not in resp:
                 self.close()
                 return True
-            self._envs[""] = resp["env"]
+            self._envs[("", "")] = resp["env"]
         except Exception:
             self._proc = None
         return True
@@ -442,10 +464,12 @@ class LeanServer:
         self._seconds_repl = 0.0
         self._seconds_lake = 0.0
 
-    def check(self, code, timeout=None, env=None):
+    def check(self, code, timeout=None, env=None, prelude=""):
         """env: run code as a command against this existing repl env id (no
         import extraction, no lake fallback) and report the resulting env id
-        on the returned CheckResult as new_env."""
+        on the returned CheckResult as new_env. prelude: a command text that runs
+        once on top of code's imports and is reused by every later check with the
+        same imports and prelude (ignored with env)."""
         self._calls += 1
         if env is not None:
             if self._worker is None:
@@ -468,7 +492,7 @@ class LeanServer:
                         n_errors=n_err, sorry=sorry, mem_killed=r.mem_killed)
             return r
         if _should_use_repl(code) and self._worker is not None:
-            r = self._worker.run(code, cmd_timeout=timeout)
+            r = self._worker.run(code, cmd_timeout=timeout, prelude=prelude)
             if r is not None:
                 self._repl_calls += 1
                 self._seconds_repl += r.elapsed
@@ -482,6 +506,9 @@ class LeanServer:
                             timed_out=r.timed_out, restarted=r.restarted,
                             n_errors=n_err, sorry=sorry, mem_killed=r.mem_killed)
                 return r
+        if prelude:
+            imports, rest = _extract_imports(code)
+            code = imports + "\n" + prelude + "\n" + rest
         r = _run_lake(code, self._dir, timeout=timeout if timeout is not None else self._lake_timeout,
                       mem_cap_bytes=self._mem_cap)
         self._lake_calls += 1

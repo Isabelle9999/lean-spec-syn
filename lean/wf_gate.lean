@@ -3,7 +3,7 @@
 -- named checks (one_theorem, is_theorem, no_attribute, conclusion_shape,
 -- vocabulary, decidable), stopping at the first failure. each check reports one
 -- LSS_WF {json} warning (a warning, since the server drops info messages), same
--- convention as aeneas_layer.lean's LSS_ATTEMPT/LSS_STEP/LSS_GOALS.
+-- convention as proof_check.lean's LSS_PROOF and aeneas_layer.lean's LSS_STEP/LSS_GOALS.
 --
 -- sent through the lean server the same way aeneas_layer.lean is: appended after
 -- the crate text (rust track) or after `import Mathlib` + the lean-native source
@@ -27,6 +27,9 @@
 -- lean-native track too; the Aeneas-only `Decidable` instances it also needs for
 -- the rust track (Result/Error/ControlFlow/Vec/Slice) live in wf_gate_aeneas.lean,
 -- sent alongside this file only for that track.
+
+-- `lssParseAll` and `lssFirstError` come from proof_check.lean, which is always
+-- in the environment before this file (gate.py, lean.py).
 
 -- `Subtype` (Vec/Slice's own representation) has no Aeneas dependency either, so
 -- it stays here rather than in wf_gate_aeneas.lean.
@@ -130,30 +133,6 @@ def lssDecidableProbe (hyps : Array Expr) (post : Expr) : MetaM (Option String) 
   unless <- lssDecidableAt post do
     return some s!"postcondition `{<- ppExpr post}` is not Decidable"
   return none
-
-open Lean Elab Command Meta Parser in
-/-- parse `text` as a sequence of top-level commands against `pmctx`, stopping at
-end-of-input. never raises: a parse error becomes an error in the returned log
-(and a possibly malformed command), which the caller reports as `one_theorem`. -/
-partial def lssParseAll (ictx : InputContext) (pmctx : ParserModuleContext) : Array Syntax × MessageLog := Id.run do
-  let mut mps : ModuleParserState := {}
-  let mut messages : MessageLog := {}
-  let mut acc : Array Syntax := #[]
-  repeat
-    let (stx, mps', messages') := parseCommand ictx pmctx mps messages
-    mps := mps'
-    messages := messages'
-    if isTerminalCommand stx then
-      break
-    acc := acc.push stx
-  return (acc, messages)
-
-open Lean in
-/-- text of the first error in `log`, if any. -/
-def lssFirstError (log : MessageLog) : IO (Option String) := do
-  match log.toList.find? (·.severity matches .error) with
-  | some m => return some (← m.data.toString)
-  | none => return none
 
 open Lean in
 /-- shared between the `CommandElabM` and `TermElabM` halves of `lss_wf_gate`:

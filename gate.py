@@ -4,6 +4,7 @@ import json
 import lean_server as _lean_server
 import lss_config as _lss_config
 import callgraph as _callgraph
+import lean as _lean
 
 CHECK_ORDER = ["one_theorem", "is_theorem", "no_attribute", "conclusion_shape", "vocabulary", "decidable"]
 
@@ -28,10 +29,6 @@ def _wf_gate_aeneas_text():
         with open(_WF_GATE_AENEAS_PATH, encoding="utf-8") as f:
             _wf_gate_aeneas_cache = f.read()
     return _wf_gate_aeneas_cache
-
-
-def _escape_lean_str(s):
-    return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
 def _env_fail(detail):
@@ -59,7 +56,7 @@ def check_candidate(lean_checker, candidate_text, func_name, lean_code, project_
     itself applies). a candidate is well-formed iff all six checks ran and passed.
     """
     is_rust = source == "rust-aeneas" and _lss_config.proof_cfg()["aeneas_layer"]
-    esc = _escape_lean_str(candidate_text)
+    esc = _lean._escape_lean_str(candidate_text)
 
     if is_rust:
         state = lean_checker._aeneas_env_for(project_dir)
@@ -91,7 +88,9 @@ def check_candidate(lean_checker, candidate_text, func_name, lean_code, project_
         # environment, so a `_precond` def stays usable in a hypothesis.
         manifest_names = [func_name]
         allow_div = False
-        gate_src = _wf_gate_text()
+        # proof_check.lean holds the parsing helpers the gate uses; on the rust
+        # track it is already part of the crate env (lean._aeneas_build_env)
+        gate_src = _lean.proof_check_text() + "\n" + _wf_gate_text()
         track_tok = "native"
 
     div_tok = "allow_div" if allow_div else "no_div"
