@@ -5,6 +5,7 @@ import lean_server as _lean_server
 import lss_config as _lss_config
 import callgraph as _callgraph
 import lean as _lean
+import events
 
 CHECK_ORDER = ["one_theorem", "is_theorem", "no_attribute", "conclusion_shape", "vocabulary", "decidable"]
 
@@ -48,6 +49,7 @@ def _parse_verdicts(text):
     return verdicts
 
 
+@events.layer("gate")
 def check_candidate(lean_checker, candidate_text, func_name, lean_code, project_dir, source):
     """run the well-formedness gate on `candidate_text` (a full, self-contained
     `theorem <name> (binders) (hyps) : <stmt> := sorry` declaration -- not just a

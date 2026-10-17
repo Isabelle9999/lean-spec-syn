@@ -15,22 +15,32 @@ def _layer_row():
             "restarted": 0, "swapped": 0, "proofs": 0}
 
 
-# method prefix -> layer name (how lean.py builds the method string)
-# try_proof_batch returns "l1:<tactic>"; try_hammer returns "l2:hammer (...)"
-_METHOD_LAYER = {"l1:": "tactics", "l2:": "hammer"}
+# method prefix -> layer name (how lean.py and synth.py build the method string):
+# try_proof_batch "l1:<tactic>", try_hammer "l2:hammer (...)", try_aeneas
+# "aeneas:<a|b|h>", decompose_and_prove "l3:<how>"
+_METHOD_LAYER = {"l1:": "tactics", "l2:": "hammer", "aeneas:": "aeneas", "l3:": "decompose"}
+# proofs hammer found: on the whole goal, or as the closer after step*
+_HAMMER_METHODS = {"l2:hammer": "whole goal", "aeneas:h": "after step*"}
 
 
 def main():
     if len(sys.argv) < 2:
         print("usage: cost_report.py <events.jsonl>")
         sys.exit(1)
-    path = sys.argv[1]
+    report(sys.argv[1])
+
+
+def report(path):
+    """print the cost report of one run's events file."""
     totals = _row()
     by_stage = defaultdict(_row)
     by_model = defaultdict(_row)
-    by_func = defaultdict(lambda: {**_row(), "verdicts": []})
+    by_func = defaultdict(_row)
+    verdicts_of = defaultdict(list)
     by_layer = defaultdict(_layer_row)
     lean_events = []
+    context_chars = {}  # func -> (chars sent, chars of the whole crate source)
+    hammer_closes = defaultdict(lambda: defaultdict(int))  # track -> where -> proofs
 
     with open(path, encoding="utf-8") as f:
         for line in f:
@@ -58,7 +68,7 @@ def main():
                 if func:
                     for k, v in [("llm_calls", 1), ("input", inp), ("output", out),
                                  ("cached", cr), ("usd", usd)]:
-                        by_func[func][k] += v  # type: ignore[operator]
+                        by_func[func][k] += v
             elif kind == "lean":
                 s = ev.get("elapsed", 0.0)
                 totals["lean_calls"] += 1
@@ -74,7 +84,7 @@ def main():
                     d["restarted"] += 1
                 d["max_elapsed"] = max(d["max_elapsed"], s)
                 if func:
-                    by_func[func]["lean_calls"] += 1  # type: ignore[operator]
+                    by_func[func]["lean_calls"] += 1
                     by_func[func]["lean_s"] += s
                 lean_events.append({
                     "elapsed": s, "stage": stage,
@@ -94,13 +104,18 @@ def main():
                         ld["swapped"] += 1
             elif kind == "verdict":
                 if func:
-                    by_func[func]["verdicts"].append(ev.get("status", "?"))
+                    verdicts_of[func].append(ev.get("status", "?"))
                 method = ev.get("method", "")
                 if ev.get("status") == "proved" and method:
                     for prefix, lname in _METHOD_LAYER.items():
                         if method.startswith(prefix):
                             by_layer[lname]["proofs"] += 1
                             break
+                    for prefix, where in _HAMMER_METHODS.items():
+                        if method.startswith(prefix):
+                            hammer_closes[ev.get("source", "?")][where] += 1
+            elif kind == "prompt_context" and func:
+                context_chars[func] = (ev.get("chars", 0), ev.get("chars_whole", 0))
 
     def _fmt(d):
         return (f"llm={d['llm_calls']} in={d['input']} out={d['output']} "
@@ -127,11 +142,23 @@ def main():
         for model, d in sorted(by_model.items()):
             print(f"  {model:35} {_fmt(d)}")
 
-    if by_func:
+    if by_func or verdicts_of:
         print("\nby function")
-        for func, d in sorted(by_func.items()):
-            vs = ", ".join(d["verdicts"]) if d["verdicts"] else "-"
-            print(f"  {func:30} usd=${d['usd']:.4f} lean_s={d['lean_s']:.1f} verdicts=[{vs}]")
+        for func in sorted(set(by_func) | set(verdicts_of)):
+            d = by_func[func]
+            vs = ", ".join(verdicts_of[func]) or "-"
+            calls, tokens = int(d["llm_calls"]), int(d["input"])
+            per_call = tokens // calls if calls else 0
+            ctx = (f" context={context_chars[func][0]} chars (whole crate {context_chars[func][1]})"
+                   if func in context_chars else "")
+            print(f"  {func:30} usd=${d['usd']:.4f} lean_s={d['lean_s']:.1f} llm={calls}"
+                  f" in_tokens={tokens} ({per_call}/call){ctx} verdicts=[{vs}]")
+
+    if hammer_closes or by_layer.get("hammer"):
+        print("\nhammer closes")
+        for track in sorted(hammer_closes) or ["-"]:
+            got = hammer_closes.get(track, {})
+            print(f"  {track:12} whole goal={got.get('whole goal', 0)} after step*={got.get('after step*', 0)}")
 
     if by_layer:
         print("\nby layer")
@@ -141,9 +168,7 @@ def main():
         layer_restart = 0
         layer_swap = 0
         layer_proofs = 0
-        for lname in ("typecheck", "tactics", "hammer", "mutation"):
-            if lname not in by_layer:
-                continue
+        for lname in sorted(by_layer, key=lambda n: -by_layer[n]["lean_s"]):
             ld = by_layer[lname]
             print(f"  {lname:12} lean={ld['lean_calls']} s={ld['lean_s']:.1f}"
                   f" tout={ld['timed_out']} restart={ld['restarted']}"

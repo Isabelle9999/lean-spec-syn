@@ -46,6 +46,25 @@ def with_context(**fields):
     return decorator
 
 
+def layer(name):
+    """decorator: Lean time spent inside the call counts toward layer `name`,
+    unless an enclosing call already set one: a sub-lemma's tactic and hammer
+    attempts count toward the split, a mutant's toward mutation."""
+    def decorator(fn):
+        def wrapper(*args, **kwargs):
+            if "layer" in _ctx.get():
+                return fn(*args, **kwargs)
+            with context(layer=name):
+                return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def log_path():
+    """the events file of the configured run, or None."""
+    return _state["fh"].name if _state else None
+
+
 def emit(kind, **fields):
     if not _state:
         return

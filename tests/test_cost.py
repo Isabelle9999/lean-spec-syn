@@ -470,6 +470,68 @@ def run_static_context():
           bool(sent) and "def f (x : Std.U32)" in sent[0], (sent or [""])[0][:200])
 
 
+def run_static_report():
+    print("=== static: the cost report ===")
+    import contextlib
+    import io
+    import tempfile
+    import events
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
+    import cost_report
+
+    # an enclosing layer wins: a sub-lemma's attempts count toward the split
+    fh = io.StringIO()
+    saved, saved_stats = dict(events._state), dict(events._stats)
+    events._state.clear()
+    events._state.update({"run_id": "t", "config_hash": "h", "fh": fh})
+    events._stats.update({"lean_calls": 0, "lean_s": 0.0})
+
+    @events.layer("tactics")
+    def inner():
+        events.emit("lean", elapsed=1.0)
+
+    @events.layer("decompose")
+    def outer():
+        inner()
+    outer()
+    inner()
+    rows = [json.loads(x) for x in fh.getvalue().splitlines()]
+    events._state.clear()
+    events._state.update(saved)
+    events._stats.clear()
+    events._stats.update(saved_stats)
+    check("Lean time inside a layer counts toward the outermost one",
+          [r.get("layer") for r in rows] == ["decompose", "tactics"], str(rows))
+
+    rows = ([{"kind": "llm", "func": "f1", "input_tokens": n, "output_tokens": 10, "usd": 0.01} for n in (1000, 3000)] +
+            [{"kind": "prompt_context", "func": "f1", "chars": 900, "chars_whole": 40000}] +
+            [{"kind": "lean", "layer": lay, "elapsed": sec, "func": "f1"} for lay, sec in
+             [("aeneas", 3.0), ("decompose", 10.0), ("mutation", 5.0), ("tactics", 1.0), ("hammer", 2.0),
+              ("bounded", 1.5), ("gate", 0.5)]] +
+            [{"kind": "verdict", "func": "f1", "status": "proved", "method": m, "source": src} for m, src in
+             [("aeneas:h", "rust-aeneas"), ("l2:hammer (12.0s)", "rust-aeneas"), ("l2:hammer (3.0s)", "lean-native"),
+              ("l3:decompose", "rust-aeneas"), ("aeneas:a", "rust-aeneas")]])
+    with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8") as f:
+        f.write("\n".join(json.dumps(r) for r in rows) + "\n")
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        cost_report.report(f.name)
+    os.unlink(f.name)
+    text = out.getvalue()
+    lines = {ln.split()[0]: ln for ln in text.splitlines() if ln.startswith("  ") and ln.split()}
+    check("every layer gets its Lean seconds, the split and the bounded check included",
+          all(k in lines for k in ("aeneas", "decompose", "mutation", "tactics", "hammer", "bounded", "gate"))
+          and "s=10.0" in lines.get("decompose", ""), text)
+    check("proofs are credited to the aeneas layer and the split",
+          "proofs=2" in lines.get("aeneas", "") and "proofs=1" in lines.get("decompose", ""), text)
+    check("hammer closes are counted per track, on the whole goal and after step*",
+          "whole goal=1 after step*=1" in lines.get("rust-aeneas", "") and
+          "whole goal=1 after step*=0" in lines.get("lean-native", ""), text)
+    check("each function shows its prompt tokens and its context size against the whole crate",
+          "in_tokens=4000 (2000/call)" in lines.get("f1", "") and "context=900 chars (whole crate 40000)" in lines.get("f1", ""),
+          text)
+
+
 def _feature_suite():
     rust_dir = os.path.expanduser("~/rust_benchmarks")
     if not os.path.isdir(os.path.join(rust_dir, "FeatureSuite", "Code")):
@@ -542,6 +604,7 @@ if static:
     run_static_budgets()
     run_static_mutants()
     run_static_context()
+    run_static_report()
 else:
     import lean
     import lean_server

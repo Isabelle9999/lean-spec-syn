@@ -1042,6 +1042,7 @@ def _prove_claim(lean_code, claim, lean_checker, project_dir=None, seconds=None)
 
 _MAX_HAVES = 5
 
+@events.layer("decompose")
 def decompose_and_prove(lean_code, theorem_stmt, lean_checker, llm, project_dir=None, func_source=None):
     # layer 3: llm decomposes goal; try verbatim first, then fill have sub-lemmas.
     # the Lean work after the sketch shares one budget, [proof] split_seconds: each
@@ -1369,7 +1370,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
 
     processed_stmts = set()
 
-    with events.context(stage="validate"):
+    with events.context(stage="validate", source=source or "lean-native"):
         for spec_idx, spec in enumerate(specs):
             with events.context(candidate_id=spec["name"]):
                 stmt_norm = _normalize_stmt(spec["stmt"])

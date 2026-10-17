@@ -10,7 +10,6 @@ import lss_config as _lss_config
 import lean_server as _lean_server
 import callgraph as _callgraph
 import events
-from events import with_context
 
 TACTICS = [
     # instant closers
@@ -393,7 +392,7 @@ class LeanChecker:
         self._aeneas_admit_counter = {}  # project_dir -> next admitted-name index, never reused
         self._modular_counter = 0
 
-    @with_context(layer="typecheck")
+    @events.layer("typecheck")
     def typecheck(self, code, project_dir=None):
         if project_dir is None:
             project_dir = self.project_dir
@@ -496,7 +495,7 @@ class LeanChecker:
                 return line
         return combined
 
-    @with_context(layer="tactics")
+    @events.layer("tactics")
     def try_proof_batch(self, lean_env, theorem_stmt, func_name=None,
                         allow_search_tactics=False, use_project=False, project_dir=None, timeout=None):
         if project_dir is None:
@@ -671,7 +670,7 @@ class LeanChecker:
                                     allow_search_tactics=allow_search_tactics,
                                     use_project=use_project, project_dir=project_dir, timeout=timeout)
 
-    @with_context(layer="hammer")
+    @events.layer("hammer")
     def try_hammer(self, lean_env, theorem_stmt, func_name=None, project_dir=None, timeout=None):
         # a rust unit's text runs in its crate env (check_proof routes it); any
         # other text runs in the configured hammer project; project_dir arg ignored
@@ -784,7 +783,7 @@ class LeanChecker:
             print(f"  aeneas admit failed: {name}: {(errs[0] if errs else combined.strip())[:200]}")
         return r
 
-    @with_context(layer="aeneas")
+    @events.layer("aeneas")
     def try_aeneas(self, candidate_stmt, func_name, rust_project_dir, candidate_id=None):
         """aeneas-tactic layer for a rust unit: unfold f; step*, then step* plus a
         closer, against the crate's growing env in the pinned aeneas project (every
@@ -1759,7 +1758,7 @@ class MutationEngine:
 
         return mutants
 
-    @with_context(layer="mutation")
+    @events.layer("mutation")
     def filter_compilable(self, mutants):
         """the mutants that typecheck. equivalence is decided later, by proof
         (certify_proof), never by asking an LLM."""
@@ -1951,7 +1950,7 @@ class MutationEngine:
 
         return results
 
-    @with_context(layer="mutation")
+    @events.layer("mutation")
     def certify_proof(self, lean_code, mutant, func_name, spec_stmts,
                        project_dir=None, skip_equiv=False, struct_defs=None, spec_names=None):
         """classify one mutant: STILLBORN/EQUIVALENT/KILLED/SURVIVED/INCONCLUSIVE"""

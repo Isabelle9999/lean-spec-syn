@@ -479,6 +479,12 @@ def main():
               f"lake={st['lake_calls']} env_hits={st['env_hits']} "
               f"timeouts={st['timeouts']} restarts={st['restarts']}")
 
+    # Lean seconds per layer, prompt size per function, hammer closes per track
+    if events.log_path():
+        from tools import cost_report
+        print("\ncost report")
+        cost_report.report(events.log_path())
+
     if reports:
         best_path = ".lss/runs/best.txt"
         total_proved = sum(r["proved_count"] for r in reports)

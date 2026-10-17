@@ -98,6 +98,8 @@ constant, so the trust base remains the Lean kernel alone.
 - entailment-checked agreement with reference specifications, where a benchmark
   provides them
 - contract-discharged calls and underspecified callees
+- Lean seconds per layer, prompt size per function, and how many proofs
+  LeanHammer closed on each track
 
 ## Requirements
 

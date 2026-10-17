@@ -32,6 +32,7 @@ import translation_check as tc  # noqa: E402
 import callgraph as _callgraph  # noqa: E402
 import lean_server as _lean_server  # noqa: E402
 import lss_config as _lss_config  # noqa: E402
+import events  # noqa: E402
 import lean as _lean  # noqa: E402
 import gate as _gate  # noqa: E402
 
@@ -335,6 +336,7 @@ def _bad(kind, row):
     return o in ("violates", "fail") or (o == "div" and kind == "spec")
 
 
+@events.layer("bounded")
 def check_spec(checker, stmt, unit, project_dir, seed=0):
     """the bounded verdict for one candidate (see the module docstring).
     status: pass, refuted, vacuous, timeout or skipped; warning: None, narrow or
