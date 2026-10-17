@@ -181,7 +181,7 @@ class LLMClient:
                         "\n- the value inside some relates to input\n"
                     )
         prompt = (
-            f"lean 4 function:\n{lean_code}\n\n"
+            f"lean 4 function:\n{func_source or lean_code}\n\n"
             f"type hints: {', '.join(type_templates)}\n\n"
             + ex_ctx
             + sig_ctx
@@ -1042,13 +1042,13 @@ def _prove_claim(lean_code, claim, lean_checker, project_dir=None, seconds=None)
 
 _MAX_HAVES = 5
 
-def decompose_and_prove(lean_code, theorem_stmt, lean_checker, llm, project_dir=None):
+def decompose_and_prove(lean_code, theorem_stmt, lean_checker, llm, project_dir=None, func_source=None):
     # layer 3: llm decomposes goal; try verbatim first, then fill have sub-lemmas.
     # the Lean work after the sketch shares one budget, [proof] split_seconds: each
     # sub-lemma gets an equal share of what is left, the final checks the rest.
     prompt = (
         "This theorem cannot be proved directly. Decompose it into intermediate steps using 'have' statements.\n"
-        f"Function: {lean_code}\n"
+        f"Function: {func_source or lean_code}\n"
         f"Theorem: {theorem_stmt}\n"
         f"Use at most {_MAX_HAVES} have statements. Return a proof sketch:\n"
         "by\n"
@@ -1542,7 +1542,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
 
                 # layer 3: auxiliary-lemma decomposition
                 if llm:
-                    r3 = decompose_and_prove(eff, spec["stmt"], lean_checker, llm, project_dir=project_dir)
+                    r3 = decompose_and_prove(eff, spec["stmt"], lean_checker, llm, project_dir=project_dir,
+                                             func_source=func_source)
                     if r3.proved:
                         spec["status"] = "proved"
                         spec["method"] = r3.method
@@ -2487,7 +2488,7 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
 
         specs = validate(specs, lean_code, test_inputs, lean_checker,
                          llm=llm, example_store=example_store, func_name=func_name, verbose=verbose,
-                         debug_dir=debug_dir, project_dir=project_dir, source=source)
+                         debug_dir=debug_dir, project_dir=project_dir, func_source=func_source, source=source)
 
         # round 2: SpecGen-style mutation-guided repair (not raw error messages)
         g1_fails = [s for s in specs if s.get("fail_gate") == "g1"]

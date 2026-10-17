@@ -374,6 +374,102 @@ def run_static_mutants():
     check("filter_compilable takes no LLM", not takes_llm)
 
 
+CRATE_TEXT = """import Aeneas
+namespace C
+
+structure m.Inner where
+  v : Std.U32
+
+structure m.Pair where
+  first : m.Inner
+  second : Std.U32
+
+inductive m.Other where
+  | A
+  | B
+
+def m.leaf (x : Std.U32) : Result Std.U32 := ok x
+
+def m.callee (p : m.Pair) : Result Std.U32 := m.leaf p.second
+
+def m.even (n : Std.U32) : Result Bool := m.odd n
+
+def m.odd (n : Std.U32) : Result Bool := m.even n
+
+def m.top (p : m.Pair) : Result Std.U32 := do
+  let a ← m.callee p
+  m.even a
+
+def m.unrelated (o : m.Other) : Result Bool := ok true
+
+end C
+"""
+
+
+class _CtxGraph:
+    crate = "C"
+    crate_text = CRATE_TEXT
+    names = {"C.m.leaf", "C.m.callee", "C.m.even", "C.m.odd", "C.m.top", "C.m.unrelated"}
+    _sccs = [frozenset({"C.m.even", "C.m.odd"}), frozenset({"C.m.top"}), frozenset({"C.m.callee"}),
+             frozenset({"C.m.leaf"}), frozenset({"C.m.unrelated"})]
+    _callees = {"C.m.top": ["C.m.callee", "C.m.even"], "C.m.even": ["C.m.odd"], "C.m.odd": ["C.m.even"],
+                "C.m.callee": ["C.m.leaf"]}
+
+    @property
+    def sccs(self):
+        return self._sccs
+
+    def scc_of(self, name):
+        return next((i for i, c in enumerate(self._sccs) if name in c), None)
+
+    def callees_outside_scc(self, name):
+        i = self.scc_of(name)
+        return sorted(c for c in self._callees.get(name, []) if self.scc_of(c) != i)
+
+    def def_text(self, name):
+        short = name[len("C."):]
+        start = CRATE_TEXT.find(f"def {short} ")
+        end = CRATE_TEXT.find("\n\n", start)
+        return CRATE_TEXT[start:end] if start >= 0 else None
+
+
+def run_static_context():
+    print("=== static: prompts get the unit, its types and its callees' specs ===")
+    import lean
+    import callgraph
+    import synth
+
+    checker = lean.LeanChecker()
+    with Patch((callgraph, "for_project", lambda p: _CtxGraph())):
+        text = checker.unit_context("/crate", "m.top")
+        check("the context holds the unit's own definition", "def m.top (p : m.Pair)" in text, text)
+        check("a callee with no proved spec appears as its definition", "def m.callee (p : m.Pair)" in text, text)
+        check("a callee in a recursion group comes alone, without the rest of its group",
+              "def m.even " in text and "def m.odd " not in text, text)
+        check("the types the definitions name come along, and the types those name",
+              "structure m.Pair where" in text and "structure m.Inner where" in text, text)
+        check("nothing the unit does not reach is included",
+              "m.unrelated" not in text and "inductive m.Other" not in text and "def m.leaf" not in text, text)
+        check("the context is a fraction of the whole crate", len(text) < len(CRATE_TEXT), f"{len(text)} vs {len(CRATE_TEXT)}")
+        checker._aeneas_env["/crate"] = {"admitted": [("lss_admitted_0", "∀ p, m.callee p ⦃ r => r = p.second ⦄", "step*",
+                                                       "C.m.callee")]}
+        text = checker.unit_context("/crate", "m.top")
+        check("a callee with a proved spec appears as that spec instead of its body",
+              "proved specs of C.m.callee" in text and "m.callee p ⦃ r => r = p.second ⦄" in text
+              and "def m.callee" not in text, text)
+        text = checker.unit_context("/crate", "m.even")
+        check("a recursive unit gets the rest of its recursion group", "def m.odd " in text and "def m.even " in text, text)
+
+    llm = object.__new__(synth.LLMClient)
+    sent = []
+    setattr(llm, "_ask", lambda prompt: sent.append(prompt) or "```lean\ntheorem t : ∀ x, f x ⦃ r => r = x ⦄ := sorry\n```")
+    setattr(llm, "_retrieve_mathlib_examples", lambda *a: [])
+    setattr(llm, "_retrieve_similar_proved_specs", lambda *a: [])
+    llm.generate_specs("import Aeneas\nimport C.Code.Funs\n", [], func_name="f", func_source="def f (x : Std.U32) : Result Std.U32 := ok x")
+    check("the spec prompt shows the unit's context, not just the import lines",
+          bool(sent) and "def f (x : Std.U32)" in sent[0], (sent or [""])[0][:200])
+
+
 def _feature_suite():
     rust_dir = os.path.expanduser("~/rust_benchmarks")
     if not os.path.isdir(os.path.join(rust_dir, "FeatureSuite", "Code")):
@@ -427,11 +523,25 @@ def run_full_hammer_closer(rust_dir, checker):
     check("the crate env still proves afterwards", pr.proved and pr.method == "aeneas:a", str(pr)[:300])
 
 
+def run_full_context(rust_dir, benches, checker):
+    print("=== full: the prompt context on FeatureSuite ===")
+    bm = benches["records.order_pair"]
+    text = checker.unit_context(rust_dir, bm["lean_name"])
+    whole = len(bm["func_source"])
+    check("order_pair's context holds its definition and the Pair type",
+          "def records.order_pair" in text and "structure records.Pair" in text, text[:400])
+    check("swap, proved earlier in this run, appears as its spec and not its body",
+          "records.swap p ⦃" in text and "def records.swap" not in text, text[:600])
+    check("the context leaves out functions order_pair never calls", "count_occurrences" not in text, text[:400])
+    check("the context is under a fifth of Types.lean + Funs.lean", len(text) * 5 < whole, f"{len(text)} vs {whole}")
+
+
 if static:
     run_static_routing()
     run_static_hammer_closer()
     run_static_budgets()
     run_static_mutants()
+    run_static_context()
 else:
     import lean
     import lean_server
@@ -441,6 +551,7 @@ else:
         checker = lean.LeanChecker(project_dir=lss_config.project_dir("aeneas"))
         run_full_routing(rust_dir, benches, checker)
         run_full_hammer_closer(rust_dir, checker)
+        run_full_context(rust_dir, benches, checker)
     lean_server.shutdown_all()
 
 print()

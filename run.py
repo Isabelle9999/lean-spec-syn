@@ -117,7 +117,11 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
     fn = bm.get("func_name") or _func_name(bm["lean_code"])
     ti = bm.get("test_inputs", [])
     tpl = bm.get("templates", [])
-    bm_eval = {**bm, "func_name": fn}
+    if bm.get("source") == "rust-aeneas" and project_dir:
+        # prompts get the unit, its types and its callees' specs, not the whole crate
+        func_source = checker.unit_context(project_dir, bm.get("lean_name") or fn)
+        events.emit("prompt_context", func=fn, chars=len(func_source), chars_whole=len(bm.get("func_source") or ""))
+    bm_eval = {**bm, "func_name": fn, "func_source": func_source}
 
     t0 = time.time()
     get_lean_calls()  # reset counter

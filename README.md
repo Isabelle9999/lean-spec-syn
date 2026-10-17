@@ -31,7 +31,8 @@ specification from observed input–output pairs, negative examples, joint
 statement-and-proof generation, program slicing that specifies helpers before
 their callers, and a behaviour-only strategy that hides the implementation.
 Candidates are informed by Mathlib retrieval and by specifications proved in
-earlier runs.
+earlier runs. A prompt about a Rust function carries its definition, the types
+it names and its callees' proved specifications, not the whole crate.
 
 **Validation.** Candidates first meet stored counterexamples from earlier
 rejections and a well-formedness gate that elaborates them. For Rust functions,

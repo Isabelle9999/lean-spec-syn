@@ -360,6 +360,27 @@ def _aeneas_layer_text():
     return _aeneas_layer_cache
 
 
+_TYPE_DECL = re.compile(r"^(?:@\[[^\]\n]*\]\s*)?(?:structure|inductive)\s+([\w.]+)", re.MULTILINE)
+
+
+def _types_named(crate_text, text):
+    """the crate's structure/inductive declarations (each up to its blank line)
+    that `text` names, directly or through another picked type, in crate order."""
+    blocks = {}
+    for m in _TYPE_DECL.finditer(crate_text):
+        end = crate_text.find("\n\n", m.end())
+        blocks[m.group(1)] = crate_text[m.start():end if end >= 0 else len(crate_text)].strip()
+    seen, grew = set(), True
+    while grew:
+        grew = False
+        for n, b in blocks.items():
+            if n not in seen and re.search(r"(?<![\w.])" + re.escape(n) + r"(?![\w])", text):
+                seen.add(n)
+                text += "\n" + b
+                grew = True
+    return [b for n, b in blocks.items() if n in seen]
+
+
 class LeanChecker:
     def __init__(self, cache=None, project_dir=None):
         self._cache = cache
@@ -837,6 +858,28 @@ class LeanChecker:
         self._aeneas_admit(project_dir, state, f"lss_admitted_{n}", stmt, tactic, unit)
         return ProofResult(proved=True, method=f"aeneas:{label}", error="", proof_text=tactic,
                            axioms=verdict.get("axioms", []), modular=modular, needs_callee_body=body)
+
+    def unit_context(self, project_dir, unit):
+        """the Lean text a prompt about a rust unit gets, in place of the crate's
+        whole Types.lean and Funs.lean: the types its definitions name, each
+        external callee's specs proved so far this run (its definition while it
+        has none), the rest of its recursion group, and its own definition."""
+        g = _callgraph.for_project(project_dir)
+        name = unit if unit in g.names else f"{g.crate}.{unit}"
+        proved = {}
+        for _, stmt, _, u in (self._aeneas_env.get(project_dir) or {"admitted": []})["admitted"]:
+            proved.setdefault(u, []).append(stmt)
+        parts = []
+        for c in g.callees_outside_scc(name):
+            if proved.get(c):
+                parts.append(f"-- proved specs of {c}:\n" + "\n".join(f"--   {st}" for st in proved[c]))
+            else:
+                parts.append(g.def_text(c) or "")
+        i = g.scc_of(name)
+        group = sorted(g.sccs[i] - {name}) if i is not None else []
+        parts += [g.def_text(m) or "" for m in group] + [g.def_text(name) or ""]
+        body = "\n\n".join(p for p in parts if p)
+        return "\n\n".join(_types_named(g.crate_text, body) + [body])
 
     def _modular_check(self, state, unit, stmt, tactic, abstract, inline):
         """one ∀-abstraction variant (lss_modular): `abstract` is [(callee, spec
