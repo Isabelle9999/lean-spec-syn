@@ -391,6 +391,8 @@ def main():
         run_dir = rust_project_dir
         print(f"loaded {len(benches)} rust functions from {args.rust_project}")
         topo = callgraph.for_project(args.rust_project).topo_sorted_names()
+        # build the crate env first: from the first unit on, every rust text runs in it
+        checker._aeneas_env_for(rust_project_dir)
         order = {n: i for i, n in enumerate(topo)}
         benches.sort(key=lambda b: order.get(b.get("lean_name"), len(topo)))
     elif args.verina or args.clever:

@@ -43,3 +43,9 @@ aeneas_heartbeats = 200000
 # falls back to it anyway, but only after trying the cloud selector first);
 # "cloud" leaves hammer's own default alone.
 premise_selector = "local"
+# rust crates: import Hammer into the crate env, so hammer runs on rust units
+# (whole goal and after step*). off by default: with the local selector, hammer
+# did not prove `a + b = b + a` in any import setup (2026-10-17), and a crate env
+# with Hammer is a second base environment next to the unit graph's, which hit
+# the memory cap in the proof-trust test
+rust_hammer = false

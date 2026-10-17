@@ -49,7 +49,9 @@ definitional and bitvector decision procedures. Then LeanHammer, which performs
 neural premise selection over all of Mathlib rather than only the
 `@[simp]`-tagged fragment. Then decomposition, in which the model proposes
 intermediate lemmas, each is proved separately, and the recombined proof is
-checked by the kernel as a single theorem.
+checked by the kernel as a single theorem. For Rust functions every layer, and
+every mutant proof, runs in one environment that holds the crate, the
+specifications proved so far, and LeanHammer when `[proof] rust_hammer` is on.
 
 **Refinement.** Program mutants are generated from an operator table and by
 model rewriting, then classified by proof into equivalent, killed, survived or

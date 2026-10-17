@@ -111,13 +111,57 @@ def get_lean_calls():
     _lean_call_count = 0
     return c
 
+# rust crates whose env a LeanChecker keeps: crate -> (checker, rust project dir,
+# hash of the crate text). every rust unit's context imports <crate>.Code.*
+# (loader.py), which the aeneas project cannot load (and the crate's own lake
+# project is never built), so such a text runs as commands in the crate's env
+# instead: the callee specs proved so far are there, and hammer too when
+# [proof] rust_hammer is on.
+_CRATE_ENVS = {}
+_CRATE_IMPORT = re.compile(r"^import\s+(\S+)\.Code\.\w+\s*$", re.MULTILINE)
+
+
+def _crate_of(code):
+    """the crate `code` imports, when a checker keeps that crate's env; else None."""
+    for m in _CRATE_IMPORT.finditer(code or ""):
+        if m.group(1) in _CRATE_ENVS:
+            return m.group(1)
+    return None
+
+
+def _crate_dirs():
+    return {pdir for _, pdir, _ in _CRATE_ENVS.values()}
+
+
+def _cache_tag(code):
+    """prefix for cache keys: a crate-routed text is keyed by its crate's text, so a
+    result cached before the crate changed (or before routing) is never reused."""
+    crate = _crate_of(code)
+    return f"crate:{_CRATE_ENVS[crate][2]}\n" if crate else ""
+
+
+def run_routed(code, timeout=None):
+    """CheckResult of `code` run in its crate's env with its import lines dropped,
+    or None when `code` imports no crate a checker keeps (or that env is down)."""
+    crate = _crate_of(code)
+    if crate is None:
+        return None
+    checker, pdir, _ = _CRATE_ENVS[crate]
+    state = checker._aeneas_env_for(pdir)
+    if not state["ok"]:
+        return None
+    rest = "\n".join(line for line in code.splitlines() if not line.strip().startswith("import "))
+    return _lean_server.get_server(_lss_config.project_dir("aeneas")).check(rest, timeout=timeout, env=state["env"])
+
+
 def run_in_project(code, project_dir=None):
-    """Run lean with project dependencies (Mathlib or Aeneas)."""
+    """Run lean with project dependencies (Mathlib or Aeneas); a rust unit's text
+    runs in its crate env (run_routed)."""
     global _lean_call_count
     _lean_call_count += 1
-    if project_dir is None:
-        project_dir = _PROJECT_DIR
-    r = _lean_server.get_server(project_dir).check(code)
+    r = run_routed(code)
+    if r is None:
+        r = _lean_server.get_server(project_dir or _PROJECT_DIR).check(code)
     return r.stdout, r.stderr, r.rc
 
 
@@ -205,17 +249,25 @@ def classify_function(lean_env, func_name):
     }
 
 
-def _hammer_code(lean_env, theorem_stmt):
-    """(context, theorem): the context sets up hammer, the theorem is checked by
-    lss_check_proof."""
-    code = 'import Mathlib\nimport Hammer\n' + lean_env.rstrip() + '\n'
+HAMMER = "hammer { disableGrind := true }"
+
+
+def _hammer_selector():
+    """the premise-selector line hammer runs under ("" for hammer's own default)."""
     if _lss_config.proof_cfg()['premise_selector'] == 'local':
         # Hammer's own default is `Cloud.premiseSelector <|> sineQuaNonSelector...`
         # (Hammer/Tactic.lean:22); this re-sets the same local fallback alone, so
         # hammer never calls out to leanpremise.net.
-        code += ('set_library_suggestions open Lean.LibrarySuggestions in '
-                 'sineQuaNonSelector.intersperse currentFile\n')
-    return code, f'theorem _hammer_proof : {theorem_stmt} := by hammer {{ disableGrind := true }}'
+        return ('set_library_suggestions open Lean.LibrarySuggestions in '
+                'sineQuaNonSelector.intersperse currentFile\n')
+    return ""
+
+
+def _hammer_code(lean_env, theorem_stmt):
+    """(context, theorem): the context sets up hammer, the theorem is checked by
+    lss_check_proof."""
+    code = 'import Mathlib\nimport Hammer\n' + lean_env.rstrip() + '\n' + _hammer_selector()
+    return code, f'theorem _hammer_proof : {theorem_stmt} := by {HAMMER}'
 
 
 _AENEAS_LAYER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean", "aeneas_layer.lean")
@@ -270,11 +322,14 @@ def check_proofs(context, named, project_dir=None, timeout=None, heartbeats=0):
     only thing that may mark a proof proved."""
     global _lean_call_count
     _lean_call_count += 1
-    if not any(line.strip().startswith("import ") for line in context.splitlines()):
-        context = "import Lean\n" + context
     calls = "\n".join(proof_check_call(theorems, name, heartbeats) for name, theorems in named)
-    server = _lean_server.get_server(project_dir or _PROJECT_DIR)
-    r = server.check(context.rstrip() + "\n" + calls, timeout=timeout, prelude=proof_check_text())
+    # a rust unit's context runs in its crate env, which already holds proof_check.lean
+    r = run_routed(context.rstrip() + "\n" + calls, timeout=timeout)
+    if r is None:
+        if not any(line.strip().startswith("import ") for line in context.splitlines()):
+            context = "import Lean\n" + context
+        server = _lean_server.get_server(project_dir or _PROJECT_DIR)
+        r = server.check(context.rstrip() + "\n" + calls, timeout=timeout, prelude=proof_check_text())
     out = (r.stdout or "") + (r.stderr or "")
     got = parse_proof_verdicts(out)
     return {name: got.get(name) or _no_verdict(name, r, out) for name, _ in named}, out
@@ -310,8 +365,9 @@ class LeanChecker:
     def typecheck(self, code, project_dir=None):
         if project_dir is None:
             project_dir = self.project_dir
+        key = _cache_tag(code) + code
         if self._cache:
-            hit = self._cache.get(code)
+            hit = self._cache.get(key)
             if hit is not None:
                 return hit[0], hit[1]
         stdout, stderr, rc = run_in_project(code, project_dir=project_dir or _PROJECT_DIR)
@@ -328,7 +384,7 @@ class LeanChecker:
                 errs.append(f"lean exited with code {rc}")
         ok = rc == 0 and not errs
         if self._cache:
-            self._cache.put(code, [ok, errs])
+            self._cache.put(key, [ok, errs])
         return ok, errs
 
     def typecheck_project(self, code, project_dir=None):
@@ -344,6 +400,12 @@ class LeanChecker:
         """verify project_dir can elaborate the imports used by proof layers.
         result is cached per (project_dir, requires_hammer).
         returns (ok, error_string)."""
+        if project_dir in _crate_dirs():
+            # a rust crate: its texts run in the crate env (Aeneas, so Mathlib's
+            # tactics; Hammer when [proof] rust_hammer is on), nothing to import
+            if requires_hammer and not _lss_config.proof_cfg()["rust_hammer"]:
+                return False, "hammer is off for rust crates ([proof] rust_hammer)"
+            return True, ""
         key = (project_dir, requires_hammer)
         if key in self._env_cache:
             return self._env_cache[key]
@@ -410,7 +472,7 @@ class LeanChecker:
         pdir = project_dir if project_dir else (_PROJECT_DIR if os.path.isdir(_PROJECT_DIR) else None)
         if pdir is None:
             return ProofResult(proved=False, method="", error="no project dir for mathlib")
-        mathlib_ok, _ = self._precheck_env(pdir)
+        mathlib_ok = _crate_of(lean_env) is not None or self._precheck_env(pdir)[0]
         imports = "import Mathlib\n" if mathlib_ok else ""
 
         # layer 1: tactic portfolio
@@ -540,7 +602,7 @@ class LeanChecker:
         env_stripped = lean_env.rstrip()
         named = [(f"_lss_p{i}", f"theorem _lss_p{i} : {theorem_stmt} := {suffix}")
                  for i, (suffix, _) in enumerate(entries)]
-        cache_key = "v:" + imports + env_stripped + "\n" + "\n".join(t for _, t in named)
+        cache_key = "v:" + _cache_tag(lean_env) + imports + env_stripped + "\n" + "\n".join(t for _, t in named)
         if self._cache:
             hit = self._cache.get_proof(cache_key)
             if hit is not None:
@@ -578,14 +640,21 @@ class LeanChecker:
 
     @with_context(layer="hammer")
     def try_hammer(self, lean_env, theorem_stmt, func_name=None, project_dir=None):
-        # always use the configured hammer project (aeneas); project_dir arg ignored
-        pdir = _lss_config.hammer_project_dir()
-        if pdir is None:
-            return ProofResult(proved=False, method='', error='no hammer project configured')
-        hammer_ok, hammer_err = self._precheck_env(pdir, requires_hammer=True)
-        if not hammer_ok:
-            return ProofResult(proved=False, method='l2:skipped (hammer unavailable)',
-                               error=f'hammer unavailable: {hammer_err}', hammer_available=False)
+        # a rust unit's text runs in its crate env (check_proof routes it); any
+        # other text runs in the configured hammer project; project_dir arg ignored
+        if _crate_of(lean_env) is not None:
+            pdir = None
+            if not _lss_config.proof_cfg()["rust_hammer"]:
+                return ProofResult(proved=False, method='l2:skipped (hammer off for rust)',
+                                   error='[proof] rust_hammer is off', hammer_available=False)
+        else:
+            pdir = _lss_config.hammer_project_dir()
+            if pdir is None:
+                return ProofResult(proved=False, method='', error='no hammer project configured')
+            hammer_ok, hammer_err = self._precheck_env(pdir, requires_hammer=True)
+            if not hammer_ok:
+                return ProofResult(proved=False, method='l2:skipped (hammer unavailable)',
+                                   error=f'hammer unavailable: {hammer_err}', hammer_available=False)
         hammer_timeout = _lss_config.server_cfg()['hammer_timeout']
         context, theorem = _hammer_code(lean_env, theorem_stmt)
         t0 = time.time()
@@ -610,10 +679,15 @@ class LeanChecker:
         aeneas_dir = _lss_config.project_dir("aeneas")
         server = _lean_server.get_server(aeneas_dir)
         g = _callgraph.for_project(project_dir)
-        text = (g.crate_text +
+        crate, selector = g.crate_text, ""
+        if _lss_config.proof_cfg()["rust_hammer"]:
+            crate = crate.replace("import Aeneas", "import Aeneas\nimport Hammer", 1)
+            selector = _hammer_selector()
+        text = (crate +
                 "\nset_option maxRecDepth 2048\n"
-                f"open Aeneas Aeneas.Std Result ControlFlow Error\nopen {g.crate}\n" +
+                f"open Aeneas Aeneas.Std Result ControlFlow Error\nopen {g.crate}\n" + selector +
                 proof_check_text() + "\n" + _aeneas_layer_text())
+        _CRATE_ENVS[g.crate] = (self, project_dir, hashlib.sha256(g.crate_text.encode("utf-8")).hexdigest()[:16])
         t0 = time.time()
         r = server.check(text, timeout=600)
         elapsed = time.time() - t0
