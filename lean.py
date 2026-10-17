@@ -402,59 +402,6 @@ class LeanChecker:
                 return line
         return combined
 
-    def eval_with_precond(self, func_name, input_str, lean_code):
-        cache_key = f"eval_precond:{func_name}:{input_str}"
-        if self._cache:
-            cached = self._cache.get(cache_key)
-            if cached is not None:
-                return cached
-
-        m = re.search(r'def\s+' + re.escape(func_name) + r'\b(.*?)(?::=|\n\s*\|)', lean_code, re.DOTALL)
-        if not m:
-            return self.eval_expr(f"{func_name} {input_str}", prelude=lean_code)
-        sig = m.group(1)
-        precond_params = re.findall(r'\([^)]*(?:_precond|:\s*Prop)[^)]*\)', sig)
-        n = len(precond_params)
-        if n == 0:
-            return self.eval_expr(f"{func_name} {input_str}", prelude=lean_code)
-
-        result = None
-        for tactic in ["by decide", "by native_decide", "by simp", "by tauto", "by aesop"]:
-            r = self.eval_expr(
-                f"{func_name} {input_str}" + f" ({tactic})" * n,
-                prelude=lean_code
-            )
-            if r and "error" not in r.lower():
-                result = r
-                break
-
-        if not result:
-            for tactic in ["by decide", "by simp", "by omega", "by exact?", "by aesop"]:
-                args = f" ({tactic})" * n
-                code = "import Mathlib.Tactic\n" + lean_code + f"\n#eval {func_name} {input_str}{args}"
-                stdout, stderr, rc = run_in_project(code)
-                combined = (stdout or "") + "\n" + (stderr or "")
-                for line in reversed(combined.splitlines()):
-                    line = line.strip()
-                    if line and ':' not in line and len(line) < 200:
-                        result = line
-                        break
-                if result and "error" not in result.lower():
-                    break
-                result = None
-                if rc == 0:
-                    for line in combined.splitlines():
-                        line = line.strip()
-                        if line and 'warning' not in line and 'error' not in line and 'info' not in line.lower():
-                            result = line
-                            break
-                    if result:
-                        break
-
-        if self._cache and result:
-            self._cache.put(cache_key, result)
-        return result
-
     @with_context(layer="tactics")
     def try_proof_batch(self, lean_env, theorem_stmt, func_name=None,
                         allow_search_tactics=False, use_project=False, project_dir=None):

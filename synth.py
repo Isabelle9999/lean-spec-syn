@@ -12,6 +12,7 @@ import events
 import pricing
 import lss_config as _lss_config
 import gate as _gate
+import bounded as _bounded
 
 def _key():
     import os
@@ -919,17 +920,6 @@ def _type_constants(correct_out):
     return ["default"]
 
 
-def _input_dependent_wrong_impls(lean_code, func_name):
-    """wrong implementations that depend on input (not constants)."""
-    wrongs = []
-    pat = rf'(def\s+{re.escape(func_name)}\s+[^:]*:[^:]*):=[\s\S]*?(?=\ndef\s|\Z)'
-    for body in ["fun l _ => l.reverse", "fun l _ => l.drop 1", "fun l _ => l ++ [0]"]:
-        w = re.sub(pat, rf'\1:= {body}', lean_code, count=1)
-        if w != lean_code:
-            wrongs.append(w)
-    return wrongs
-
-
 def _make_wrong_for_spec_identity(lean_code, spec_stmt, all_funcs):
     target = None
     for fname in all_funcs:
@@ -1356,8 +1346,6 @@ def _llm_repair(llm, lean_code, spec, prev_proofs=None, verbose=False, debug_dir
 
 def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_store=None, func_name=None, verbose=False, debug_dir=None, project_dir=None, func_source=None, source=None):
     func = func_name or _func_name(lean_code)
-    wrong = _make_wrong(lean_code, func) if func else _replace_body(lean_code)
-    all_funcs = re.findall(r'def\s+([a-zA-Z_][a-zA-Z0-9_\'!?]*)', lean_code)
 
     processed_stmts = set()
 
@@ -1390,7 +1378,6 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                     else:
                         preamble = ""
                 eff = lean_code.rstrip() + "\n" + preamble if preamble else lean_code
-                wrong_eff = wrong.rstrip() + "\n" + preamble if preamble else wrong
 
                 # gate 0: flag if spec is consistent with any stored negative example
                 if example_store:
@@ -1464,64 +1451,35 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                     events.emit("verdict", status="rejected", method="", fail_gate="g1")
                     continue
 
-                # gate 2: function runs on test inputs
-                if test_inputs and func:
-                    for inp in test_inputs:
-                        val = lean_checker.eval_with_precond(func, inp, eff)
-                        if val and "error" not in val.lower():
-                            if verbose:
-                                print(f"  [g2] {spec['name']}: eval pass ({func} {inp} = {val[:40]})")
-                            break
-                    else:
-                        if verbose:
-                            print(f"  [g2] {spec['name']}: eval FAIL (no input succeeded)")
-                            print(f"         stmt: {spec['stmt'][:100]}")
-                        spec["status"] = "rejected"
-                        spec["fail_gate"] = "g2"
-                        events.emit("verdict", status="rejected", method="", fail_gate="g2")
+                # bounded check (rust units): run the spec on sampled inputs before any
+                # prover. a false spec is refuted with its shrunk witness, a vacuous
+                # one rejected, and either gets one repair from the counterexample; a
+                # narrow precondition only warns, and a timeout goes on to the provers.
+                if source == "rust-aeneas" and func:
+                    b = _bounded.check_spec(lean_checker, spec["stmt"], func, project_dir)
+                    spec["bounded"] = b
+                    if verbose:
+                        print(f"  [b] {spec['name']}: {b['status']}"
+                              + (f" ({b['warning']})" if b.get("warning") else ""))
+                    if b["status"] in ("refuted", "vacuous"):
+                        if llm and not spec.get("_b_repaired"):
+                            fixed = llm._ask(
+                                f"This Lean 4 theorem about a Rust function (translated by Aeneas) is wrong:\n"
+                                f"  theorem {spec['name']} : {spec['stmt']}\n\n{b['feedback']}\n\n"
+                                f"Function it is about:\n{func_source if func_source else lean_code}\n\n"
+                                f"Fix the statement so it is true of the function and still says what it computes.\n"
+                                f"Return ONLY the fixed theorem line: theorem name : fixed_statement := sorry")
+                            fm = re.search(r':\s*(.*?)\s*:=', fixed or "")
+                            if fm:
+                                specs.append({"name": spec["name"] + "_r", "stmt": fm.group(1).strip(),
+                                              "preamble": spec.get("preamble", ""), "_b_repaired": True})
+                        spec["status"] = "refuted" if b["status"] == "refuted" else "rejected"
+                        spec["fail_gate"] = b["status"]
+                        if b["status"] == "refuted":
+                            spec["refuted_by"] = "kernel" if b["kernel"] else "evaluation"
+                        events.emit("verdict", status=spec["status"], method="bounded", fail_gate=b["status"])
                         continue
 
-                # Determine if vacuity check should be skipped (relational specs)
-                skip_vacuity = False
-                if func and spec['stmt'].count(func) >= 2:
-                    # Both sides of equality reference the function — relational spec
-                    skip_vacuity = True
-                # gate 3: completeness check (proof-based with input-dependent wrong implementations)
-                    # Uses wrong implementations that DEPEND on input (l.reverse, l.drop 1, l ++ [0])
-                    # NOT constants which satisfy trivial cases
-                    # NOT #eval decide which fails for non-decidable propositions (List.Perm, Pairwise)
-                    if skip_vacuity:
-                        if verbose:
-                            print(f"  [g3] {spec['name']}: skipped (relational)")
-                    else:
-                        stmt = spec["stmt"]
-                        parts = stmt.split("\u2192")
-                        conclusion = parts[-1] if len(parts) > 1 else stmt
-                        target_func = func
-                        if func and func not in conclusion:
-                            if verbose:
-                                print(f"  [g3] {spec['name']}: skipped (no function in conclusion)")
-                        else:
-                            rejects_any = False
-                            wrong_impls = _input_dependent_wrong_impls(lean_code, target_func)
-                    
-                            for wi in wrong_impls:
-                                pr_wrong = lean_checker.try_proof_batch(wi, stmt,
-                                    func_name=target_func, project_dir=project_dir)
-                                if not pr_wrong.proved:
-                                    rejects_any = True
-                                    if verbose:
-                                        print(f"  [g3] {spec['name']}: completeness pass (rejects wrong impl)")
-                                    break
-                    
-                            if not rejects_any:
-                                spec["status"] = "rejected"
-                                spec["fail_gate"] = "g3"
-                                if verbose:
-                                    print(f"  [g3] {spec['name']}: vacuity FAIL (accepts all {len(wrong_impls)} wrong impls)")
-                                    print(f"         stmt: {stmt[:100]}")
-                                events.emit("verdict", status="rejected", method="", fail_gate="g3")
-                                continue
                 # gate 4a: aeneas tactic layer, rust units only
                 if source == "rust-aeneas" and _lss_config.proof_cfg()["aeneas_layer"]:
                     pr0 = lean_checker.try_aeneas(spec["stmt"], func, project_dir, candidate_id=spec["name"])
@@ -1581,7 +1539,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
 
     # pbt: final check for unproved specs
     for spec in specs:
-        if spec["status"] in ("proved", "rejected"):
+        if spec["status"] in ("proved", "rejected", "refuted"):
             continue
         preamble = spec.get("preamble", "")
         eff_pbt = lean_code.rstrip() + "\n" + preamble if preamble else lean_code

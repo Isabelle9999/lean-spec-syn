@@ -203,6 +203,54 @@ def run_static_run():
           and code.endswith("lss_eval_spec x"), code[-200:])
 
 
+def run_static_synth():
+    print("=== static: wiring into validate ===")
+    import synth
+    import gate
+    import lean
+
+    class Checker:
+        def __init__(self):
+            self.aeneas = []
+
+        def try_aeneas(self, stmt, func, project_dir, candidate_id=None):
+            self.aeneas.append(stmt)
+            return lean.ProofResult(proved=True, method="aeneas:a", error="")
+
+    class LLM:
+        prompts = []
+
+        def _ask(self, prompt):
+            self.prompts.append(prompt)
+            return "theorem s_fixed : FIXED := sorry" if "theorem s :" in prompt else ""
+
+    verdicts = {"S": {"status": "refuted", "kernel": True, "witness": [5], "outcome": "violates", "value": '"5"',
+                      "feedback": "On input (5#u32) the function returned \"5\", and the statement is false there"},
+                "FIXED": {"status": "timeout", "detail": "timeout"},
+                "V": {"status": "vacuous", "feedback": "says nothing"}}
+    old_gate, old_b = synth._gate.check_candidate, synth._bounded.check_spec
+    synth._gate.check_candidate = lambda *a, **k: [{"check": c, "ok": True, "detail": ""} for c in gate.CHECK_ORDER]
+    synth._bounded.check_spec = lambda checker, stmt, unit, project_dir: dict(verdicts[stmt])
+    try:
+        checker, llm = Checker(), LLM()
+        specs = [{"name": "s", "stmt": "S"}, {"name": "v", "stmt": "V"}]
+        synth.validate(specs, "def f (x : U32) : Result U32 := ok x", [], checker, llm=llm, func_name="f",
+                       project_dir="/p", source="rust-aeneas")
+    finally:
+        synth._gate.check_candidate, synth._bounded.check_spec = old_gate, old_b
+    s = specs[0]
+    check("a refuted spec gets status refuted, by kernel", s["status"] == "refuted" and s["refuted_by"] == "kernel", str(s))
+    check("a vacuous spec is rejected", specs[1]["status"] == "rejected" and specs[1]["fail_gate"] == "vacuous",
+          str(specs[1]))
+    check("the repair prompt carries the counterexample", any("On input (5#u32)" in p for p in llm.prompts))
+    check("a vacuous spec gets a repair prompt too", any("says nothing" in p for p in llm.prompts))
+    rep = [x for x in specs if x["name"] == "s_r"]
+    check("the repaired statement is checked again and, after a timeout, goes to the provers",
+          len(rep) == 1 and rep[0]["stmt"] == "FIXED" and rep[0]["status"] == "proved" and checker.aeneas == ["FIXED"],
+          str(rep))
+    check("a repaired spec is not repaired again", sum(1 for x in specs if x["name"].endswith("_r_r")) == 0)
+
+
 def run_full():
     print("=== full: bounded checking on FeatureSuite ===")
     import lean
@@ -268,6 +316,7 @@ run_static_values()
 run_static_commands()
 run_static_check()
 run_static_run()
+run_static_synth()
 if not static:
     run_full()
 print()
