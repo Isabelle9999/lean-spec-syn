@@ -43,3 +43,17 @@ aeneas_heartbeats = 200000
 # falls back to it anyway, but only after trying the cloud selector first);
 # "cloud" leaves hammer's own default alone.
 premise_selector = "local"
+# rust crates: import Hammer into the crate env, so hammer runs on rust units
+# (whole goal and after step*). off by default: with the local selector, hammer
+# did not prove `a + b = b + a` in any import setup (2026-10-17), and a crate env
+# with Hammer is a second base environment next to the unit graph's, which hit
+# the memory cap in the proof-trust test
+rust_hammer = false
+# heartbeats for a hammer proof on a rust unit (after step*); the whole-goal
+# attempt runs under the unit's own preamble (maxHeartbeats 1000000)
+hammer_heartbeats = 1000000
+# seconds for the Lean work of one candidate's sub-lemma split (layer 3), shared
+# evenly across its sub-lemmas: layer 1 always runs, hammer gets what is left
+split_seconds = 180
+# hammer seconds shared by the mutant proofs of one pass over a unit's mutants
+mutant_hammer_seconds = 120

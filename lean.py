@@ -10,7 +10,6 @@ import lss_config as _lss_config
 import lean_server as _lean_server
 import callgraph as _callgraph
 import events
-from events import with_context
 
 TACTICS = [
     # instant closers
@@ -111,13 +110,57 @@ def get_lean_calls():
     _lean_call_count = 0
     return c
 
+# rust crates whose env a LeanChecker keeps: crate -> (checker, rust project dir,
+# hash of the crate text). every rust unit's context imports <crate>.Code.*
+# (loader.py), which the aeneas project cannot load (and the crate's own lake
+# project is never built), so such a text runs as commands in the crate's env
+# instead: the callee specs proved so far are there, and hammer too when
+# [proof] rust_hammer is on.
+_CRATE_ENVS = {}
+_CRATE_IMPORT = re.compile(r"^import\s+(\S+)\.Code\.\w+\s*$", re.MULTILINE)
+
+
+def _crate_of(code):
+    """the crate `code` imports, when a checker keeps that crate's env; else None."""
+    for m in _CRATE_IMPORT.finditer(code or ""):
+        if m.group(1) in _CRATE_ENVS:
+            return m.group(1)
+    return None
+
+
+def _crate_dirs():
+    return {pdir for _, pdir, _ in _CRATE_ENVS.values()}
+
+
+def _cache_tag(code):
+    """prefix for cache keys: a crate-routed text is keyed by its crate's text, so a
+    result cached before the crate changed (or before routing) is never reused."""
+    crate = _crate_of(code)
+    return f"crate:{_CRATE_ENVS[crate][2]}\n" if crate else ""
+
+
+def run_routed(code, timeout=None):
+    """CheckResult of `code` run in its crate's env with its import lines dropped,
+    or None when `code` imports no crate a checker keeps (or that env is down)."""
+    crate = _crate_of(code)
+    if crate is None:
+        return None
+    checker, pdir, _ = _CRATE_ENVS[crate]
+    state = checker._aeneas_env_for(pdir)
+    if not state["ok"]:
+        return None
+    rest = "\n".join(line for line in code.splitlines() if not line.strip().startswith("import "))
+    return _lean_server.get_server(_lss_config.project_dir("aeneas")).check(rest, timeout=timeout, env=state["env"])
+
+
 def run_in_project(code, project_dir=None):
-    """Run lean with project dependencies (Mathlib or Aeneas)."""
+    """Run lean with project dependencies (Mathlib or Aeneas); a rust unit's text
+    runs in its crate env (run_routed)."""
     global _lean_call_count
     _lean_call_count += 1
-    if project_dir is None:
-        project_dir = _PROJECT_DIR
-    r = _lean_server.get_server(project_dir).check(code)
+    r = run_routed(code)
+    if r is None:
+        r = _lean_server.get_server(project_dir or _PROJECT_DIR).check(code)
     return r.stdout, r.stderr, r.rc
 
 
@@ -205,17 +248,27 @@ def classify_function(lean_env, func_name):
     }
 
 
-def _hammer_code(lean_env, theorem_stmt):
-    """(context, theorem): the context sets up hammer, the theorem is checked by
-    lss_check_proof."""
-    code = 'import Mathlib\nimport Hammer\n' + lean_env.rstrip() + '\n'
+HAMMER = "hammer { disableGrind := true }"
+# the least time worth giving one proof attempt under a shared time budget
+MIN_TRY = 5
+
+
+def _hammer_selector():
+    """the premise-selector line hammer runs under ("" for hammer's own default)."""
     if _lss_config.proof_cfg()['premise_selector'] == 'local':
         # Hammer's own default is `Cloud.premiseSelector <|> sineQuaNonSelector...`
         # (Hammer/Tactic.lean:22); this re-sets the same local fallback alone, so
         # hammer never calls out to leanpremise.net.
-        code += ('set_library_suggestions open Lean.LibrarySuggestions in '
-                 'sineQuaNonSelector.intersperse currentFile\n')
-    return code, f'theorem _hammer_proof : {theorem_stmt} := by hammer {{ disableGrind := true }}'
+        return ('set_library_suggestions open Lean.LibrarySuggestions in '
+                'sineQuaNonSelector.intersperse currentFile\n')
+    return ""
+
+
+def _hammer_code(lean_env, theorem_stmt):
+    """(context, theorem): the context sets up hammer, the theorem is checked by
+    lss_check_proof."""
+    code = 'import Mathlib\nimport Hammer\n' + lean_env.rstrip() + '\n' + _hammer_selector()
+    return code, f'theorem _hammer_proof : {theorem_stmt} := by {HAMMER}'
 
 
 _AENEAS_LAYER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean", "aeneas_layer.lean")
@@ -270,11 +323,14 @@ def check_proofs(context, named, project_dir=None, timeout=None, heartbeats=0):
     only thing that may mark a proof proved."""
     global _lean_call_count
     _lean_call_count += 1
-    if not any(line.strip().startswith("import ") for line in context.splitlines()):
-        context = "import Lean\n" + context
     calls = "\n".join(proof_check_call(theorems, name, heartbeats) for name, theorems in named)
-    server = _lean_server.get_server(project_dir or _PROJECT_DIR)
-    r = server.check(context.rstrip() + "\n" + calls, timeout=timeout, prelude=proof_check_text())
+    # a rust unit's context runs in its crate env, which already holds proof_check.lean
+    r = run_routed(context.rstrip() + "\n" + calls, timeout=timeout)
+    if r is None:
+        if not any(line.strip().startswith("import ") for line in context.splitlines()):
+            context = "import Lean\n" + context
+        server = _lean_server.get_server(project_dir or _PROJECT_DIR)
+        r = server.check(context.rstrip() + "\n" + calls, timeout=timeout, prelude=proof_check_text())
     out = (r.stdout or "") + (r.stderr or "")
     got = parse_proof_verdicts(out)
     return {name: got.get(name) or _no_verdict(name, r, out) for name, _ in named}, out
@@ -286,12 +342,42 @@ def check_proof(context, theorems, name, project_dir=None, timeout=None, heartbe
     return verdicts[name], out
 
 
+def _aeneas_budget(tactic):
+    """(heartbeats, seconds) for an aeneas-layer proof: hammer's own budget when the
+    tactic calls hammer, so its admission, replay and modularity check get the
+    same budget the proof itself had."""
+    if HAMMER in tactic:
+        return _lss_config.proof_cfg()["hammer_heartbeats"], max(90, _lss_config.server_cfg()["hammer_timeout"])
+    return _lss_config.proof_cfg()["aeneas_heartbeats"], 90
+
+
 def _aeneas_layer_text():
     global _aeneas_layer_cache
     if _aeneas_layer_cache is None:
         with open(_AENEAS_LAYER_PATH, encoding="utf-8") as f:
             _aeneas_layer_cache = f.read()
     return _aeneas_layer_cache
+
+
+_TYPE_DECL = re.compile(r"^(?:@\[[^\]\n]*\]\s*)?(?:structure|inductive)\s+([\w.]+)", re.MULTILINE)
+
+
+def _types_named(crate_text, text):
+    """the crate's structure/inductive declarations (each up to its blank line)
+    that `text` names, directly or through another picked type, in crate order."""
+    blocks = {}
+    for m in _TYPE_DECL.finditer(crate_text):
+        end = crate_text.find("\n\n", m.end())
+        blocks[m.group(1)] = crate_text[m.start():end if end >= 0 else len(crate_text)].strip()
+    seen, grew = set(), True
+    while grew:
+        grew = False
+        for n, b in blocks.items():
+            if n not in seen and re.search(r"(?<![\w.])" + re.escape(n) + r"(?![\w])", text):
+                seen.add(n)
+                text += "\n" + b
+                grew = True
+    return [b for n, b in blocks.items() if n in seen]
 
 
 class LeanChecker:
@@ -306,12 +392,13 @@ class LeanChecker:
         self._aeneas_admit_counter = {}  # project_dir -> next admitted-name index, never reused
         self._modular_counter = 0
 
-    @with_context(layer="typecheck")
+    @events.layer("typecheck")
     def typecheck(self, code, project_dir=None):
         if project_dir is None:
             project_dir = self.project_dir
+        key = _cache_tag(code) + code
         if self._cache:
-            hit = self._cache.get(code)
+            hit = self._cache.get(key)
             if hit is not None:
                 return hit[0], hit[1]
         stdout, stderr, rc = run_in_project(code, project_dir=project_dir or _PROJECT_DIR)
@@ -328,7 +415,7 @@ class LeanChecker:
                 errs.append(f"lean exited with code {rc}")
         ok = rc == 0 and not errs
         if self._cache:
-            self._cache.put(code, [ok, errs])
+            self._cache.put(key, [ok, errs])
         return ok, errs
 
     def typecheck_project(self, code, project_dir=None):
@@ -344,6 +431,12 @@ class LeanChecker:
         """verify project_dir can elaborate the imports used by proof layers.
         result is cached per (project_dir, requires_hammer).
         returns (ok, error_string)."""
+        if project_dir in _crate_dirs():
+            # a rust crate: its texts run in the crate env (Aeneas, so Mathlib's
+            # tactics; Hammer when [proof] rust_hammer is on), nothing to import
+            if requires_hammer and not _lss_config.proof_cfg()["rust_hammer"]:
+                return False, "hammer is off for rust crates ([proof] rust_hammer)"
+            return True, ""
         key = (project_dir, requires_hammer)
         if key in self._env_cache:
             return self._env_cache[key]
@@ -402,15 +495,15 @@ class LeanChecker:
                 return line
         return combined
 
-    @with_context(layer="tactics")
+    @events.layer("tactics")
     def try_proof_batch(self, lean_env, theorem_stmt, func_name=None,
-                        allow_search_tactics=False, use_project=False, project_dir=None):
+                        allow_search_tactics=False, use_project=False, project_dir=None, timeout=None):
         if project_dir is None:
             project_dir = self.project_dir
         pdir = project_dir if project_dir else (_PROJECT_DIR if os.path.isdir(_PROJECT_DIR) else None)
         if pdir is None:
             return ProofResult(proved=False, method="", error="no project dir for mathlib")
-        mathlib_ok, _ = self._precheck_env(pdir)
+        mathlib_ok = _crate_of(lean_env) is not None or self._precheck_env(pdir)[0]
         imports = "import Mathlib\n" if mathlib_ok else ""
 
         # layer 1: tactic portfolio
@@ -540,7 +633,7 @@ class LeanChecker:
         env_stripped = lean_env.rstrip()
         named = [(f"_lss_p{i}", f"theorem _lss_p{i} : {theorem_stmt} := {suffix}")
                  for i, (suffix, _) in enumerate(entries)]
-        cache_key = "v:" + imports + env_stripped + "\n" + "\n".join(t for _, t in named)
+        cache_key = "v:" + _cache_tag(lean_env) + imports + env_stripped + "\n" + "\n".join(t for _, t in named)
         if self._cache:
             hit = self._cache.get_proof(cache_key)
             if hit is not None:
@@ -549,7 +642,7 @@ class LeanChecker:
                                    mathlib_available=hit.get("mathlib_available", True),
                                    axioms=hit.get("axioms", []))
 
-        verdicts, out = check_proofs(imports + env_stripped, named, project_dir=pdir)
+        verdicts, out = check_proofs(imports + env_stripped, named, project_dir=pdir, timeout=timeout)
         self.lean_calls += 1
         result = ProofResult(proved=False, method="", error=out.strip()[:200],
                              mathlib_available=mathlib_ok)
@@ -561,7 +654,8 @@ class LeanChecker:
                                      mathlib_available=mathlib_ok, axioms=v["axioms"])
                 break
 
-        if self._cache:
+        # a run cut short (timeout, memory cap) says nothing about the tactics: not cached
+        if self._cache and not any(v["stage"] in ("timeout", "memory") for v in verdicts.values()):
             self._cache.put_proof(cache_key, {
                 "proved": result.proved, "method": result.method, "error": result.error,
                 "mathlib_available": result.mathlib_available, "axioms": result.axioms,
@@ -569,24 +663,31 @@ class LeanChecker:
         return result
 
     def try_proof(self, lean_env, theorem_stmt, func_name=None,
-                  allow_search_tactics=False, use_project=False, project_dir=None):
+                  allow_search_tactics=False, use_project=False, project_dir=None, timeout=None):
         if project_dir is None:
             project_dir = self.project_dir
         return self.try_proof_batch(lean_env, theorem_stmt, func_name=func_name,
                                     allow_search_tactics=allow_search_tactics,
-                                    use_project=use_project, project_dir=project_dir)
+                                    use_project=use_project, project_dir=project_dir, timeout=timeout)
 
-    @with_context(layer="hammer")
-    def try_hammer(self, lean_env, theorem_stmt, func_name=None, project_dir=None):
-        # always use the configured hammer project (aeneas); project_dir arg ignored
-        pdir = _lss_config.hammer_project_dir()
-        if pdir is None:
-            return ProofResult(proved=False, method='', error='no hammer project configured')
-        hammer_ok, hammer_err = self._precheck_env(pdir, requires_hammer=True)
-        if not hammer_ok:
-            return ProofResult(proved=False, method='l2:skipped (hammer unavailable)',
-                               error=f'hammer unavailable: {hammer_err}', hammer_available=False)
-        hammer_timeout = _lss_config.server_cfg()['hammer_timeout']
+    @events.layer("hammer")
+    def try_hammer(self, lean_env, theorem_stmt, func_name=None, project_dir=None, timeout=None):
+        # a rust unit's text runs in its crate env (check_proof routes it); any
+        # other text runs in the configured hammer project; project_dir arg ignored
+        if _crate_of(lean_env) is not None:
+            pdir = None
+            if not _lss_config.proof_cfg()["rust_hammer"]:
+                return ProofResult(proved=False, method='l2:skipped (hammer off for rust)',
+                                   error='[proof] rust_hammer is off', hammer_available=False)
+        else:
+            pdir = _lss_config.hammer_project_dir()
+            if pdir is None:
+                return ProofResult(proved=False, method='', error='no hammer project configured')
+            hammer_ok, hammer_err = self._precheck_env(pdir, requires_hammer=True)
+            if not hammer_ok:
+                return ProofResult(proved=False, method='l2:skipped (hammer unavailable)',
+                                   error=f'hammer unavailable: {hammer_err}', hammer_available=False)
+        hammer_timeout = timeout or _lss_config.server_cfg()['hammer_timeout']
         context, theorem = _hammer_code(lean_env, theorem_stmt)
         t0 = time.time()
         v, out = check_proof(context, theorem, "_hammer_proof", project_dir=pdir, timeout=hammer_timeout)
@@ -610,10 +711,15 @@ class LeanChecker:
         aeneas_dir = _lss_config.project_dir("aeneas")
         server = _lean_server.get_server(aeneas_dir)
         g = _callgraph.for_project(project_dir)
-        text = (g.crate_text +
+        crate, selector = g.crate_text, ""
+        if _lss_config.proof_cfg()["rust_hammer"]:
+            crate = crate.replace("import Aeneas", "import Aeneas\nimport Hammer", 1)
+            selector = _hammer_selector()
+        text = (crate +
                 "\nset_option maxRecDepth 2048\n"
-                f"open Aeneas Aeneas.Std Result ControlFlow Error\nopen {g.crate}\n" +
+                f"open Aeneas Aeneas.Std Result ControlFlow Error\nopen {g.crate}\n" + selector +
                 proof_check_text() + "\n" + _aeneas_layer_text())
+        _CRATE_ENVS[g.crate] = (self, project_dir, hashlib.sha256(g.crate_text.encode("utf-8")).hexdigest()[:16])
         t0 = time.time()
         r = server.check(text, timeout=600)
         elapsed = time.time() - t0
@@ -653,11 +759,11 @@ class LeanChecker:
         audited), the same check the proof attempts themselves get. the unit's
         active step lemma (LSS_STEP's "active") is recorded for the modularity check."""
         aeneas_dir = _lss_config.project_dir("aeneas")
-        heartbeats = _lss_config.proof_cfg()["aeneas_heartbeats"]
+        heartbeats, timeout = _aeneas_budget(tactic)
         server = _lean_server.get_server(aeneas_dir)
         text = (proof_check_call(f"theorem {name} : {stmt} := by\n  {tactic}", name, heartbeats) +
                 f"\nlss_register_step {name}")
-        r = server.check(text, timeout=90, env=state["env"])
+        r = server.check(text, timeout=timeout, env=state["env"])
         self.lean_calls += 1
         combined = (r.stdout or "") + (r.stderr or "")
         verdict = parse_proof_verdicts(combined).get(name)
@@ -677,7 +783,7 @@ class LeanChecker:
             print(f"  aeneas admit failed: {name}: {(errs[0] if errs else combined.strip())[:200]}")
         return r
 
-    @with_context(layer="aeneas")
+    @events.layer("aeneas")
     def try_aeneas(self, candidate_stmt, func_name, rust_project_dir, candidate_id=None):
         """aeneas-tactic layer for a rust unit: unfold f; step*, then step* plus a
         closer, against the crate's growing env in the pinned aeneas project (every
@@ -724,24 +830,62 @@ class LeanChecker:
         for label, tactic in attempts[:2]:
             v = verdicts.get(f"_aeneas_{label}")
             if v and v.get("ok"):
-                modular, body = self._modularity(g, state, unit, candidate_stmt, tactic)
-                n = self._aeneas_admit_counter.get(rust_project_dir, 0)
-                self._aeneas_admit_counter[rust_project_dir] = n + 1
-                name = f"lss_admitted_{n}"
-                self._aeneas_admit(rust_project_dir, state, name, candidate_stmt, tactic, unit)
-                return ProofResult(proved=True, method=f"aeneas:{label}", error="",
-                                   proof_text=tactic, axioms=v.get("axioms", []),
-                                   modular=modular, needs_callee_body=body)
+                return self._aeneas_proved(rust_project_dir, g, unit, candidate_stmt, label, tactic, v)
+
+        # h: b's closers, then hammer on each goal they leave; a call of its own,
+        # with hammer's time and heartbeats, made only when a and b failed
+        if _lss_config.proof_cfg()["rust_hammer"]:
+            tactic_h = attempts[1][1] + f" | {HAMMER}"
+            hb, timeout = _aeneas_budget(tactic_h)
+            r = server.check(proof_check_call(f"theorem _aeneas_h : {candidate_stmt} := by\n  {tactic_h}", "_aeneas_h", hb),
+                             timeout=timeout, env=state["env"])
+            self.lean_calls += 1
+            v = parse_proof_verdicts((r.stdout or "") + (r.stderr or "")).get("_aeneas_h")
+            if v and v.get("ok"):
+                return self._aeneas_proved(rust_project_dir, g, unit, candidate_stmt, "h", tactic_h, v)
+            state = self._aeneas_env_for(rust_project_dir)  # a hammer timeout restarts the server
 
         blamed = self._blame(g, state, unit, candidate_stmt, attempts[1][1])
         return ProofResult(proved=False, method="", error=combined.strip()[:200], blamed_callees=blamed)
+
+    def _aeneas_proved(self, project_dir, g, unit, stmt, label, tactic, verdict):
+        """a winning aeneas-layer attempt: check modularity, admit it, report it."""
+        state = self._aeneas_env_for(project_dir)
+        modular, body = self._modularity(g, state, unit, stmt, tactic)
+        n = self._aeneas_admit_counter.get(project_dir, 0)
+        self._aeneas_admit_counter[project_dir] = n + 1
+        self._aeneas_admit(project_dir, state, f"lss_admitted_{n}", stmt, tactic, unit)
+        return ProofResult(proved=True, method=f"aeneas:{label}", error="", proof_text=tactic,
+                           axioms=verdict.get("axioms", []), modular=modular, needs_callee_body=body)
+
+    def unit_context(self, project_dir, unit):
+        """the Lean text a prompt about a rust unit gets, in place of the crate's
+        whole Types.lean and Funs.lean: the types its definitions name, each
+        external callee's specs proved so far this run (its definition while it
+        has none), the rest of its recursion group, and its own definition."""
+        g = _callgraph.for_project(project_dir)
+        name = unit if unit in g.names else f"{g.crate}.{unit}"
+        proved = {}
+        for _, stmt, _, u in (self._aeneas_env.get(project_dir) or {"admitted": []})["admitted"]:
+            proved.setdefault(u, []).append(stmt)
+        parts = []
+        for c in g.callees_outside_scc(name):
+            if proved.get(c):
+                parts.append(f"-- proved specs of {c}:\n" + "\n".join(f"--   {st}" for st in proved[c]))
+            else:
+                parts.append(g.def_text(c) or "")
+        i = g.scc_of(name)
+        group = sorted(g.sccs[i] - {name}) if i is not None else []
+        parts += [g.def_text(m) or "" for m in group] + [g.def_text(name) or ""]
+        body = "\n\n".join(p for p in parts if p)
+        return "\n\n".join(_types_named(g.crate_text, body) + [body])
 
     def _modular_check(self, state, unit, stmt, tactic, abstract, inline):
         """one ∀-abstraction variant (lss_modular): `abstract` is [(callee, spec
         lemma or None)], `inline` the callees replaced by their bodies. the env is
         never kept. returns the LSS_PROOF verdict."""
         server = _lean_server.get_server(_lss_config.project_dir("aeneas"))
-        heartbeats = _lss_config.proof_cfg()["aeneas_heartbeats"]
+        heartbeats, timeout = _aeneas_budget(tactic)
         tag = f"lss_mod_{self._modular_counter}"
         self._modular_counter += 1
         # the proof's lines go into one tactic block, so they must share one indentation
@@ -751,7 +895,7 @@ class LeanChecker:
         text = (f'lss_modular {tag} unit:{unit} stmt:"{_escape_lean_str(stmt)}" '
                 f'tactic:"{_escape_lean_str(flat)}" abstract:[{abs_txt}] inline:[{", ".join(inline)}] '
                 f'heartbeats:{heartbeats}')
-        r = server.check(text, timeout=90, env=state["env"])
+        r = server.check(text, timeout=timeout, env=state["env"])
         self.lean_calls += 1
         out = (r.stdout or "") + (r.stderr or "")
         v = parse_proof_verdicts(out).get(f"{tag}.proof") or _no_verdict(f"{tag}.proof", r, out)
@@ -910,24 +1054,26 @@ _MUTANT_CAP = 30
 _SECOND_ORDER_CAP = 10
 
 
-def _sample_mutants(mutants, cap):
-    """round-robin sample across operator classes when over cap.
-    returns (sampled_list, stats_dict)."""
-    n = len(mutants)
-    if n <= cap:
-        return mutants, {"generated": n, "sampled": n, "capped": False}
-    by_class = {}
+def _sample_per_line(mutants, cap):
+    """at most one mutant per source line, as at Google (Petrovic and Ivankovic,
+    "State of Mutation Testing at Google", ICSE-SEIP 2018): on each line the
+    mutant whose operator class was picked least so far; with more lines than
+    `cap`, lines are sampled evenly. returns (sampled_list, stats_dict)."""
+    def cls(m):
+        return m.get("operator", "other").split("_")[0]
+    by_line = {}
     for m in mutants:
-        cls = m.get("operator", "other").split("_")[0]
-        by_class.setdefault(cls, []).append(m)
-    per_cls = {c: len(v) for c, v in by_class.items()}
-    result = []
-    queues = list(by_class.values())
-    while len(result) < cap and any(queues):
-        for q in queues:
-            if q and len(result) < cap:
-                result.append(q.pop(0))
-    return result, {"generated": n, "sampled": len(result), "per_class": per_cls, "capped": True}
+        by_line.setdefault(m.get("line", -1), []).append(m)
+    used = {}
+    picked = []
+    for line in sorted(by_line):
+        best = min(by_line[line], key=lambda m: used.get(cls(m), 0))
+        used[cls(best)] = used.get(cls(best), 0) + 1
+        picked.append(best)
+    capped = len(picked) > cap
+    if capped:
+        picked = [picked[i * len(picked) // cap] for i in range(cap)]
+    return picked, {"generated": len(mutants), "lines": len(by_line), "sampled": len(picked), "capped": capped}
 
 
 def _diff_patch(base, mutant):
@@ -1202,6 +1348,8 @@ class MutationEngine:
     def __init__(self, checker):
         self._checker = checker
         self._last_sampling_stats = None
+        # hammer seconds left for this engine's mutant proofs (one engine per pass over a unit's mutants)
+        self._hammer_left = float(_lss_config.proof_cfg()["mutant_hammer_seconds"])
 
     def generate_mutants(self, lean_code, func_name, llm=None, func_source=None, project_dir=None):
         last = func_name.split(".")[-1]
@@ -1324,9 +1472,11 @@ class MutationEngine:
                         seen.add(m["code"])
                         deduped.append(m)
 
-        # 4. emit: rename def to fresh name and append to original lean_code
+        # 4. emit: rename def to fresh name and append to original lean_code; a
+        # mutant's line is the first line where it differs from the definition
         mutants = []
         for i, mut in enumerate(deduped):
+            line = def_src[:len(os.path.commonprefix([def_src, mut["code"]]))].count("\n")
             mutant_fn = f"{last}_mut{i}"
             if inline:
                 src, _ = _find_def_in_text(mut["code"], def_name)
@@ -1345,10 +1495,11 @@ class MutationEngine:
                 **mut,
                 "code": lean_code.rstrip() + "\n" + renamed,
                 "mutant_func_name": mutant_fn,
+                "line": line,
             })
 
-        # 5. sample (Item 2)
-        sampled, stats = _sample_mutants(mutants, _MUTANT_CAP)
+        # 5. sample: at most one mutant per line
+        sampled, stats = _sample_per_line(mutants, _MUTANT_CAP)
         self._last_sampling_stats = stats
         return sampled
 
@@ -1607,17 +1758,16 @@ class MutationEngine:
 
         return mutants
 
-    @with_context(layer="mutation")
-    def filter_compilable(self, mutants, original_code=None, func_name=None, llm=None):
+    @events.layer("mutation")
+    def filter_compilable(self, mutants):
+        """the mutants that typecheck. equivalence is decided later, by proof
+        (certify_proof), never by asking an LLM."""
         result = []
         for mut in mutants:
             if mut.get("diagnostic"):
                 continue
             ok, _ = self._checker.typecheck(mut["code"])
             if ok:
-                if llm and original_code and func_name:
-                    if self.detect_equivalent_llm(original_code, mut["code"], func_name, llm):
-                        continue
                 result.append(mut)
         return result
 
@@ -1733,20 +1883,6 @@ class MutationEngine:
 
         return mutants
 
-    def detect_equivalent_llm(self, original_code, mutant_code, func_name, llm):
-        """Meta's LLM-as-judge approach to detect equivalent mutants.
-        Pre-filter before expensive certification."""
-        prompt = (
-            f"Original function:\n```lean\n{original_code}\n```\n\n"
-            f"Mutant function:\n```lean\n{mutant_code}\n```\n\n"
-            f"Are these two functions equivalent? Do they produce the same output for ALL possible inputs?\n"
-            f"Answer ONLY 'equivalent' or 'different'. Nothing else."
-        )
-        resp = llm._ask(prompt)
-        if resp:
-            return "equivalent" in resp.strip().lower()
-        return False
-
     def certify(self, original_code, mutant_code, func_name, test_inputs):
         if isinstance(mutant_code, dict):
             mutant_fn = mutant_code.get("mutant_func_name", func_name)
@@ -1814,7 +1950,7 @@ class MutationEngine:
 
         return results
 
-    @with_context(layer="mutation")
+    @events.layer("mutation")
     def certify_proof(self, lean_code, mutant, func_name, spec_stmts,
                        project_dir=None, skip_equiv=False, struct_defs=None, spec_names=None):
         """classify one mutant: STILLBORN/EQUIVALENT/KILLED/SURVIVED/INCONCLUSIVE"""
@@ -1833,7 +1969,13 @@ class MutationEngine:
             pr = self._checker.try_proof(env, stmt, project_dir=project_dir)
             if pr.proved:
                 return pr.method
-            pr2 = self._checker.try_hammer(env, stmt, project_dir=project_dir)
+            # hammer shares one budget across the unit's mutants
+            if self._hammer_left < MIN_TRY:
+                return None
+            t0 = time.monotonic()
+            pr2 = self._checker.try_hammer(env, stmt, project_dir=project_dir,
+                                           timeout=min(_lss_config.server_cfg()["hammer_timeout"], self._hammer_left))
+            self._hammer_left -= time.monotonic() - t0
             return pr2.method if pr2.proved else None
 
         def _sub(stmt):

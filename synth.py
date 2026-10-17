@@ -6,7 +6,7 @@ import hashlib
 import anthropic
 from lean import (_errors, run_in_project, classify_function, MutationEngine, Cache,
                   ProofResult, TACTICS, _find_def_in_text, check_proof,
-                  _witnesses_for_type, _diverse_tuples, _parse_struct_defs)
+                  _witnesses_for_type, _diverse_tuples, _parse_struct_defs, MIN_TRY)
 from strategies import generate_from_examples, generate_from_negatives, generate_with_proof
 import events
 import pricing
@@ -181,7 +181,7 @@ class LLMClient:
                         "\n- the value inside some relates to input\n"
                     )
         prompt = (
-            f"lean 4 function:\n{lean_code}\n\n"
+            f"lean 4 function:\n{func_source or lean_code}\n\n"
             f"type hints: {', '.join(type_templates)}\n\n"
             + ex_ctx
             + sig_ctx
@@ -1020,13 +1020,21 @@ def _tactic_of(method):
     return t.split("(")[0].strip()
 
 
-def _prove_claim(lean_code, claim, lean_checker, project_dir=None):
-    """try to prove a standalone claim using layer 1 then layer 2; return (proved, proof_body)"""
+def _prove_claim(lean_code, claim, lean_checker, project_dir=None, seconds=None):
+    """try to prove a standalone claim using layer 1 then layer 2; return (proved, proof_body).
+    with `seconds`, both layers share that time: layer 1 gets at least MIN_TRY
+    seconds, hammer only what is left, and only if that is at least MIN_TRY."""
     fn = _func_name(lean_code)
-    pr = lean_checker.try_proof(lean_code, claim, func_name=fn, project_dir=project_dir)
+    t0 = time.monotonic()
+    l1 = None if seconds is None else max(MIN_TRY, min(_lss_config.server_cfg()["cmd_timeout"], seconds))
+    pr = lean_checker.try_proof(lean_code, claim, func_name=fn, project_dir=project_dir, timeout=l1)
     if pr.proved:
         return True, _tactic_of(pr.method)
-    pr2 = lean_checker.try_hammer(lean_code, claim, project_dir=project_dir)
+    left = None if seconds is None else seconds - (time.monotonic() - t0)
+    if left is not None and left < MIN_TRY:
+        return False, ""
+    hammer = None if left is None else min(_lss_config.server_cfg()["hammer_timeout"], left)
+    pr2 = lean_checker.try_hammer(lean_code, claim, project_dir=project_dir, timeout=hammer)
     if pr2.proved:
         return True, _tactic_of(pr2.method)
     return False, ""
@@ -1034,11 +1042,14 @@ def _prove_claim(lean_code, claim, lean_checker, project_dir=None):
 
 _MAX_HAVES = 5
 
-def decompose_and_prove(lean_code, theorem_stmt, lean_checker, llm, project_dir=None):
-    # layer 3: llm decomposes goal; try verbatim first, then fill have sub-lemmas
+@events.layer("decompose")
+def decompose_and_prove(lean_code, theorem_stmt, lean_checker, llm, project_dir=None, func_source=None):
+    # layer 3: llm decomposes goal; try verbatim first, then fill have sub-lemmas.
+    # the Lean work after the sketch shares one budget, [proof] split_seconds: each
+    # sub-lemma gets an equal share of what is left, the final checks the rest.
     prompt = (
         "This theorem cannot be proved directly. Decompose it into intermediate steps using 'have' statements.\n"
-        f"Function: {lean_code}\n"
+        f"Function: {func_source or lean_code}\n"
         f"Theorem: {theorem_stmt}\n"
         f"Use at most {_MAX_HAVES} have statements. Return a proof sketch:\n"
         "by\n"
@@ -1051,6 +1062,13 @@ def decompose_and_prove(lean_code, theorem_stmt, lean_checker, llm, project_dir=
     if m:
         text = m.group(1).strip()
     sketch = text.removeprefix("by").strip()
+    deadline = time.monotonic() + _lss_config.proof_cfg()["split_seconds"]
+
+    def left():
+        return deadline - time.monotonic()
+
+    def cap():
+        return max(MIN_TRY, min(_lss_config.server_cfg()["cmd_timeout"], left()))
 
     # step 1: try the sketch verbatim — common case when llm fills its own holes
     if project_dir:
@@ -1063,7 +1081,7 @@ def decompose_and_prove(lean_code, theorem_stmt, lean_checker, llm, project_dir=
                 lean_code.rstrip() + "\n")
     verbatim = f"theorem _sketch_check : {theorem_stmt} := by\n"
     verbatim += "\n".join("  " + l for l in sketch.splitlines())
-    v, _ = check_proof(preamble, verbatim, "_sketch_check", project_dir=project_dir)
+    v, _ = check_proof(preamble, verbatim, "_sketch_check", project_dir=project_dir, timeout=cap())
     if v["ok"]:
         return ProofResult(proved=True, method="l3:llm_sketch", error="", axioms=v["axioms"])
 
@@ -1079,10 +1097,11 @@ def decompose_and_prove(lean_code, theorem_stmt, lean_checker, llm, project_dir=
 
     filled_haves = []
     have_names = []
-    for hm in haves:
+    for i, hm in enumerate(haves):
         name = hm.group(1)
         claim = hm.group(2).strip()
-        ok, proof_body = _prove_claim(lean_code, claim, lean_checker, project_dir=project_dir)
+        ok, proof_body = _prove_claim(lean_code, claim, lean_checker, project_dir=project_dir,
+                                      seconds=left() / (len(haves) - i))
         if not ok:
             return ProofResult(proved=False, method="", error=f"cannot prove: {claim[:80]}")
         filled_haves.append(f"have {name} : {claim} := by {proof_body}")
@@ -1099,7 +1118,7 @@ def decompose_and_prove(lean_code, theorem_stmt, lean_checker, llm, project_dir=
     # step 3: one final lean invocation — kernel checks the whole proof
     check_code = f"theorem _decomp_final : {theorem_stmt} := by\n"
     check_code += "\n".join("  " + l for l in filled.splitlines())
-    v, combined = check_proof(preamble, check_code, "_decomp_final", project_dir=project_dir)
+    v, combined = check_proof(preamble, check_code, "_decomp_final", project_dir=project_dir, timeout=cap())
     if v["ok"]:
         return ProofResult(proved=True, method="l3:decompose", error="", axioms=v["axioms"])
 
@@ -1111,9 +1130,11 @@ def decompose_and_prove(lean_code, theorem_stmt, lean_checker, llm, project_dir=
     if have_names:
         candidates.append(f"simp [{', '.join(have_names)}, *]")
     for ct in candidates[:10]:
+        if left() < MIN_TRY:
+            break
         repair_code = f"theorem _decomp_repaired : {theorem_stmt} := by\n"
         repair_code += have_body + "\n  " + ct
-        v, _ = check_proof(preamble, repair_code, "_decomp_repaired", project_dir=project_dir)
+        v, _ = check_proof(preamble, repair_code, "_decomp_repaired", project_dir=project_dir, timeout=cap())
         if v["ok"]:
             return ProofResult(proved=True, method="l3:decompose_repaired", error="", axioms=v["axioms"])
     return ProofResult(proved=False, method="", error="repair failed: " + combined.strip()[:200])
@@ -1349,7 +1370,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
 
     processed_stmts = set()
 
-    with events.context(stage="validate"):
+    with events.context(stage="validate", source=source or "lean-native"):
         for spec_idx, spec in enumerate(specs):
             with events.context(candidate_id=spec["name"]):
                 stmt_norm = _normalize_stmt(spec["stmt"])
@@ -1522,7 +1543,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
 
                 # layer 3: auxiliary-lemma decomposition
                 if llm:
-                    r3 = decompose_and_prove(eff, spec["stmt"], lean_checker, llm, project_dir=project_dir)
+                    r3 = decompose_and_prove(eff, spec["stmt"], lean_checker, llm, project_dir=project_dir,
+                                             func_source=func_source)
                     if r3.proved:
                         spec["status"] = "proved"
                         spec["method"] = r3.method
@@ -1927,7 +1949,7 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
             t_mut = time.time()
             all_mutants = engine.generate_mutants(lean_code, func_name, llm=llm,
                                                   project_dir=project_dir, func_source=func_source)
-            compilable = engine.filter_compilable(all_mutants, original_code=lean_code, func_name=func_name, llm=llm)
+            compilable = engine.filter_compilable(all_mutants)
             if verbose:
                 print(f"  mutants: {len(all_mutants)} generated, {len(compilable)} compile")
             if verbose:
@@ -2467,7 +2489,7 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
 
         specs = validate(specs, lean_code, test_inputs, lean_checker,
                          llm=llm, example_store=example_store, func_name=func_name, verbose=verbose,
-                         debug_dir=debug_dir, project_dir=project_dir, source=source)
+                         debug_dir=debug_dir, project_dir=project_dir, func_source=func_source, source=source)
 
         # round 2: SpecGen-style mutation-guided repair (not raw error messages)
         g1_fails = [s for s in specs if s.get("fail_gate") == "g1"]

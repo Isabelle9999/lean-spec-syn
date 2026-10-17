@@ -59,6 +59,7 @@ def server_cfg():
 
 def proof_cfg():
     defaults = {"aeneas_layer": True, "aeneas_heartbeats": 200000,
-                "premise_selector": "local"}
+                "premise_selector": "local", "rust_hammer": False,
+                "hammer_heartbeats": 1000000, "split_seconds": 180, "mutant_hammer_seconds": 120}
     p = _cfg().get("proof", {})
     return {k: p.get(k, v) for k, v in defaults.items()}

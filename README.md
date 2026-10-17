@@ -31,7 +31,8 @@ specification from observed input–output pairs, negative examples, joint
 statement-and-proof generation, program slicing that specifies helpers before
 their callers, and a behaviour-only strategy that hides the implementation.
 Candidates are informed by Mathlib retrieval and by specifications proved in
-earlier runs.
+earlier runs. A prompt about a Rust function carries its definition, the types
+it names and its callees' proved specifications, not the whole crate.
 
 **Validation.** Candidates first meet stored counterexamples from earlier
 rejections and a well-formedness gate that elaborates them. For Rust functions,
@@ -49,11 +50,17 @@ definitional and bitvector decision procedures. Then LeanHammer, which performs
 neural premise selection over all of Mathlib rather than only the
 `@[simp]`-tagged fragment. Then decomposition, in which the model proposes
 intermediate lemmas, each is proved separately, and the recombined proof is
-checked by the kernel as a single theorem.
+checked by the kernel as a single theorem. For Rust functions every layer, and
+every mutant proof, runs in one environment that holds the crate, the
+specifications proved so far, and LeanHammer when `[proof] rust_hammer` is on. Before the three layers, a Rust
+function is unfolded and walked by Aeneas's `step*`; the goals it leaves go to
+fixed closers and then, with `rust_hammer` on, one by one to LeanHammer. Decomposition's Lean work
+shares one time budget per candidate, split evenly across its lemmas, and the
+hammer calls in each pass over a function's mutants share another.
 
 **Refinement.** Program mutants are generated from an operator table and by
-model rewriting, then classified by proof into equivalent, killed, survived or
-unresolved — never by inference from a failed check. Surviving mutants are
+model rewriting, at most one per source line, then classified by proof into
+equivalent, killed, survived or unresolved — never by inference from a failed check. Surviving mutants are
 concrete evidence that the specification set is too weak. A second tier searches
 for an alternative implementation satisfying every proved specification while
 differing from the original, which is a stronger form of the same evidence.
@@ -91,6 +98,8 @@ constant, so the trust base remains the Lean kernel alone.
 - entailment-checked agreement with reference specifications, where a benchmark
   provides them
 - contract-discharged calls and underspecified callees
+- Lean seconds per layer, prompt size per function, and how many proofs
+  LeanHammer closed on each track
 
 ## Requirements
 
