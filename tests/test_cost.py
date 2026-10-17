@@ -334,6 +334,46 @@ def run_static_budgets():
     check("every mutant still gets its tactic proof attempt", len(checker.l1) == 5, str(checker.l1))
 
 
+CLAMP = """def clampTo (lo hi x : Nat) : Nat :=
+  if x < lo then lo
+  else if x > hi then hi
+  else x + 0"""
+
+
+def run_static_mutants():
+    print("=== static: at most one mutant per line, judged only by proof ===")
+    import lean
+
+    ms = ([{"operator": "arith_+_-", "line": 1, "k": i} for i in range(5)] +
+          [{"operator": "arith_-_+", "line": 2}, {"operator": "boundary_<_≤", "line": 2}, {"operator": "+", "line": 3}])
+    got, stats = lean._sample_per_line(ms, 30)
+    check("one mutant per line", [m["line"] for m in got] == [1, 2, 3], str(got))
+    check("on each line the least-used operator class wins", got[1]["operator"] == "boundary_<_≤", str(got[1]))
+    check("the sampling stats count lines and mutants", stats == {"generated": 8, "lines": 3, "sampled": 3, "capped": False},
+          str(stats))
+    got, stats = lean._sample_per_line([{"operator": "x", "line": i} for i in range(50)], 30)
+    check("more lines than the cap are sampled evenly, first to last",
+          len(got) == 30 and got[0]["line"] == 0 and got[-1]["line"] >= 45 and stats["capped"], str([m["line"] for m in got]))
+
+    class _Typechecks:
+        def typecheck(self, code, project_dir=None):
+            return True, []
+    engine = lean.MutationEngine(_Typechecks())
+    muts = engine.generate_mutants(CLAMP, "clampTo")
+    lines = [m["line"] for m in muts]
+    check("generated mutants sit on distinct lines of the definition",
+          bool(muts) and len(set(lines)) == len(lines) and all(0 <= x <= 3 for x in lines), str(lines))
+    check("no line goes unmutated when it has a mutant", set(lines) == {1, 2, 3}, str(lines))
+
+    check("the LLM equivalence judge is gone", not hasattr(lean.MutationEngine, "detect_equivalent_llm"))
+    try:
+        engine.filter_compilable([], llm=object())  # type: ignore[call-arg]
+        takes_llm = True
+    except TypeError:
+        takes_llm = False
+    check("filter_compilable takes no LLM", not takes_llm)
+
+
 def _feature_suite():
     rust_dir = os.path.expanduser("~/rust_benchmarks")
     if not os.path.isdir(os.path.join(rust_dir, "FeatureSuite", "Code")):
@@ -391,6 +431,7 @@ if static:
     run_static_routing()
     run_static_hammer_closer()
     run_static_budgets()
+    run_static_mutants()
 else:
     import lean
     import lean_server

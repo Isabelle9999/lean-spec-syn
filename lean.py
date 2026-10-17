@@ -1012,24 +1012,26 @@ _MUTANT_CAP = 30
 _SECOND_ORDER_CAP = 10
 
 
-def _sample_mutants(mutants, cap):
-    """round-robin sample across operator classes when over cap.
-    returns (sampled_list, stats_dict)."""
-    n = len(mutants)
-    if n <= cap:
-        return mutants, {"generated": n, "sampled": n, "capped": False}
-    by_class = {}
+def _sample_per_line(mutants, cap):
+    """at most one mutant per source line, as at Google (Petrovic and Ivankovic,
+    "State of Mutation Testing at Google", ICSE-SEIP 2018): on each line the
+    mutant whose operator class was picked least so far; with more lines than
+    `cap`, lines are sampled evenly. returns (sampled_list, stats_dict)."""
+    def cls(m):
+        return m.get("operator", "other").split("_")[0]
+    by_line = {}
     for m in mutants:
-        cls = m.get("operator", "other").split("_")[0]
-        by_class.setdefault(cls, []).append(m)
-    per_cls = {c: len(v) for c, v in by_class.items()}
-    result = []
-    queues = list(by_class.values())
-    while len(result) < cap and any(queues):
-        for q in queues:
-            if q and len(result) < cap:
-                result.append(q.pop(0))
-    return result, {"generated": n, "sampled": len(result), "per_class": per_cls, "capped": True}
+        by_line.setdefault(m.get("line", -1), []).append(m)
+    used = {}
+    picked = []
+    for line in sorted(by_line):
+        best = min(by_line[line], key=lambda m: used.get(cls(m), 0))
+        used[cls(best)] = used.get(cls(best), 0) + 1
+        picked.append(best)
+    capped = len(picked) > cap
+    if capped:
+        picked = [picked[i * len(picked) // cap] for i in range(cap)]
+    return picked, {"generated": len(mutants), "lines": len(by_line), "sampled": len(picked), "capped": capped}
 
 
 def _diff_patch(base, mutant):
@@ -1428,9 +1430,11 @@ class MutationEngine:
                         seen.add(m["code"])
                         deduped.append(m)
 
-        # 4. emit: rename def to fresh name and append to original lean_code
+        # 4. emit: rename def to fresh name and append to original lean_code; a
+        # mutant's line is the first line where it differs from the definition
         mutants = []
         for i, mut in enumerate(deduped):
+            line = def_src[:len(os.path.commonprefix([def_src, mut["code"]]))].count("\n")
             mutant_fn = f"{last}_mut{i}"
             if inline:
                 src, _ = _find_def_in_text(mut["code"], def_name)
@@ -1449,10 +1453,11 @@ class MutationEngine:
                 **mut,
                 "code": lean_code.rstrip() + "\n" + renamed,
                 "mutant_func_name": mutant_fn,
+                "line": line,
             })
 
-        # 5. sample (Item 2)
-        sampled, stats = _sample_mutants(mutants, _MUTANT_CAP)
+        # 5. sample: at most one mutant per line
+        sampled, stats = _sample_per_line(mutants, _MUTANT_CAP)
         self._last_sampling_stats = stats
         return sampled
 
@@ -1712,16 +1717,15 @@ class MutationEngine:
         return mutants
 
     @with_context(layer="mutation")
-    def filter_compilable(self, mutants, original_code=None, func_name=None, llm=None):
+    def filter_compilable(self, mutants):
+        """the mutants that typecheck. equivalence is decided later, by proof
+        (certify_proof), never by asking an LLM."""
         result = []
         for mut in mutants:
             if mut.get("diagnostic"):
                 continue
             ok, _ = self._checker.typecheck(mut["code"])
             if ok:
-                if llm and original_code and func_name:
-                    if self.detect_equivalent_llm(original_code, mut["code"], func_name, llm):
-                        continue
                 result.append(mut)
         return result
 
@@ -1836,20 +1840,6 @@ class MutationEngine:
                         mutants.append({"code": candidate, "operator": "llm_rewrite"})
 
         return mutants
-
-    def detect_equivalent_llm(self, original_code, mutant_code, func_name, llm):
-        """Meta's LLM-as-judge approach to detect equivalent mutants.
-        Pre-filter before expensive certification."""
-        prompt = (
-            f"Original function:\n```lean\n{original_code}\n```\n\n"
-            f"Mutant function:\n```lean\n{mutant_code}\n```\n\n"
-            f"Are these two functions equivalent? Do they produce the same output for ALL possible inputs?\n"
-            f"Answer ONLY 'equivalent' or 'different'. Nothing else."
-        )
-        resp = llm._ask(prompt)
-        if resp:
-            return "equivalent" in resp.strip().lower()
-        return False
 
     def certify(self, original_code, mutant_code, func_name, test_inputs):
         if isinstance(mutant_code, dict):

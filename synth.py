@@ -1947,7 +1947,7 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
             t_mut = time.time()
             all_mutants = engine.generate_mutants(lean_code, func_name, llm=llm,
                                                   project_dir=project_dir, func_source=func_source)
-            compilable = engine.filter_compilable(all_mutants, original_code=lean_code, func_name=func_name, llm=llm)
+            compilable = engine.filter_compilable(all_mutants)
             if verbose:
                 print(f"  mutants: {len(all_mutants)} generated, {len(compilable)} compile")
             if verbose:

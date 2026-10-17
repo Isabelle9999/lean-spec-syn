@@ -58,8 +58,8 @@ shares one time budget per candidate, split evenly across its lemmas, and the
 hammer calls in each pass over a function's mutants share another.
 
 **Refinement.** Program mutants are generated from an operator table and by
-model rewriting, then classified by proof into equivalent, killed, survived or
-unresolved — never by inference from a failed check. Surviving mutants are
+model rewriting, at most one per source line, then classified by proof into
+equivalent, killed, survived or unresolved — never by inference from a failed check. Surviving mutants are
 concrete evidence that the specification set is too weak. A second tier searches
 for an alternative implementation satisfying every proved specification while
 differing from the original, which is a stronger form of the same evidence.
