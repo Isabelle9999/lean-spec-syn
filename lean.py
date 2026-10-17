@@ -341,6 +341,15 @@ def check_proof(context, theorems, name, project_dir=None, timeout=None, heartbe
     return verdicts[name], out
 
 
+def _aeneas_budget(tactic):
+    """(heartbeats, seconds) for an aeneas-layer proof: hammer's own budget when the
+    tactic calls hammer, so its admission, replay and modularity check get the
+    same budget the proof itself had."""
+    if HAMMER in tactic:
+        return _lss_config.proof_cfg()["hammer_heartbeats"], max(90, _lss_config.server_cfg()["hammer_timeout"])
+    return _lss_config.proof_cfg()["aeneas_heartbeats"], 90
+
+
 def _aeneas_layer_text():
     global _aeneas_layer_cache
     if _aeneas_layer_cache is None:
@@ -727,11 +736,11 @@ class LeanChecker:
         audited), the same check the proof attempts themselves get. the unit's
         active step lemma (LSS_STEP's "active") is recorded for the modularity check."""
         aeneas_dir = _lss_config.project_dir("aeneas")
-        heartbeats = _lss_config.proof_cfg()["aeneas_heartbeats"]
+        heartbeats, timeout = _aeneas_budget(tactic)
         server = _lean_server.get_server(aeneas_dir)
         text = (proof_check_call(f"theorem {name} : {stmt} := by\n  {tactic}", name, heartbeats) +
                 f"\nlss_register_step {name}")
-        r = server.check(text, timeout=90, env=state["env"])
+        r = server.check(text, timeout=timeout, env=state["env"])
         self.lean_calls += 1
         combined = (r.stdout or "") + (r.stderr or "")
         verdict = parse_proof_verdicts(combined).get(name)
@@ -798,24 +807,40 @@ class LeanChecker:
         for label, tactic in attempts[:2]:
             v = verdicts.get(f"_aeneas_{label}")
             if v and v.get("ok"):
-                modular, body = self._modularity(g, state, unit, candidate_stmt, tactic)
-                n = self._aeneas_admit_counter.get(rust_project_dir, 0)
-                self._aeneas_admit_counter[rust_project_dir] = n + 1
-                name = f"lss_admitted_{n}"
-                self._aeneas_admit(rust_project_dir, state, name, candidate_stmt, tactic, unit)
-                return ProofResult(proved=True, method=f"aeneas:{label}", error="",
-                                   proof_text=tactic, axioms=v.get("axioms", []),
-                                   modular=modular, needs_callee_body=body)
+                return self._aeneas_proved(rust_project_dir, g, unit, candidate_stmt, label, tactic, v)
+
+        # h: b's closers, then hammer on each goal they leave; a call of its own,
+        # with hammer's time and heartbeats, made only when a and b failed
+        if _lss_config.proof_cfg()["rust_hammer"]:
+            tactic_h = attempts[1][1] + f" | {HAMMER}"
+            hb, timeout = _aeneas_budget(tactic_h)
+            r = server.check(proof_check_call(f"theorem _aeneas_h : {candidate_stmt} := by\n  {tactic_h}", "_aeneas_h", hb),
+                             timeout=timeout, env=state["env"])
+            self.lean_calls += 1
+            v = parse_proof_verdicts((r.stdout or "") + (r.stderr or "")).get("_aeneas_h")
+            if v and v.get("ok"):
+                return self._aeneas_proved(rust_project_dir, g, unit, candidate_stmt, "h", tactic_h, v)
+            state = self._aeneas_env_for(rust_project_dir)  # a hammer timeout restarts the server
 
         blamed = self._blame(g, state, unit, candidate_stmt, attempts[1][1])
         return ProofResult(proved=False, method="", error=combined.strip()[:200], blamed_callees=blamed)
+
+    def _aeneas_proved(self, project_dir, g, unit, stmt, label, tactic, verdict):
+        """a winning aeneas-layer attempt: check modularity, admit it, report it."""
+        state = self._aeneas_env_for(project_dir)
+        modular, body = self._modularity(g, state, unit, stmt, tactic)
+        n = self._aeneas_admit_counter.get(project_dir, 0)
+        self._aeneas_admit_counter[project_dir] = n + 1
+        self._aeneas_admit(project_dir, state, f"lss_admitted_{n}", stmt, tactic, unit)
+        return ProofResult(proved=True, method=f"aeneas:{label}", error="", proof_text=tactic,
+                           axioms=verdict.get("axioms", []), modular=modular, needs_callee_body=body)
 
     def _modular_check(self, state, unit, stmt, tactic, abstract, inline):
         """one ∀-abstraction variant (lss_modular): `abstract` is [(callee, spec
         lemma or None)], `inline` the callees replaced by their bodies. the env is
         never kept. returns the LSS_PROOF verdict."""
         server = _lean_server.get_server(_lss_config.project_dir("aeneas"))
-        heartbeats = _lss_config.proof_cfg()["aeneas_heartbeats"]
+        heartbeats, timeout = _aeneas_budget(tactic)
         tag = f"lss_mod_{self._modular_counter}"
         self._modular_counter += 1
         # the proof's lines go into one tactic block, so they must share one indentation
@@ -825,7 +850,7 @@ class LeanChecker:
         text = (f'lss_modular {tag} unit:{unit} stmt:"{_escape_lean_str(stmt)}" '
                 f'tactic:"{_escape_lean_str(flat)}" abstract:[{abs_txt}] inline:[{", ".join(inline)}] '
                 f'heartbeats:{heartbeats}')
-        r = server.check(text, timeout=90, env=state["env"])
+        r = server.check(text, timeout=timeout, env=state["env"])
         self.lean_calls += 1
         out = (r.stdout or "") + (r.stderr or "")
         v = parse_proof_verdicts(out).get(f"{tag}.proof") or _no_verdict(f"{tag}.proof", r, out)

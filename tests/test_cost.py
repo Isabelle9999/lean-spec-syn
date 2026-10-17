@@ -181,6 +181,65 @@ def run_static_routing():
     lean._CRATE_ENVS.clear()
 
 
+class _UnitGraph:
+    crate = "C"
+    names = {"C.f"}
+
+    def callees_outside_scc(self, unit):
+        return []
+
+    def recursive(self, unit):
+        return False
+
+
+def run_static_hammer_closer():
+    print("=== static: hammer closes what step* leaves ===")
+    import lean
+    import lean_server
+    import lss_config
+    import callgraph
+
+    def run(reply, **cfg):
+        checker = lean.LeanChecker()
+        state = {"ok": True, "env": 3, "admitted": [], "active": {}, "restarts": 0}
+        setattr(checker, "_aeneas_env_for", lambda project_dir: state)
+        fake = FakeServer(reply)
+        with Patch((lean_server, "get_server", lambda *a, **k: fake), (callgraph, "for_project", lambda p: _UnitGraph()),
+                   (lss_config, "proof_cfg", _proof_cfg(**cfg))):
+            pr = checker.try_aeneas("stmt", "f", "/crate")
+        return pr, fake.sent, state
+
+    def h_wins(code):
+        out = _verdict_line("_aeneas_a", False, "elab") + _verdict_line("_aeneas_b", False, "elab")
+        if "name:_aeneas_h " in code:
+            out = _verdict_line("_aeneas_h", True, "ok", ["propext"])
+        if "name:lss_admitted_0 " in code:
+            out = _verdict_line("lss_admitted_0", True)
+        return out
+    pr, sent, state = run(h_wins, rust_hammer=True, hammer_heartbeats=777)
+    h = next((x for x in sent if "name:_aeneas_h " in x["code"]), None)
+    check("when a and b fail, the closers plus hammer run as their own call",
+          h is not None and lean.HAMMER in h["code"] and "grind | hammer" in h["code"] and h["env"] == 3, str(sent)[:300])
+    check("the hammer closer gets hammer's heartbeats and time",
+          h is not None and "heartbeats:777" in h["code"] and h["timeout"] == max(90, lss_config.server_cfg()["hammer_timeout"]),
+          str(h)[:200])
+    check("a proof the hammer closer finds is proved as aeneas:h and admitted with the same budget",
+          pr.proved and pr.method == "aeneas:h" and len(state["admitted"]) == 1 and lean.HAMMER in state["admitted"][0][2]
+          and any("name:lss_admitted_0 " in x["code"] and "heartbeats:777" in x["code"] for x in sent), str(pr)[:200])
+
+    def a_wins(code):
+        if "name:lss_admitted_0 " in code:
+            return _verdict_line("lss_admitted_0", True)
+        return _verdict_line("_aeneas_a", True)
+    pr, sent, _ = run(a_wins, rust_hammer=True)
+    check("when a or b closes the goal, hammer never runs",
+          pr.method == "aeneas:a" and not any(lean.HAMMER in x["code"] for x in sent), str(sent)[:200])
+
+    pr, sent, _ = run(lambda code: _verdict_line("_aeneas_a", False, "elab"), rust_hammer=False)
+    check("with rust_hammer off there is no hammer closer",
+          not pr.proved and not any(lean.HAMMER in x["code"] for x in sent), str(sent)[:200])
+
+
 def _feature_suite():
     rust_dir = os.path.expanduser("~/rust_benchmarks")
     if not os.path.isdir(os.path.join(rust_dir, "FeatureSuite", "Code")):
@@ -219,8 +278,24 @@ def run_full_routing(rust_dir, benches, checker):
           str(started))
 
 
+SWAP_HOARE = "forall (p : records.Pair), records.swap p ⦃ r => r.first = p.second ∧ r.second = p.first ⦄"
+
+
+def run_full_hammer_closer(rust_dir, checker):
+    print("=== full: the hammer closer on FeatureSuite ===")
+    state = checker._aeneas_env_for(rust_dir)
+    before = len(state["admitted"])
+    pr = checker.try_aeneas("∀ (value : Std.U32), identity value ⦃ r => r.val = value.val + 1 ⦄", "identity", rust_dir)
+    check("a false spec goes through a and b (and the hammer closer when it is on) and is not proved",
+          not pr.proved, str(pr)[:300])
+    check("nothing is admitted for it", len(checker._aeneas_env_for(rust_dir)["admitted"]) == before)
+    pr = checker.try_aeneas(SWAP_HOARE, "records.swap", rust_dir)
+    check("the crate env still proves afterwards", pr.proved and pr.method == "aeneas:a", str(pr)[:300])
+
+
 if static:
     run_static_routing()
+    run_static_hammer_closer()
 else:
     import lean
     import lean_server
@@ -229,6 +304,7 @@ else:
         import lss_config
         checker = lean.LeanChecker(project_dir=lss_config.project_dir("aeneas"))
         run_full_routing(rust_dir, benches, checker)
+        run_full_hammer_closer(rust_dir, checker)
     lean_server.shutdown_all()
 
 print()

@@ -49,3 +49,6 @@ premise_selector = "local"
 # with Hammer is a second base environment next to the unit graph's, which hit
 # the memory cap in the proof-trust test
 rust_hammer = false
+# heartbeats for a hammer proof on a rust unit (after step*); the whole-goal
+# attempt runs under the unit's own preamble (maxHeartbeats 1000000)
+hammer_heartbeats = 1000000

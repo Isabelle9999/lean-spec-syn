@@ -51,7 +51,9 @@ neural premise selection over all of Mathlib rather than only the
 intermediate lemmas, each is proved separately, and the recombined proof is
 checked by the kernel as a single theorem. For Rust functions every layer, and
 every mutant proof, runs in one environment that holds the crate, the
-specifications proved so far, and LeanHammer when `[proof] rust_hammer` is on.
+specifications proved so far, and LeanHammer when `[proof] rust_hammer` is on. Before the three layers, a Rust
+function is unfolded and walked by Aeneas's `step*`; the goals it leaves go to
+fixed closers and then, with `rust_hammer` on, one by one to LeanHammer.
 
 **Refinement.** Program mutants are generated from an operator table and by
 model rewriting, then classified by proof into equivalent, killed, survived or
