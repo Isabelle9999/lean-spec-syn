@@ -33,12 +33,15 @@ their callers, and a behaviour-only strategy that hides the implementation.
 Candidates are informed by Mathlib retrieval and by specifications proved in
 earlier runs.
 
-**Validation.** Candidates pass through progressively more expensive checks:
-stored counterexamples from previous rejections, elaboration, concrete
-evaluation, property-based testing, and a non-vacuity check that requires a
-specification to *fail* on input-dependent wrong implementations. A
-specification true of every implementation carries no information and is
-rejected.
+**Validation.** Candidates first meet stored counterexamples from earlier
+rejections and a well-formedness gate that elaborates them. For Rust functions,
+each candidate is then run on sampled inputs, edge values first and then seeded
+random ones, before any prover sees it. A specification false on the function's
+real output is refuted: its input is shrunk, and the refutation is proved by the
+kernel where the witness allows. One that also accepts every perturbed, wrong
+output, and claims nothing about success, carries no information and is
+rejected. A precondition that few sampled inputs meet is flagged, not rejected.
+Unproved candidates are finally tested with Plausible.
 
 **Proof search.** Three layers, stopping at the first success. A curated tactic
 portfolio derived from Mathlib's registered `hint` set, extended with
@@ -70,7 +73,9 @@ checked by the Lean kernel and its axioms are audited: only `propext`,
 and any declared axiom are rejected. Every killed, survived or equivalent
 verdict rests on a proof confirmed in isolation.
 A failed or timed-out check is reported as unresolved and excluded from the
-denominator of any score.
+denominator of any score. A refutation counts as kernel-checked only when the
+negated statement, instantiated at its witness, is proved by the kernel;
+otherwise it is labelled evaluation-only.
 
 No axioms are introduced. Function abstraction for the modularity check uses
 universal quantification over a function variable rather than an assumed
@@ -79,6 +84,7 @@ constant, so the trust base remains the Lean kernel alone.
 ## What it reports
 
 - proved specifications, with the layer and tactic that closed each one
+- refuted specifications, with the shrunk input and whether the kernel checked it
 - mutation score, with its denominator and the unresolved count shown separately
 - surviving mutants and accepted adversarial implementations, as named
   weaknesses with the input that distinguishes them

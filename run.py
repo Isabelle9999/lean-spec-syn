@@ -196,9 +196,12 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
     if rejected:
         print(f"  rejected:   {rejected}")
         g1 = sum(1 for s in specs if s.get("fail_gate") == "g1")
-        g2 = sum(1 for s in specs if s.get("fail_gate") == "g2")
-        g3 = sum(1 for s in specs if s.get("fail_gate") == "g3")
-        print(f"  failure breakdown: {g1} typecheck, {g2} eval, {g3} vacuity")
+        vac = sum(1 for s in specs if s.get("fail_gate") == "vacuous")
+        print(f"  failure breakdown: {g1} gate, {vac} vacuous")
+    refuted = [s for s in specs if s["status"] == "refuted"]
+    if refuted:
+        kern = sum(1 for s in refuted if s.get("refuted_by") == "kernel")
+        print(f"  refuted:    {len(refuted)} ({kern} by a kernel-checked witness)")
     print(f"  soundness:  {md['soundness']:.2f}")
     print(f"  recall:     {score['recall']:.2f}")
     p = md["precision"]

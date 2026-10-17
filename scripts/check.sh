@@ -28,13 +28,14 @@ run "types" "$PY" -m pyright
 run "pins (static)" bare tests/test_pins.py --static
 run "manifest" bare scripts/derive_manifest.py --check
 run "compile" bare -m compileall -q .
-run "imports" bare -c "import lean, synth, strategies, metrics, benchmarks, loader, run, callgraph, incremental, traits, divergence, gate"
+run "imports" bare -c "import lean, synth, strategies, metrics, benchmarks, loader, run, callgraph, incremental, traits, divergence, gate, bounded"
 run "unit graph (static)" bare tests/test_unitgraph.py --static
 run "aeneas layer (static)" bare tests/test_aeneas_layer.py --static
 run "spec gate (static)" bare tests/test_spec_gate.py --static
 run "events and pricing" bare tests/test_events.py
 run "translation check (static)" bare tests/test_translation_check.py --static
 run "proof trust (static)" bare tests/test_proof_trust.py --static
+run "bounded check (static)" bare tests/test_bounded.py --static
 rm -rf "$bare_home"
 
 if [ "$mode" != "static" ]; then
@@ -51,6 +52,7 @@ if [ "$mode" != "static" ]; then
   run "spec gate" "$PY" tests/test_spec_gate.py
   run "translation check" "$PY" tests/test_translation_check.py
   run "proof trust" "$PY" tests/test_proof_trust.py
+  run "bounded check" "$PY" tests/test_bounded.py
 
   leftover() {
     for p in /proc/[0-9]*; do
