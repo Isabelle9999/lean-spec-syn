@@ -53,7 +53,9 @@ checked by the kernel as a single theorem. For Rust functions every layer, and
 every mutant proof, runs in one environment that holds the crate, the
 specifications proved so far, and LeanHammer when `[proof] rust_hammer` is on. Before the three layers, a Rust
 function is unfolded and walked by Aeneas's `step*`; the goals it leaves go to
-fixed closers and then, with `rust_hammer` on, one by one to LeanHammer.
+fixed closers and then, with `rust_hammer` on, one by one to LeanHammer. Decomposition's Lean work
+shares one time budget per candidate, split evenly across its lemmas, and the
+hammer calls in each pass over a function's mutants share another.
 
 **Refinement.** Program mutants are generated from an operator table and by
 model rewriting, then classified by proof into equivalent, killed, survived or

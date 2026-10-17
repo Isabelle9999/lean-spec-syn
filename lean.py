@@ -250,6 +250,8 @@ def classify_function(lean_env, func_name):
 
 
 HAMMER = "hammer { disableGrind := true }"
+# the least time worth giving one proof attempt under a shared time budget
+MIN_TRY = 5
 
 
 def _hammer_selector():
@@ -475,7 +477,7 @@ class LeanChecker:
 
     @with_context(layer="tactics")
     def try_proof_batch(self, lean_env, theorem_stmt, func_name=None,
-                        allow_search_tactics=False, use_project=False, project_dir=None):
+                        allow_search_tactics=False, use_project=False, project_dir=None, timeout=None):
         if project_dir is None:
             project_dir = self.project_dir
         pdir = project_dir if project_dir else (_PROJECT_DIR if os.path.isdir(_PROJECT_DIR) else None)
@@ -620,7 +622,7 @@ class LeanChecker:
                                    mathlib_available=hit.get("mathlib_available", True),
                                    axioms=hit.get("axioms", []))
 
-        verdicts, out = check_proofs(imports + env_stripped, named, project_dir=pdir)
+        verdicts, out = check_proofs(imports + env_stripped, named, project_dir=pdir, timeout=timeout)
         self.lean_calls += 1
         result = ProofResult(proved=False, method="", error=out.strip()[:200],
                              mathlib_available=mathlib_ok)
@@ -632,7 +634,8 @@ class LeanChecker:
                                      mathlib_available=mathlib_ok, axioms=v["axioms"])
                 break
 
-        if self._cache:
+        # a run cut short (timeout, memory cap) says nothing about the tactics: not cached
+        if self._cache and not any(v["stage"] in ("timeout", "memory") for v in verdicts.values()):
             self._cache.put_proof(cache_key, {
                 "proved": result.proved, "method": result.method, "error": result.error,
                 "mathlib_available": result.mathlib_available, "axioms": result.axioms,
@@ -640,15 +643,15 @@ class LeanChecker:
         return result
 
     def try_proof(self, lean_env, theorem_stmt, func_name=None,
-                  allow_search_tactics=False, use_project=False, project_dir=None):
+                  allow_search_tactics=False, use_project=False, project_dir=None, timeout=None):
         if project_dir is None:
             project_dir = self.project_dir
         return self.try_proof_batch(lean_env, theorem_stmt, func_name=func_name,
                                     allow_search_tactics=allow_search_tactics,
-                                    use_project=use_project, project_dir=project_dir)
+                                    use_project=use_project, project_dir=project_dir, timeout=timeout)
 
     @with_context(layer="hammer")
-    def try_hammer(self, lean_env, theorem_stmt, func_name=None, project_dir=None):
+    def try_hammer(self, lean_env, theorem_stmt, func_name=None, project_dir=None, timeout=None):
         # a rust unit's text runs in its crate env (check_proof routes it); any
         # other text runs in the configured hammer project; project_dir arg ignored
         if _crate_of(lean_env) is not None:
@@ -664,7 +667,7 @@ class LeanChecker:
             if not hammer_ok:
                 return ProofResult(proved=False, method='l2:skipped (hammer unavailable)',
                                    error=f'hammer unavailable: {hammer_err}', hammer_available=False)
-        hammer_timeout = _lss_config.server_cfg()['hammer_timeout']
+        hammer_timeout = timeout or _lss_config.server_cfg()['hammer_timeout']
         context, theorem = _hammer_code(lean_env, theorem_stmt)
         t0 = time.time()
         v, out = check_proof(context, theorem, "_hammer_proof", project_dir=pdir, timeout=hammer_timeout)
@@ -1301,6 +1304,8 @@ class MutationEngine:
     def __init__(self, checker):
         self._checker = checker
         self._last_sampling_stats = None
+        # hammer seconds left for this engine's mutant proofs (one engine per pass over a unit's mutants)
+        self._hammer_left = float(_lss_config.proof_cfg()["mutant_hammer_seconds"])
 
     def generate_mutants(self, lean_code, func_name, llm=None, func_source=None, project_dir=None):
         last = func_name.split(".")[-1]
@@ -1932,7 +1937,13 @@ class MutationEngine:
             pr = self._checker.try_proof(env, stmt, project_dir=project_dir)
             if pr.proved:
                 return pr.method
-            pr2 = self._checker.try_hammer(env, stmt, project_dir=project_dir)
+            # hammer shares one budget across the unit's mutants
+            if self._hammer_left < MIN_TRY:
+                return None
+            t0 = time.monotonic()
+            pr2 = self._checker.try_hammer(env, stmt, project_dir=project_dir,
+                                           timeout=min(_lss_config.server_cfg()["hammer_timeout"], self._hammer_left))
+            self._hammer_left -= time.monotonic() - t0
             return pr2.method if pr2.proved else None
 
         def _sub(stmt):

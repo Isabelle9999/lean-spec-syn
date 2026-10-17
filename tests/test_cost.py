@@ -240,6 +240,100 @@ def run_static_hammer_closer():
           not pr.proved and not any(lean.HAMMER in x["code"] for x in sent), str(sent)[:200])
 
 
+class Clock:
+    def __init__(self):
+        self.t = 0.0
+
+    def __call__(self):
+        return self.t
+
+
+class _BudgetChecker:
+    """layer 1 fails after 10 s (or its timeout), hammer uses its whole timeout and
+    proves (when `hammer_proves`); every call's timeout is recorded."""
+
+    def __init__(self, clock, hammer_proves=True):
+        self.clock, self.hammer_proves = clock, hammer_proves
+        self.l1, self.hammer = [], []
+
+    def _precheck_env(self, project_dir, requires_hammer=False):
+        return True, ""
+
+    def typecheck(self, code, project_dir=None):
+        return True, []
+
+    def try_proof(self, lean_env, stmt, func_name=None, project_dir=None, timeout=None, **_):
+        import lean
+        self.l1.append(timeout)
+        self.clock.t += min(10, timeout or 30)
+        return lean.ProofResult(proved=False, method="", error="")
+
+    def try_hammer(self, lean_env, stmt, func_name=None, project_dir=None, timeout=None):
+        import lean
+        import lss_config
+        t = timeout or lss_config.server_cfg()["hammer_timeout"]
+        self.hammer.append(t)
+        self.clock.t += t
+        return lean.ProofResult(proved=self.hammer_proves, method="l2:hammer (1.0s)" if self.hammer_proves else "", error="")
+
+
+class _SketchLLM:
+    def _ask(self, prompt):
+        return "by\n" + "".join(f"  have h{i} : {i} = {i} := sorry\n" for i in range(4)) + "  simp_all"
+
+
+def run_static_budgets():
+    print("=== static: one time budget per split, one hammer budget per unit's mutants ===")
+    import time
+    import lean
+    import lss_config
+    import synth
+
+    def split(seconds):
+        clock = Clock()
+        checker = _BudgetChecker(clock)
+        sub = []
+
+        def fake_check(context, theorems, name, project_dir=None, timeout=None, heartbeats=0):
+            sub.append((name, timeout, clock.t))
+            clock.t += 1
+            return {"ok": name == "_decomp_final", "stage": "ok", "axioms": []}, ""
+        with Patch((time, "monotonic", clock), (synth, "check_proof", fake_check),
+                   (lss_config, "proof_cfg", _proof_cfg(split_seconds=seconds))):
+            r = synth.decompose_and_prove("ctx", "stmt", checker, _SketchLLM(), project_dir="/p")
+        return r, checker, sub
+
+    r, checker, sub = split(100)
+    final_t = next((t for n, _, t in sub if n == "_decomp_final"), None)
+    check("every sub-lemma is tried, layer 1 then hammer", len(checker.l1) == 4 and len(checker.hammer) == 4,
+          f"{checker.l1} {checker.hammer}")
+    check("the sub-lemmas together stay within the candidate's budget",
+          final_t is not None and final_t - 1 <= 100, f"sub-lemmas ended at {final_t}")
+    check("each sub-lemma's hammer gets only its share of what is left",
+          all(t <= 25 + 1e-9 for t in checker.hammer), str(checker.hammer))
+    check("layer 1 keeps its normal cap inside a share", all(lean.MIN_TRY <= t <= 30 for t in checker.l1), str(checker.l1))
+    check("the split still proves when every sub-lemma closes", r.proved and r.method == "l3:decompose", str(r))
+
+    r, checker, _ = split(0)
+    check("with no time left a sub-lemma still gets layer 1, and no hammer",
+          checker.l1 == [lean.MIN_TRY] and checker.hammer == [] and not r.proved, f"{checker.l1} {checker.hammer}")
+
+    clock = Clock()
+    checker = _BudgetChecker(clock, hammer_proves=False)
+    with Patch((time, "monotonic", clock), (lss_config, "proof_cfg", _proof_cfg(mutant_hammer_seconds=120))):
+        engine = lean.MutationEngine(checker)
+        for i in range(5):
+            engine.certify_proof("def f := 1", {"code": "def f := 1\ndef f_mut := 2", "mutant_func_name": f"f_mut{i}"},
+                                 "f", [], project_dir="/p")
+    expected, left = [], 120.0
+    while left >= lean.MIN_TRY and len(expected) < 5:
+        expected.append(min(lss_config.server_cfg()["hammer_timeout"], left))
+        left -= expected[-1]
+    check("the unit's mutants share one hammer budget, then stop calling hammer",
+          checker.hammer == expected and sum(checker.hammer) <= 120, f"{checker.hammer} vs {expected}")
+    check("every mutant still gets its tactic proof attempt", len(checker.l1) == 5, str(checker.l1))
+
+
 def _feature_suite():
     rust_dir = os.path.expanduser("~/rust_benchmarks")
     if not os.path.isdir(os.path.join(rust_dir, "FeatureSuite", "Code")):
@@ -296,6 +390,7 @@ def run_full_hammer_closer(rust_dir, checker):
 if static:
     run_static_routing()
     run_static_hammer_closer()
+    run_static_budgets()
 else:
     import lean
     import lean_server

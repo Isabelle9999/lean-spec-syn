@@ -52,3 +52,8 @@ rust_hammer = false
 # heartbeats for a hammer proof on a rust unit (after step*); the whole-goal
 # attempt runs under the unit's own preamble (maxHeartbeats 1000000)
 hammer_heartbeats = 1000000
+# seconds for the Lean work of one candidate's sub-lemma split (layer 3), shared
+# evenly across its sub-lemmas: layer 1 always runs, hammer gets what is left
+split_seconds = 180
+# hammer seconds shared by the mutant proofs of one pass over a unit's mutants
+mutant_hammer_seconds = 120
