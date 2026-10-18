@@ -1,20 +1,7 @@
-import sys; import os; sys.stdout.reconfigure(encoding="utf-8")
-os.makedirs(".lss/runs", exist_ok=True)
-_existing = [f for f in os.listdir(".lss/runs") if f.startswith("run_")]
-_run_id = len(_existing) + 1
-_log_path = f".lss/runs/run_{_run_id}.txt"
-_log_file = open(_log_path, "w", encoding="utf-8")
-import builtins
-_orig_print = builtins.print
-def _tee_print(*args, **kwargs):
-    _orig_print(*args, **kwargs)
-    kwargs["file"] = _log_file
-    _orig_print(*args, **kwargs)
-    _log_file.flush()
-builtins.print = _tee_print
-print = _tee_print
-
+import sys; import os; sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 import argparse
+import builtins
+import contextvars
 import json
 import time
 import shutil
@@ -36,10 +23,33 @@ from traits import check_trait_obligations
 from divergence import detect_divergent, mark_divergent_specs
 
 
+_run_id = 0
+_log_path = ""
+
+
+def _start_log():
+    """tee every print of this run into .lss/runs/run_<id>.txt. called by main, so
+    importing run has no side effects."""
+    global _run_id, _log_path
+    os.makedirs(".lss/runs", exist_ok=True)
+    _run_id = len([f for f in os.listdir(".lss/runs") if f.startswith("run_")]) + 1
+    _log_path = f".lss/runs/run_{_run_id}.txt"
+    log_file = open(_log_path, "w", encoding="utf-8")
+    orig = builtins.print
+
+    def tee(*args, **kwargs):
+        orig(*args, **kwargs)
+        kwargs["file"] = log_file
+        orig(*args, **kwargs)
+        log_file.flush()
+    builtins.print = tee
+
+
 def _with_timeout(fn, timeout):
     result = [None]
     exc = [None]
     done = threading.Event()
+    ctx = contextvars.copy_context()  # the worker's events keep the caller's unit
 
     def worker():
         try:
@@ -49,7 +59,7 @@ def _with_timeout(fn, timeout):
         finally:
             done.set()
 
-    t = threading.Thread(target=worker, daemon=True)
+    t = threading.Thread(target=lambda: ctx.run(worker), daemon=True)
     t.start()
 
     finished = done.wait(timeout=timeout)
@@ -64,6 +74,26 @@ def _with_timeout(fn, timeout):
 
 
 def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, func_source=None):
+    """one function. every event it causes carries unit=<bench name>, and it ends with
+    one unit_result event: the status, the spec counts and the wall seconds, also
+    after a timeout or a crash (status unknown, with the reason)."""
+    t0 = time.time()
+    with events.context(unit=bm["name"]):
+        try:
+            score, report = _run_bench(bm, args, llm, checker, store, baseline, project_dir, func_source)
+        except Exception as e:
+            events.emit("unit_result", status="unknown", reason=f"crash: {type(e).__name__}",
+                        seconds=time.time() - t0)
+            raise
+        if report is None:
+            events.emit("unit_result", status="unknown", reason="timeout", seconds=time.time() - t0)
+        else:
+            events.emit("unit_result", status=report["status"], seconds=time.time() - t0,
+                        **{k: report[k + "_count"] for k in ("generated", "proved", "refuted", "unproved")})
+    return score, report
+
+
+def _run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, func_source=None):
     fn = bm.get("func_name") or _func_name(bm["lean_code"])
     ti = bm.get("test_inputs", [])
     tpl = bm.get("templates", [])
@@ -274,6 +304,7 @@ def _write_pins_header():
 
 
 def main():
+    _start_log()
     _t_main_start = time.time()
     p = argparse.ArgumentParser()
     p.add_argument("--quick", action="store_true")
@@ -303,14 +334,11 @@ def main():
 
     _write_pins_header()
 
-    import tomllib, hashlib as _hashlib
-    try:
-        with open("lss.toml", "rb") as _f:
-            _toml_data = tomllib.load(_f)
-    except Exception:
-        _toml_data = {}
-    _cfg_obj = {"toml": _toml_data, "args": {k: v for k, v in vars(args).items() if isinstance(v, (str, int, float, bool, type(None)))}}
+    # the config hash covers lss.toml with any bench overrides (LSS_OVERRIDES)
+    _cfg_obj = {"toml": _lss_config.config(), "args": {k: v for k, v in vars(args).items() if isinstance(v, (str, int, float, bool, type(None)))}}
     events.configure(_run_id, _cfg_obj)
+    events.emit("run_start", tag=os.environ.get("LSS_BENCH_TAG", ""),
+                project=os.path.abspath(args.rust_project) if args.rust_project else "")
 
     cache = Cache()
     llm = LLMClient()

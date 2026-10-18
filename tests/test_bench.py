@@ -61,8 +61,94 @@ def run_static_metrics():
     check("post-completeness is gone", not hasattr(synth, "compute_post_completeness"))
 
 
+def _read_events(path):
+    import json
+    with open(path, encoding="utf-8") as f:
+        return [json.loads(line) for line in f if line.strip()]
+
+
+def run_static_results():
+    import argparse
+    import json
+    import tempfile
+    import time
+    import events
+    import lss_config
+
+    print("[results]")
+    old_cwd = os.getcwd()
+    tmp = tempfile.mkdtemp()
+    os.chdir(tmp)
+    try:
+        import run
+        check("importing run starts no run log", not os.path.exists(".lss/runs"))
+
+        events.configure(1, {"t": 1})
+        path = events.log_path()
+        assert path is not None
+        args = argparse.Namespace(verbose=False, debug=False, quick=True, timeout=5)
+        bm = {"name": "b1", "lean_code": "def f (x : Nat) : Nat := x", "func_name": "f"}
+
+        def fake_synth(*a, **k):
+            events.emit("probe")
+            return [_spec("proved"), _spec("unproved")]
+
+        saved = (run.synthesize, run.evaluate, run.check_trait_obligations)
+        run.evaluate = lambda *a, **k: {"kill_rate": None, "mutation_counts": None}
+        run.check_trait_obligations = lambda *a, **k: {"trait_found": False}
+        try:
+            run.synthesize = fake_synth
+            run.run_bench(bm, args, None, None, None)
+            evs = _read_events(path)
+            probe = [e for e in evs if e["kind"] == "probe"]
+            res = [e for e in evs if e["kind"] == "unit_result"]
+            check("every event of a function carries its unit, inside the timeout thread too",
+                  len(probe) == 1 and probe[0].get("unit") == "b1", str(probe))
+            check("a function ends with one unit_result: status, spec counts and seconds",
+                  len(res) == 1 and res[0]["unit"] == "b1" and res[0]["status"] == "proved_total"
+                  and res[0]["proved"] == 1 and res[0]["unproved"] == 1 and res[0]["generated"] == 2
+                  and res[0]["seconds"] >= 0, str(res))
+
+            run.synthesize = lambda *a, **k: time.sleep(3)
+            run.run_bench(dict(bm, name="b2"), argparse.Namespace(**{**vars(args), "timeout": 1}),
+                          None, None, None)
+            res = [e for e in _read_events(path) if e["kind"] == "unit_result" and e["unit"] == "b2"]
+            check("a timeout still ends with one unit_result, status unknown",
+                  len(res) == 1 and res[0]["status"] == "unknown" and res[0]["reason"] == "timeout", str(res))
+
+            def boom(*a, **k):
+                raise ValueError("x")
+            run.synthesize = boom
+            raised = False
+            try:
+                run.run_bench(dict(bm, name="b3"), args, None, None, None)
+            except ValueError:
+                raised = True
+            res = [e for e in _read_events(path) if e["kind"] == "unit_result" and e["unit"] == "b3"]
+            check("a crash ends with unit_result unknown and is raised again",
+                  raised and len(res) == 1 and res[0]["status"] == "unknown"
+                  and res[0]["reason"] == "crash: ValueError", str(res))
+        finally:
+            run.synthesize, run.evaluate, run.check_trait_obligations = saved
+    finally:
+        os.chdir(old_cwd)
+
+    base = json.dumps(lss_config.config(), sort_keys=True)
+    os.environ["LSS_OVERRIDES"] = json.dumps({"proof": {"rust_hammer": True}})
+    lss_config._CFG = None
+    try:
+        on = lss_config.proof_cfg()["rust_hammer"]
+        changed = json.dumps(lss_config.config(), sort_keys=True) != base
+    finally:
+        del os.environ["LSS_OVERRIDES"]
+        lss_config._CFG = None
+    check("a bench variant's overrides change the config the run hashes",
+          on is True and changed and lss_config.proof_cfg()["rust_hammer"] is False)
+
+
 if static:
     run_static_metrics()
+    run_static_results()
 
 print()
 if fails:

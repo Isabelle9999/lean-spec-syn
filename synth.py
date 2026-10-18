@@ -1503,7 +1503,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                 if verbose:
                     print(f"  [g4] {spec['name']}: all layers failed, unproved")
                 spec["status"] = "unproved"
-                events.emit("verdict", status="unproved", method="")
+                events.emit("verdict", status="unproved", method="", stmt=spec["stmt"])  # kept for replaying closers
 
     # pbt: final check for unproved specs
     for spec in specs:
