@@ -26,12 +26,7 @@ import lean_server as _lean_server
 from synth import LLMClient, synthesize, refine, _func_name, get_llm_calls
 import events
 from benchmarks import BENCHMARKS, evaluate
-from metrics import (
-    soundness_score, precision_score, clarity_score,
-    uniqueness_score, admissibility_check,
-    functional_correctness, spec_coverage,
-    generate_report, save_report, summary_table,
-)
+from metrics import functional_correctness, spec_coverage, generate_report, save_report, summary_table
 from incremental import (
     lean_version, load_hashes, save_hashes,
     compute_current_hashes, affected_benches,
@@ -39,51 +34,6 @@ from incremental import (
 )
 from traits import check_trait_obligations
 from divergence import detect_divergent, mark_divergent_specs
-
-
-def _naive_run(bm, llm, checker):
-    specs = llm.generate_specs(bm["lean_code"], bm.get("templates", []))
-    for spec in specs:
-        code = bm["lean_code"] + f"\ntheorem {spec['name']} : {spec['stmt']} := sorry"
-        ok, _ = checker.typecheck(code)
-        spec["status"] = "validated" if ok else "rejected"
-    return specs
-
-
-def _metrics(specs, bm, kill_rate, checker, quick=False, verbose=False):
-    proved = [s for s in specs if s["status"] in ("proved", "validated")]
-    sound = soundness_score(specs)
-    prec = precision_score(kill_rate) if kill_rate is not None else None
-    avg_clarity = (
-        sum(clarity_score(s["stmt"])["score"] for s in proved) / len(proved)
-        if proved else 0.0
-    )
-    avg_uniq = None
-    if not quick and proved:
-        fn = bm.get("func_name") or _func_name(bm["lean_code"])
-        ti = bm.get("test_inputs", [])
-        if verbose:
-            print(f"  [debug] uniqueness inputs: {len(ti)} test inputs")
-        if fn and ti:
-            uniqs = [
-                uniqueness_score(s["stmt"], fn, bm["lean_code"], ti, checker)["score"]
-                for s in proved
-            ]
-            avg_uniq = sum(uniqs) / len(uniqs)
-    adm = (
-        admissibility_check(proved[0]["stmt"], bm["lean_code"], checker,
-                            test_inputs=bm.get("test_inputs"), func_name=bm.get("func_name"))
-        if proved else None
-    )
-    return {
-        "soundness": sound,
-        "precision": prec,
-        "avg_clarity": avg_clarity,
-        "impl_independence": None,
-        "avg_uniqueness": avg_uniq,
-        "admissibility": adm,
-        "convergence_iterations": 0,
-    }
 
 
 def _with_timeout(fn, timeout):
@@ -134,8 +84,6 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
         os.makedirs(debug_dir, exist_ok=True)
 
     def _synth():
-        if baseline == "naive":
-            return _naive_run(bm, llm, checker)
         postcond_defs = bm.get("postcond_defs", {})
         lean_code = bm["lean_code"] + bm.get("lean_preamble", "")
         s = synthesize(lean_code, ti, tpl, llm, checker, store, func_name=fn, verbose=vb, debug_dir=debug_dir, postcond_defs=postcond_defs, project_dir=project_dir, func_source=func_source, source=bm.get("source"))
@@ -163,10 +111,8 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
 
     elapsed = time.time() - t0
 
-    eval_checker = None if baseline in ("naive", "no-mutation") or args.quick else checker
+    eval_checker = None if baseline == "no-mutation" or args.quick else checker
     score = evaluate(specs, bm_eval, lean_checker=eval_checker, project_dir=project_dir)
-
-    md = _metrics(specs, bm, score["kill_rate"], checker, quick=args.quick, verbose=vb)
     lean_calls_count = get_lean_calls()
     llm_calls_count = get_llm_calls()
 
@@ -182,21 +128,22 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
         fc = {"score": None}
         sc = {"score": None}
 
-    report = generate_report(bm["name"], specs, md, elapsed, llm_calls_count, lean_calls_count)
+    report = generate_report(bm["name"], specs, elapsed, llm_calls_count, lean_calls_count,
+                             kill_rate=score["kill_rate"])
     report["functional_correctness"] = fc
     report["spec_coverage"] = sc
     os.makedirs(".lss/reports", exist_ok=True)
     save_report(report, f".lss/reports/{bm['name']}.json")
 
-    kernel_proved = sum(1 for s in specs if s["status"] == "proved")
-    validated = sum(1 for s in specs if s["status"] == "validated")
-    rejected = sum(1 for s in specs if s["status"] == "rejected")
-    total_survived = kernel_proved + validated
-    survived = [s for s in specs if s["status"] in ("proved", "validated")]
+    proved = [s for s in specs if s["status"] == "proved"]
+    rejected = report["rejected_count"]
     label = bm["name"] + (f" ({baseline})" if baseline != "none" else "")
     print(f"\n--- {label} ---")
+    print(f"  status:     {report['status']}")
     print(f"  generated:  {len(specs)}")
-    print(f"  survived:   {total_survived} ({kernel_proved} kernel-proved, {validated} validated)")
+    print(f"  proved:     {len(proved)} (kernel-checked; only these count)")
+    if report["unproved_count"]:
+        print(f"  unproved:   {report['unproved_count']} (passed the gates, no proof; not counted)")
     if rejected:
         print(f"  rejected:   {rejected}")
         g1 = sum(1 for s in specs if s.get("fail_gate") == "g1")
@@ -206,10 +153,6 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
     if refuted:
         kern = sum(1 for s in refuted if s.get("refuted_by") == "kernel")
         print(f"  refuted:    {len(refuted)} ({kern} by a kernel-checked witness)")
-    print(f"  soundness:  {md['soundness']:.2f}")
-    print(f"  recall:     {score['recall']:.2f}")
-    p = md["precision"]
-    print(f"  precision:  {p:.2f}" if p is not None else "  precision:  -")
     mc = score.get("mutation_counts")
     if mc:
         total_m = sum(mc.values())
@@ -217,12 +160,6 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
         print(f"  mutants:    {total_m} total, {mc['KILLED']} killed, {mc['SURVIVED']} survived, "
               f"{mc['EQUIVALENT']} equiv, {mc['INCONCLUSIVE']} inconclusive, {mc['STILLBORN']} stillborn"
               + (f" (score {mc['KILLED']}/{scored_m})" if scored_m else " (score unavailable)"))
-    print(f"  clarity:    {md['avg_clarity']:.3f}")
-    u = md["avg_uniqueness"]
-    print(f"  uniqueness: {u:.2f}" if u is not None else "  uniqueness: -")
-    adm = md["admissibility"]
-    if adm is not None:
-        print(f"  admissible: {adm['admissible']}")
     if fc["score"] is not None:
         fc_skip = fc.get("skipped_comparisons", 0)
         sc_skip = sc.get("skipped_comparisons", 0)
@@ -251,17 +188,9 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
         print("  spec_coverage: - (no ground truth)")
     print(f"  llm calls:  {llm_calls_count}")
     print(f"  lean calls: {lean_calls_count}")
-    for s in survived:
+    for s in proved:
         tag = f" [{s['method']}]" if s.get("method") else ""
-        display = "kernel-proved" if s["status"] == "proved" else "validated (unproved)"
-        print(f"    {display:20}{tag}  {s['name']}: {s['stmt'][:80]}")
-
-    pc_data = [s["post_completeness"] for s in survived if s.get("post_completeness")]
-    if pc_data:
-        valid_pc = [d["post_completeness"] for d in pc_data if d["post_completeness"] is not None]
-        if valid_pc:
-            avg_pc = sum(valid_pc) / len(valid_pc)
-            print(f"  post_completeness: {avg_pc:.2f} avg over {len(valid_pc)} specs")
+        print(f"    kernel-proved{tag}  {s['name']}: {s['stmt'][:80]}")
 
     if divergent:
         print(f"  divergent defs: {', '.join(sorted(divergent))}")
@@ -272,7 +201,7 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
         print("  divergent: none detected")
 
     _fn = bm.get("func_name") or _func_name(bm["lean_code"])
-    _proved = [s for s in (specs or []) if s.get('status') in ('proved', 'validated')]
+    _proved = [s for s in (specs or []) if s.get('status') == 'proved']
     _spec_map = {_fn: [s['stmt'] for s in _proved]} if _proved else {}
     _lc = bm["lean_code"] + bm.get("lean_preamble", "")
     tr = check_trait_obligations(_spec_map, _lc, checker, project_dir)
@@ -295,7 +224,7 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
 
 
 def _ablation_table(name, variants):
-    keys = ["soundness", "precision", "avg_clarity", "avg_uniqueness"]
+    keys = ["proved_count", "mutation_score"]
     full = next(r for n, _, r in variants if n == "none")
     w, col = 12, 22
     hdr = f"{'baseline':<{col}}" + "".join(f"{k[:w]:>{w}}" for k in keys)
@@ -351,7 +280,7 @@ def main():
     p.add_argument("--verbose", action="store_true")
     p.add_argument("--debug", action="store_true")
     p.add_argument("--bench", nargs="+", default=None, help="one or more benchmark names")
-    p.add_argument("--baseline", choices=["none", "naive", "no-mutation", "no-adversarial"],
+    p.add_argument("--baseline", choices=["none", "no-mutation", "no-adversarial"],
                    default="none")
     p.add_argument("--ablation", action="store_true")
     p.add_argument("--verina", action="store_true")
@@ -430,7 +359,7 @@ def main():
 
     reports = []
     if args.ablation:
-        baselines = ["none", "naive", "no-mutation", "no-adversarial"]
+        baselines = ["none", "no-mutation", "no-adversarial"]
         for bm in benches:
             variants = []
             for bl in baselines:

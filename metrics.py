@@ -4,104 +4,32 @@ import os
 from lean import _parse_forall_vars, _parse_forall_types
 
 
-def soundness_score(specs):
-    total = len(specs)
-    if not total:
-        return 0.0
-    proved = sum(1 for s in specs if s["status"] == "proved")
-    return proved / total
+# one verdict per function, from kernel-proved specs only
+STATUSES = ("proved_total", "proved_partial", "refuted", "unknown", "skipped")
+_PARTIAL = re.compile(r"⦄\s*div\b|\bdspec\b")
 
 
-def precision_score(kill_rate):
-    return float(kill_rate)
+def unit_status(specs):
+    """proved_total: a kernel-proved spec that also claims the call terminates.
+    proved_partial: every proved spec allows divergence (⦃ ⦄div). refuted: nothing
+    proved and some candidate refuted. unknown: anything else, including no candidates.
+    (skipped is set by the caller, for a function it did not attempt.)"""
+    specs = specs or []
+    proved = [s for s in specs if s["status"] == "proved"]
+    if any(not _PARTIAL.search(s["stmt"]) for s in proved):
+        return "proved_total"
+    if proved:
+        return "proved_partial"
+    if any(s["status"] == "refuted" for s in specs):
+        return "refuted"
+    return "unknown"
 
 
-def clarity_score(spec_stmt):
-    tokens = len(spec_stmt.split())
-    quantifiers = len(re.findall(r'\bforall\b|∀|\bexists\b|∃', spec_stmt))
-    depth = 0
-    max_depth = 0
-    for ch in spec_stmt:
-        if ch in "([":
-            depth += 1
-            max_depth = max(max_depth, depth)
-        elif ch in ")]":
-            depth = max(0, depth - 1)
-    score = 1.0 / (1 + tokens / 50 + quantifiers / 3)
-    return {"tokens": tokens, "quantifiers": quantifiers, "nesting": max_depth, "score": score}
-
-
-def impl_independence(spec_stmt, alternative_impls, lean_checker):
-    n = len(alternative_impls)
-    if not n:
-        return {"total_impls": 0, "accepted": 0, "score": 0.0}
-    accepted = 0
-    for alt_code in alternative_impls:
-        code = alt_code.rstrip() + f"\ntheorem _t : {spec_stmt} := sorry"
-        ok, _ = lean_checker.typecheck(code)
-        if ok:
-            accepted += 1
-    return {"total_impls": n, "accepted": accepted, "score": accepted / n}
-
-
-def _alt_outputs(val):
-    val = val.strip()
-    try:
-        n = int(val)
-        alts = [str(n + 1)]
-        if n > 0:
-            alts.append(str(n - 1))
-        if n > 1:
-            alts.append("0")
-        return alts[:3]
-    except ValueError:
-        pass
-    if val.startswith("[") and val.endswith("]"):
-        inner = val[1:-1].strip()
-        if not inner:
-            return ["[0]"]
-        parts = [p.strip() for p in inner.split(",")]
-        return ["[" + ", ".join(parts[::-1]) + "]", "[]"]
-    return []
-
-
-def uniqueness_score(spec_stmt, func_name, lean_code, test_inputs, lean_checker):
-    inputs_tested = 0
-    total_alternatives = 0
-    alternatives_rejected = 0
-    for inp in test_inputs:
-        correct = lean_checker.eval_expr(f"{func_name} {inp}", prelude=lean_code)
-        if not correct or "error" in correct.lower():
-            continue
-        alts = _alt_outputs(correct)
-        if not alts:
-            continue
-        inputs_tested += 1
-        for alt in alts:
-            total_alternatives += 1
-            # replace function body with constant wrong output, check if spec still holds
-            const = re.sub(r':=.*', lambda m: ':= ' + alt, lean_code, count=1, flags=re.DOTALL)
-            r = lean_checker.try_proof(const, spec_stmt)
-            if not r.proved:
-                alternatives_rejected += 1
-    score = alternatives_rejected / total_alternatives if total_alternatives else 1.0
-    return {"inputs_tested": inputs_tested, "alternatives_rejected": alternatives_rejected, "score": score}
-
-
-def admissibility_check(spec_stmt, lean_code, lean_checker, test_inputs=None, func_name=None):
-    if func_name:
-        func = func_name
-    else:
-        m = re.search(r'def\s+([a-zA-Z_][a-zA-Z0-9_\'!?]*)', lean_code)
-        if not m:
-            return {"admissible": False, "witness_input": None}
-        func = m.group(1)
-    inputs_to_try = test_inputs if test_inputs else ["0", "1", "[]", "#[]"]
-    for inp in inputs_to_try:
-        val = lean_checker.eval_expr(f"{func} {inp}", prelude=lean_code)
-        if val and "error" not in val.lower() and "unknown" not in val.lower():
-            return {"admissible": True, "witness_input": inp}
-    return {"admissible": False, "witness_input": None}
+def yield_counts(statuses):
+    """(proved, attempted): functions with a kernel-proved spec, over every function
+    attempted. skipped functions leave the denominator, unknown ones never do."""
+    attempted = [s for s in statuses if s != "skipped"]
+    return sum(1 for s in attempted if s.startswith("proved")), len(attempted)
 
 
 def _normalize_for_compare(stmt):
@@ -492,37 +420,21 @@ def spec_coverage(generated_specs, ground_truth_specs, lean_checker,
     }
 
 
-def generate_report(benchmark_name, specs, metrics_dict, timing, llm_calls, lean_calls):
-    proved = [s for s in specs if s["status"] == "proved"]
-    validated = [s for s in specs if s["status"] == "validated"]
-    rejected = [s for s in specs if s["status"] == "rejected"]
-    spec_entries = []
-    for s in specs:
-        c = clarity_score(s["stmt"])
-        spec_entries.append({
-            "name": s["name"],
-            "stmt": s["stmt"],
-            "status": s["status"],
-            "method": s.get("method", ""),
-            "clarity_score": c["score"],
-        })
+def generate_report(benchmark_name, specs, timing, llm_calls, lean_calls, kill_rate=None):
     return {
         "name": benchmark_name,
+        "status": unit_status(specs),
         "generated_count": len(specs),
-        "proved_count": len(proved),
-        "validated_count": len(validated),
-        "rejected_count": len(rejected),
-        "soundness": metrics_dict.get("soundness", 0.0),
-        "precision": metrics_dict.get("precision"),
-        "avg_clarity": metrics_dict.get("avg_clarity", 0.0),
-        "impl_independence": metrics_dict.get("impl_independence"),
-        "avg_uniqueness": metrics_dict.get("avg_uniqueness"),
-        "admissibility": metrics_dict.get("admissibility"),
-        "convergence_iterations": metrics_dict.get("convergence_iterations", 0),
+        "proved_count": sum(1 for s in specs if s["status"] == "proved"),
+        "refuted_count": sum(1 for s in specs if s["status"] == "refuted"),
+        "unproved_count": sum(1 for s in specs if s["status"] == "unproved"),
+        "rejected_count": sum(1 for s in specs if s["status"] == "rejected"),
+        "mutation_score": kill_rate,
         "llm_calls": llm_calls,
         "lean_calls": lean_calls,
         "elapsed_seconds": timing,
-        "specs": spec_entries,
+        "specs": [{"name": s["name"], "stmt": s["stmt"], "status": s["status"],
+                   "method": s.get("method", "")} for s in specs],
     }
 
 
@@ -537,24 +449,14 @@ def save_report(report, path):
 def summary_table(reports):
     if not reports:
         return ""
-    header = (
-        f"{'benchmark':<20} {'proved':>7} {'sound':>6} {'prec':>6}"
-        f" {'clarity':>8} {'unique':>7} {'llm':>5} {'lean':>5} {'sec':>6}"
-    )
-    sep = "-" * len(header)
-    rows = [header, sep]
+    header = (f"{'benchmark':<28} {'status':<15} {'proved':>7} {'mut':>5}"
+              f" {'llm':>5} {'lean':>5} {'sec':>7}")
+    rows = [header, "-" * len(header)]
     for r in reports:
-        prec = f"{r['precision']:.2f}" if r["precision"] is not None else "    -"
-        uniq = f"{r['avg_uniqueness']:.2f}" if r["avg_uniqueness"] is not None else "     -"
-        rows.append(
-            f"{r['name']:<20} "
-            f"{r['proved_count']:>3}/{r['generated_count']:<3} "
-            f"{r['soundness']:>6.2f} "
-            f"{prec:>6} "
-            f"{r['avg_clarity']:>8.3f} "
-            f"{uniq:>7} "
-            f"{r['llm_calls']:>5} "
-            f"{r['lean_calls']:>5} "
-            f"{r['elapsed_seconds']:>6.1f}"
-        )
+        mut = f"{r['mutation_score']:.2f}" if r["mutation_score"] is not None else "-"
+        rows.append(f"{r['name']:<28} {r['status']:<15} "
+                    f"{r['proved_count']:>3}/{r['generated_count']:<3} {mut:>5} "
+                    f"{r['llm_calls']:>5} {r['lean_calls']:>5} {r['elapsed_seconds']:>7.1f}")
+    proved, attempted = yield_counts([r["status"] for r in reports])
+    rows.append(f"yield: {proved} of {attempted} functions have a kernel-proved spec")
     return "\n".join(rows)

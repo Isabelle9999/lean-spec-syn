@@ -811,60 +811,6 @@ def _generate_wrong_values(lean_code, func_name):
     return wrongs
 
 
-def _replace_body_with_constant(lean_code, func_name, constant):
-    """replace function body with a constant return value."""
-    pattern = rf'(def\s+{re.escape(func_name)}\s+[^:]*:[^:]*):=[\s\S]*?(?=\ndef\s|\Z)'
-    result = re.sub(pattern, rf'\1:= {constant}', lean_code, count=1)
-    return result
-
-
-def _generate_wrong_outputs(correct_output):
-    """generate wrong outputs based on a correct output value."""
-    wrongs = []
-    s = str(correct_output).strip()
-    try:
-        n = int(s)
-        wrongs.extend([str(n + 1), str(n - 1), str(n * 2), "0", "1"])
-    except ValueError:
-        pass
-    if s.startswith("["):
-        wrongs.extend(["[]", "[0]", s + " ++ [0]"])
-        if "," in s:
-            elements = s.strip("[]").split(",")
-            wrongs.append("[" + ",".join(reversed(elements)) + "]")
-    if s == "true":
-        wrongs.append("false")
-    elif s == "false":
-        wrongs.append("true")
-    if s == "none":
-        wrongs.append("some 0")
-    elif s.startswith("some"):
-        wrongs.append("none")
-    return wrongs[:5]
-
-
-def compute_post_completeness(specs, lean_code, func_name, test_inputs, lean_checker, project_dir=None):
-    """fraction of wrong outputs rejected by each proved spec."""
-    proved = [s for s in specs if s["status"] == "proved"]
-    results = {}
-    for spec in proved:
-        total_wrong = 0
-        rejected = 0
-        for inp in test_inputs[:4]:
-            correct = lean_checker.eval_expr(f"{func_name} {inp}", prelude=lean_code)
-            if not correct:
-                continue
-            for wrong in _generate_wrong_outputs(correct):
-                total_wrong += 1
-                wrong_code = _replace_body_with_constant(lean_code, func_name, wrong)
-                pr = lean_checker.try_proof_batch(wrong_code, spec["stmt"], func_name=func_name, project_dir=project_dir)
-                if not pr.proved:
-                    rejected += 1
-        pc = rejected / total_wrong if total_wrong > 0 else None
-        results[spec["name"]] = {"post_completeness": pc, "total_tested": total_wrong, "rejected": rejected}
-    return results
-
-
 def _perturb_correct_output(correct_out):
     """perturb the correct output to generate wrong outputs (LeetProof-style)."""
     s = str(correct_out).strip()
@@ -1363,7 +1309,7 @@ def _llm_repair(llm, lean_code, spec, prev_proofs=None, verbose=False, debug_dir
             spec["status"] = "proved"
             spec["method"] = "llm-calc"
             return
-    spec["status"] = "validated"
+    spec["status"] = "unproved"
 
 def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_store=None, func_name=None, verbose=False, debug_dir=None, project_dir=None, func_source=None, source=None):
     func = func_name or _func_name(lean_code)
@@ -1555,9 +1501,9 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                         continue
 
                 if verbose:
-                    print(f"  [g4] {spec['name']}: all layers failed, validated")
-                spec["status"] = "validated"
-                events.emit("verdict", status="validated", method="")
+                    print(f"  [g4] {spec['name']}: all layers failed, unproved")
+                spec["status"] = "unproved"
+                events.emit("verdict", status="unproved", method="")
 
     # pbt: final check for unproved specs
     for spec in specs:
@@ -1736,7 +1682,7 @@ def run_adversarial_tier(specs, lean_code, func_name, lean_checker, llm, example
                          project_dir=None, test_inputs=None, rounds=3, verbose=False):
     """adversarial attack: find a wrong implementation that passes all proved specs.
     returns dict: attacked, adv_full, witness, round_failures."""
-    proved = [s for s in specs if s["status"] in ("proved", "validated")]
+    proved = [s for s in specs if s["status"] == "proved"]
     if not proved or not func_name:
         return {"attacked": False, "adv_full": "", "witness": None, "round_failures": []}
 
@@ -1928,7 +1874,7 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
     print(f"  [refine] entered, verbose={verbose}, {len([s for s in specs if s['status']=='proved'])} proved specs")
     with events.context(stage="refine"):
         engine = MutationEngine(lean_checker)
-        proved = [s for s in specs if s["status"] in ("proved", "validated")]
+        proved = [s for s in specs if s["status"] == "proved"]
         sig = lean_code.split(':=', 1)[0].strip() if ':=' in lean_code else func_name
 
         if verbose:
@@ -1936,7 +1882,7 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
 
         seen_spec_hashes = set()
         for _ in range(5):
-            current_hash = hash(frozenset((s["name"], s["stmt"]) for s in specs if s["status"] in ("proved", "validated")))
+            current_hash = hash(frozenset((s["name"], s["stmt"]) for s in specs if s["status"] == "proved"))
             if current_hash in seen_spec_hashes:
                 if verbose:
                     print("  [cycle] spec set repeated, stopping refinement to avoid infinite loop")
@@ -2186,24 +2132,13 @@ def _refine_inner(specs, lean_code, func_name, test_inputs, lean_checker, llm, e
                     ns = {"name": spec["name"], "stmt": candidate, "status": "pending", "method": ""}
                     r = validate([ns], lean_code, test_inputs, lean_checker, llm=llm,
                                  func_name=func_name, project_dir=project_dir, source=source)
-                    if r[0]["status"] in ("proved", "validated"):
+                    if r[0]["status"] == "proved":
                         spec.update({"stmt": candidate, "status": r[0]["status"], "method": r[0]["method"]})
                 if verbose:
                     print(f"  [refine] tier 3 took {time.time()-t_tier3:.1f}s")
 
             # a second pass only ran after tier 2 rewrote a spec, which it no longer does
             break
-
-        pc_results = compute_post_completeness(specs, lean_code, func_name, test_inputs, lean_checker)
-        for name, pc in pc_results.items():
-            for s in specs:
-                if s["name"] == name:
-                    s["post_completeness"] = pc
-                    break
-        if verbose and pc_results:
-            for name, pc in pc_results.items():
-                pct = f"{pc['post_completeness']:.2f}" if pc["post_completeness"] is not None else "n/a"
-                print(f"  [pc] {name}: post_completeness={pct} ({pc['rejected']}/{pc['total_tested']})")
 
         return specs
 
@@ -2634,9 +2569,9 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
                 print(f"  [dedup] dropped post-gwp duplicate: {s['name']}: {s['stmt'][:60]}")
         specs = deduped_final
 
-        # second pass: last-resort proof for validated-but-unproved specs
+        # second pass: last-resort proof for unproved specs
         if llm and fn:
-            for spec in [s for s in specs if s["status"] == "validated"]:
+            for spec in [s for s in specs if s["status"] == "unproved"]:
                 prompt = (
                     f"this theorem is true but i cannot prove it:\n"
                     f"{lean_code}\n"
@@ -2722,7 +2657,7 @@ def mergeSort (xs : List Nat) : List Nat := merge (split xs).1 (split xs).2"""
     engine = MutationEngine(checker)
     mutants = engine.generate_mutants(lean_code, func_name)
     certifiable = [m for m in mutants if engine.certify(lean_code, m, func_name, test_inputs)]
-    proved_final = [s for s in specs if s["status"] in ("proved", "validated")]
+    proved_final = [s for s in specs if s["status"] == "proved"]
     killed = sum(
         1 for m in certifiable
         if any(not engine.spec_accepts_mutant(s["stmt"], m, func_name=func_name) for s in proved_final)
