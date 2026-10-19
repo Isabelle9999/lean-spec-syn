@@ -1,0 +1,7063 @@
+{
+ "dev": [
+  {
+   "bench": "rust_hashmap_HashMap_move_elements_from_list_loop",
+   "callees": 5,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.move_elements_from_list_loop",
+   "lines": 13
+  },
+  {
+   "bench": "rust_Node_insert_in_left",
+   "callees": 8,
+   "crate": "Avl",
+   "kinds": [
+    "diverge",
+    "generic",
+    "mutual",
+    "deep",
+    "large"
+   ],
+   "lean_name": "Avl.Node.insert_in_left",
+   "lines": 26
+  },
+  {
+   "bench": "rust_list_nth_mut_pair_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.list_nth_mut_pair_loop",
+   "lines": 25
+  },
+  {
+   "bench": "rust_TreeSet_insert_loop",
+   "callees": 1,
+   "crate": "Bst",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Bst.TreeSet.insert_loop",
+   "lines": 23
+  },
+  {
+   "bench": "rust_list_nth_mut1_loop",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Tutorial.list_nth_mut1_loop",
+   "lines": 18
+  },
+  {
+   "bench": "rust_list_nth_mut",
+   "callees": 1,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "NoNestedBorrows.list_nth_mut",
+   "lines": 18
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31_try_inverse",
+   "callees": 12,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31.try_inverse",
+   "lines": 21
+  },
+  {
+   "bench": "rust_compute_log_arity_for_round",
+   "callees": 0,
+   "crate": "FoldArity",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "FoldArity.compute_log_arity_for_round",
+   "lines": 21
+  },
+  {
+   "bench": "rust_fold_step",
+   "callees": 0,
+   "crate": "FoldStep",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "FoldStep.fold_step",
+   "lines": 21
+  },
+  {
+   "bench": "rust_Node_insert_in_right",
+   "callees": 8,
+   "crate": "Avl",
+   "kinds": [
+    "diverge",
+    "generic",
+    "mutual",
+    "deep",
+    "large"
+   ],
+   "lean_name": "Avl.Node.insert_in_right",
+   "lines": 26
+  }
+ ],
+ "kinds_covered": [
+  "deep",
+  "diverge",
+  "generic",
+  "large",
+  "loop",
+  "mutual",
+  "self_rec"
+ ],
+ "seed": 0,
+ "size": 10,
+ "suite": {
+  "AeneasFieldArithmetic": 56,
+  "AeneasStandalone": 415,
+  "Avl": 13,
+  "Bst": 5,
+  "FoldArity": 1,
+  "FoldStep": 1,
+  "Loops": 108,
+  "NoNestedBorrows": 60,
+  "Tutorial": 38
+ },
+ "test": [
+  {
+   "bench": "rust_field_Field_bits_default",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.field.Field.bits.default",
+   "lines": 13
+  },
+  {
+   "bench": "rust_field_Field_inverse_default",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.field.Field.inverse.default",
+   "lines": 12
+  },
+  {
+   "bench": "rust_field_Field_is_one_default",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.field.Field.is_one.default",
+   "lines": 12
+  },
+  {
+   "bench": "rust_field_Field_is_zero_default",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.field.Field.is_zero.default",
+   "lines": 12
+  },
+  {
+   "bench": "rust_field_PrimeCharacteristicRing_double_default",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.field.PrimeCharacteristicRing.double.default",
+   "lines": 11
+  },
+  {
+   "bench": "rust_field_PrimeCharacteristicRing_from_bool_default",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.field.PrimeCharacteristicRing.from_bool.default",
+   "lines": 12
+  },
+  {
+   "bench": "rust_field_PrimeCharacteristicRing_halve_default",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasFieldArithmetic.field.PrimeCharacteristicRing.halve.default",
+   "lines": 10
+  },
+  {
+   "bench": "rust_field_PrimeField32_to_unique_u32_default",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.field.PrimeField32.to_unique_u32.default",
+   "lines": 14
+  },
+  {
+   "bench": "rust_field_PrimeField64_to_unique_u64_default",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.field.PrimeField64.to_unique_u64.default",
+   "lines": 12
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31_is_zero",
+   "callees": 2,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31.is_zero",
+   "lines": 12
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31_order",
+   "callees": 1,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31.order",
+   "lines": 9
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31_div_2exp_u64",
+   "callees": 1,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.div_2exp_u64",
+   "lines": 18
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31_from_bool",
+   "callees": 1,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.from_bool",
+   "lines": 8
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31_from_prime_subfield",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.from_prime_subfield",
+   "lines": 7
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31_halve",
+   "callees": 2,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.halve",
+   "lines": 8
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31_mul_2exp_u64",
+   "callees": 1,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.mul_2exp_u64",
+   "lines": 17
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeField32Mersenne31Mersenne31_as_canonical_u32",
+   "callees": 2,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeField32Mersenne31Mersenne31.as_canonical_u32",
+   "lines": 11
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeField64Mersenne31Mersenne31_as_canonical_u64",
+   "callees": 3,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeField64Mersenne31Mersenne31.as_canonical_u64",
+   "lines": 10
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeFieldMersenne31Mersenne31_as_canonical_biguint",
+   "callees": 3,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeFieldMersenne31Mersenne31.as_canonical_biguint",
+   "lines": 11
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapI32_from_canonical_checked",
+   "callees": 3,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI32.from_canonical_checked",
+   "lines": 37
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapI32_from_canonical_unchecked",
+   "callees": 3,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI32.from_canonical_unchecked",
+   "lines": 15
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapI32_from_int",
+   "callees": 4,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI32.from_int",
+   "lines": 20
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapI64_from_canonical_checked",
+   "callees": 4,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI64.from_canonical_checked",
+   "lines": 16
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapI64_from_canonical_unchecked",
+   "callees": 4,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI64.from_canonical_unchecked",
+   "lines": 9
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapI64_from_int",
+   "callees": 6,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI64.from_int",
+   "lines": 18
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapU32_from_canonical_checked",
+   "callees": 5,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU32.from_canonical_checked",
+   "lines": 11
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapU32_from_canonical_unchecked",
+   "callees": 3,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU32.from_canonical_unchecked",
+   "lines": 10
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapU32_from_int",
+   "callees": 4,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU32.from_int",
+   "lines": 13
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapU64_from_canonical_checked",
+   "callees": 4,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU64.from_canonical_checked",
+   "lines": 17
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapU64_from_canonical_unchecked",
+   "callees": 4,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU64.from_canonical_unchecked",
+   "lines": 9
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapU64_from_int",
+   "callees": 4,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU64.from_int",
+   "lines": 13
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreCloneClone_clone",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCloneClone.clone",
+   "lines": 6
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreCmpOrd_clamp",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpOrd.clamp",
+   "lines": 28
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreCmpOrd_cmp",
+   "callees": 3,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpOrd.cmp",
+   "lines": 14
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreCmpOrd_max",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpOrd.max",
+   "lines": 13
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreCmpOrd_min",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpOrd.min",
+   "lines": 13
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreCmpPartialEqMersenne31_eq",
+   "callees": 3,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpPartialEqMersenne31.eq",
+   "lines": 14
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreCmpPartialOrdMersenne31_partial_cmp",
+   "callees": 4,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpPartialOrdMersenne31.partial_cmp",
+   "lines": 9
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreDefaultDefault_default",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreDefaultDefault.default",
+   "lines": 6
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreOpsArithAddAssignMersenne31_add_assign",
+   "callees": 4,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithAddAssignMersenne31.add_assign",
+   "lines": 11
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreOpsArithAddMersenne31Mersenne31_add",
+   "callees": 3,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithAddMersenne31Mersenne31.add",
+   "lines": 18
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreOpsArithMulAssignMersenne31_mul_assign",
+   "callees": 6,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithMulAssignMersenne31.mul_assign",
+   "lines": 11
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreOpsArithMulMersenne31Mersenne31_mul",
+   "callees": 5,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithMulMersenne31Mersenne31.mul",
+   "lines": 11
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreOpsArithNegMersenne31_neg",
+   "callees": 3,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithNegMersenne31.neg",
+   "lines": 9
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreOpsArithSubAssignMersenne31_sub_assign",
+   "callees": 4,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithSubAssignMersenne31.sub_assign",
+   "lines": 11
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_Insts_CoreOpsArithSubMersenne31Mersenne31_sub",
+   "callees": 3,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithSubMersenne31Mersenne31.sub",
+   "lines": 14
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_new",
+   "callees": 1,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.new",
+   "lines": 8
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_new_checked",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.new_checked",
+   "lines": 9
+  },
+  {
+   "bench": "rust_mersenne31_Mersenne31_new_reduced",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.new_reduced",
+   "lines": 7
+  },
+  {
+   "bench": "rust_mersenne31_QuotientMapMersenne31U32_from_canonical_checked_closure_Insts_CoreOpsFunctionFnOnceTupleMersenne31_call_once",
+   "callees": 1,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.QuotientMapMersenne31U32.from_canonical_checked.closure.Insts.CoreOpsFunctionFnOnceTupleMersenne31.call_once",
+   "lines": 9
+  },
+  {
+   "bench": "rust_mersenne31_from_u62",
+   "callees": 4,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.mersenne31.from_u62",
+   "lines": 14
+  },
+  {
+   "bench": "rust_util_gcd_inversion_prime_field_32",
+   "callees": 2,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.util.gcd_inversion_prime_field_32",
+   "lines": 11
+  },
+  {
+   "bench": "rust_util_gcd_inversion_prime_field_32_loop",
+   "callees": 1,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.util.gcd_inversion_prime_field_32_loop",
+   "lines": 13
+  },
+  {
+   "bench": "rust_util_gcd_inversion_prime_field_32_loop_body",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.util.gcd_inversion_prime_field_32_loop.body",
+   "lines": 32
+  },
+  {
+   "bench": "rust_util_halve_u32",
+   "callees": 0,
+   "crate": "AeneasFieldArithmetic",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasFieldArithmetic.util.halve_u32",
+   "lines": 11
+  },
+  {
+   "bench": "rust_Bool_Insts_Aeneas_standaloneTraitsBoolTrait_get_bool",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.Bool.Insts.Aeneas_standaloneTraitsBoolTrait.get_bool",
+   "lines": 6
+  },
+  {
+   "bench": "rust_Bool_Insts_Aeneas_standaloneTraitsWithConstTyU8U6432_f",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.Bool.Insts.Aeneas_standaloneTraitsWithConstTyU8U6432.f",
+   "lines": 6
+  },
+  {
+   "bench": "rust_Pair_Insts_Aeneas_standaloneTraitsToU64_to_u64",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.Pair.Insts.Aeneas_standaloneTraitsToU64.to_u64",
+   "lines": 11
+  },
+  {
+   "bench": "rust_U32_Insts_Aeneas_standaloneTraitsChildTrait2U32U32_convert",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.U32.Insts.Aeneas_standaloneTraitsChildTrait2U32U32.convert",
+   "lines": 6
+  },
+  {
+   "bench": "rust_U64_Insts_Aeneas_standaloneTraitsToTypeBool_to_type",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.U64.Insts.Aeneas_standaloneTraitsToTypeBool.to_type",
+   "lines": 6
+  },
+  {
+   "bench": "rust_U64_Insts_Aeneas_standaloneTraitsToU64_to_u64",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.U64.Insts.Aeneas_standaloneTraitsToU64.to_u64",
+   "lines": 6
+  },
+  {
+   "bench": "rust_array_slice_index_slice_use_get_mut_range_from",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.array_slice_index.slice_use_get_mut_range_from",
+   "lines": 10
+  },
+  {
+   "bench": "rust_array_slice_index_slice_use_get_range",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.array_slice_index.slice_use_get_range",
+   "lines": 7
+  },
+  {
+   "bench": "rust_array_slice_index_slice_use_get_range_from",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.array_slice_index.slice_use_get_range_from",
+   "lines": 7
+  },
+  {
+   "bench": "rust_array_slice_index_slice_use_index_mut_range_from",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.array_slice_index.slice_use_index_mut_range_from",
+   "lines": 10
+  },
+  {
+   "bench": "rust_array_slice_index_slice_use_index_range",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.array_slice_index.slice_use_index_range",
+   "lines": 7
+  },
+  {
+   "bench": "rust_array_slice_index_slice_use_index_range_from",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.array_slice_index.slice_use_index_range_from",
+   "lines": 7
+  },
+  {
+   "bench": "rust_arrays_add_acc",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.arrays.add_acc",
+   "lines": 8
+  },
+  {
+   "bench": "rust_arrays_add_acc_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.add_acc_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_arrays_add_acc_loop_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.add_acc_loop.body",
+   "lines": 19
+  },
+  {
+   "bench": "rust_arrays_array_len",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.arrays.array_len",
+   "lines": 6
+  },
+  {
+   "bench": "rust_arrays_array_local_deep_copy",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.array_local_deep_copy",
+   "lines": 6
+  },
+  {
+   "bench": "rust_arrays_array_subslice_mut_",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.array_subslice_mut_",
+   "lines": 10
+  },
+  {
+   "bench": "rust_arrays_array_subslice_shared_",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.array_subslice_shared_",
+   "lines": 10
+  },
+  {
+   "bench": "rust_arrays_array_to_mut_slice_",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.arrays.array_to_mut_slice_",
+   "lines": 8
+  },
+  {
+   "bench": "rust_arrays_array_to_shared_slice_",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.arrays.array_to_shared_slice_",
+   "lines": 6
+  },
+  {
+   "bench": "rust_arrays_array_to_slice_mut_",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.array_to_slice_mut_",
+   "lines": 8
+  },
+  {
+   "bench": "rust_arrays_array_to_slice_shared_",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.array_to_slice_shared_",
+   "lines": 6
+  },
+  {
+   "bench": "rust_arrays_array_update1",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.array_update1",
+   "lines": 10
+  },
+  {
+   "bench": "rust_arrays_array_update2",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.array_update2",
+   "lines": 11
+  },
+  {
+   "bench": "rust_arrays_array_update3",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.array_update3",
+   "lines": 12
+  },
+  {
+   "bench": "rust_arrays_const_array",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.const_array",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_const_slice",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.const_slice",
+   "lines": 7
+  },
+  {
+   "bench": "rust_arrays_deref_array_borrow",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.deref_array_borrow",
+   "lines": 6
+  },
+  {
+   "bench": "rust_arrays_deref_array_mut_borrow",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.deref_array_mut_borrow",
+   "lines": 9
+  },
+  {
+   "bench": "rust_arrays_f0",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.f0",
+   "lines": 8
+  },
+  {
+   "bench": "rust_arrays_f1",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.f1",
+   "lines": 6
+  },
+  {
+   "bench": "rust_arrays_f2",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.f2",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_f3",
+   "callees": 5,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.arrays.f3",
+   "lines": 10
+  },
+  {
+   "bench": "rust_arrays_f4",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.f4",
+   "lines": 10
+  },
+  {
+   "bench": "rust_arrays_f5",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.f5",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_incr",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.incr",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_incr_array",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.incr_array",
+   "lines": 8
+  },
+  {
+   "bench": "rust_arrays_incr_slice",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.incr_slice",
+   "lines": 7
+  },
+  {
+   "bench": "rust_arrays_index_all",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.index_all",
+   "lines": 15
+  },
+  {
+   "bench": "rust_arrays_index_array",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.index_array",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_index_array_0",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.arrays.index_array_0",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_index_array_borrow",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.index_array_borrow",
+   "lines": 6
+  },
+  {
+   "bench": "rust_arrays_index_array_copy",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.index_array_copy",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_index_array_shared",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.arrays.index_array_shared",
+   "lines": 6
+  },
+  {
+   "bench": "rust_arrays_index_array_u32",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.index_array_u32",
+   "lines": 6
+  },
+  {
+   "bench": "rust_arrays_index_index_array",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.index_index_array",
+   "lines": 10
+  },
+  {
+   "bench": "rust_arrays_index_mut_array",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.arrays.index_mut_array",
+   "lines": 8
+  },
+  {
+   "bench": "rust_arrays_index_mut_slice",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.arrays.index_mut_slice",
+   "lines": 8
+  },
+  {
+   "bench": "rust_arrays_index_mut_slice_u32_0",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.index_mut_slice_u32_0",
+   "lines": 7
+  },
+  {
+   "bench": "rust_arrays_index_slice",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.arrays.index_slice",
+   "lines": 6
+  },
+  {
+   "bench": "rust_arrays_index_slice_0",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.arrays.index_slice_0",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_index_slice_u32_0",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.index_slice_u32_0",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_ite",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.ite",
+   "lines": 11
+  },
+  {
+   "bench": "rust_arrays_iter_mut_slice",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.arrays.iter_mut_slice",
+   "lines": 7
+  },
+  {
+   "bench": "rust_arrays_iter_mut_slice_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.arrays.iter_mut_slice_loop",
+   "lines": 9
+  },
+  {
+   "bench": "rust_arrays_iter_mut_slice_loop_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.arrays.iter_mut_slice_loop.body",
+   "lines": 10
+  },
+  {
+   "bench": "rust_arrays_non_copyable_array",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.non_copyable_array",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_range_all",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.range_all",
+   "lines": 11
+  },
+  {
+   "bench": "rust_arrays_shared_array_len",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.arrays.shared_array_len",
+   "lines": 7
+  },
+  {
+   "bench": "rust_arrays_shared_slice_len",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.arrays.shared_slice_len",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_slice_subslice_mut_",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.slice_subslice_mut_",
+   "lines": 9
+  },
+  {
+   "bench": "rust_arrays_slice_subslice_shared_",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.slice_subslice_shared_",
+   "lines": 9
+  },
+  {
+   "bench": "rust_arrays_sum",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.arrays.sum",
+   "lines": 6
+  },
+  {
+   "bench": "rust_arrays_sum2",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.arrays.sum2",
+   "lines": 8
+  },
+  {
+   "bench": "rust_arrays_sum2_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.sum2_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_arrays_sum2_loop_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.sum2_loop.body",
+   "lines": 18
+  },
+  {
+   "bench": "rust_arrays_sum_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.arrays.sum_loop",
+   "lines": 9
+  },
+  {
+   "bench": "rust_arrays_sum_loop_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.sum_loop.body",
+   "lines": 16
+  },
+  {
+   "bench": "rust_arrays_sum_mut_slice",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.arrays.sum_mut_slice",
+   "lines": 7
+  },
+  {
+   "bench": "rust_arrays_sum_mut_slice_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.arrays.sum_mut_slice_loop",
+   "lines": 9
+  },
+  {
+   "bench": "rust_arrays_sum_mut_slice_loop_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.sum_mut_slice_loop.body",
+   "lines": 16
+  },
+  {
+   "bench": "rust_arrays_take_all",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.take_all",
+   "lines": 13
+  },
+  {
+   "bench": "rust_arrays_take_array",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.take_array",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_take_array_borrow",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.take_array_borrow",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_take_array_t",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.take_array_t",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_take_mut_slice",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.take_mut_slice",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_take_slice",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.take_slice",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_update_all",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.update_all",
+   "lines": 11
+  },
+  {
+   "bench": "rust_arrays_update_array",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.update_array",
+   "lines": 6
+  },
+  {
+   "bench": "rust_arrays_update_array_mut_borrow",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.update_array_mut_borrow",
+   "lines": 6
+  },
+  {
+   "bench": "rust_arrays_update_mut_slice",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.arrays.update_mut_slice",
+   "lines": 5
+  },
+  {
+   "bench": "rust_arrays_update_update_array",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.update_update_array",
+   "lines": 12
+  },
+  {
+   "bench": "rust_arrays_update_update_slice",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.update_update_slice",
+   "lines": 11
+  },
+  {
+   "bench": "rust_arrays_update_update_slice_shifted",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.update_update_slice_shifted",
+   "lines": 14
+  },
+  {
+   "bench": "rust_arrays_zero_slice",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.arrays.zero_slice",
+   "lines": 6
+  },
+  {
+   "bench": "rust_arrays_zero_slice_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.zero_slice_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_arrays_zero_slice_loop_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.arrays.zero_slice_loop.body",
+   "lines": 13
+  },
+  {
+   "bench": "rust_bitwise_and_bool",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.bitwise.and_bool",
+   "lines": 5
+  },
+  {
+   "bench": "rust_bitwise_and_u32",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.bitwise.and_u32",
+   "lines": 5
+  },
+  {
+   "bench": "rust_bitwise_or_bool",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.bitwise.or_bool",
+   "lines": 5
+  },
+  {
+   "bench": "rust_bitwise_or_u32",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.bitwise.or_u32",
+   "lines": 5
+  },
+  {
+   "bench": "rust_bitwise_shift_i32",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.bitwise.shift_i32",
+   "lines": 6
+  },
+  {
+   "bench": "rust_bitwise_shift_u32",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.bitwise.shift_u32",
+   "lines": 6
+  },
+  {
+   "bench": "rust_bitwise_xor_bool",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.bitwise.xor_bool",
+   "lines": 5
+  },
+  {
+   "bench": "rust_bitwise_xor_u32",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.bitwise.xor_u32",
+   "lines": 5
+  },
+  {
+   "bench": "rust_closures_call_closure",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.closures.call_closure",
+   "lines": 8
+  },
+  {
+   "bench": "rust_closures_call_closure1",
+   "callees": 7,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.closures.call_closure1",
+   "lines": 5
+  },
+  {
+   "bench": "rust_closures_call_closure1_closure_Insts_CoreOpsFunctionFnMutTupleU32_call_mut",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.call_closure1.closure.Insts.CoreOpsFunctionFnMutTupleU32.call_mut",
+   "lines": 10
+  },
+  {
+   "bench": "rust_closures_call_closure1_closure_Insts_CoreOpsFunctionFnOnceTupleU32_call_once",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.call_closure1.closure.Insts.CoreOpsFunctionFnOnceTupleU32.call_once",
+   "lines": 9
+  },
+  {
+   "bench": "rust_closures_call_closure1_closure_Insts_CoreOpsFunctionFnTupleU32_call",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.call_closure1.closure.Insts.CoreOpsFunctionFnTupleU32.call",
+   "lines": 5
+  },
+  {
+   "bench": "rust_closures_call_closure2",
+   "callees": 13,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.closures.call_closure2",
+   "lines": 8
+  },
+  {
+   "bench": "rust_closures_call_closure2_closure_1_Insts_CoreOpsFunctionFnMutTupleU32_call_mut",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.closures.call_closure2.closure_1.Insts.CoreOpsFunctionFnMutTupleU32.call_mut",
+   "lines": 11
+  },
+  {
+   "bench": "rust_closures_call_closure2_closure_1_Insts_CoreOpsFunctionFnOnceTupleU32_call_once",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.call_closure2.closure_1.Insts.CoreOpsFunctionFnOnceTupleU32.call_once",
+   "lines": 9
+  },
+  {
+   "bench": "rust_closures_call_closure2_closure_1_Insts_CoreOpsFunctionFnTupleU32_call",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.call_closure2.closure_1.Insts.CoreOpsFunctionFnTupleU32.call",
+   "lines": 5
+  },
+  {
+   "bench": "rust_closures_call_closure2_closure_Insts_CoreOpsFunctionFnMutTupleU32_call_mut",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.call_closure2.closure.Insts.CoreOpsFunctionFnMutTupleU32.call_mut",
+   "lines": 10
+  },
+  {
+   "bench": "rust_closures_call_closure2_closure_Insts_CoreOpsFunctionFnOnceTupleU32_call_once",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.call_closure2.closure.Insts.CoreOpsFunctionFnOnceTupleU32.call_once",
+   "lines": 9
+  },
+  {
+   "bench": "rust_closures_call_closure2_closure_Insts_CoreOpsFunctionFnTupleU32_call",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.call_closure2.closure.Insts.CoreOpsFunctionFnTupleU32.call",
+   "lines": 5
+  },
+  {
+   "bench": "rust_closures_call_fn_no_state",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.call_fn_no_state",
+   "lines": 5
+  },
+  {
+   "bench": "rust_closures_call_fn_no_state_closure_Insts_CoreOpsFunctionFnMutTupleU32U32_call_mut",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.closures.call_fn_no_state.closure.Insts.CoreOpsFunctionFnMutTupleU32U32.call_mut",
+   "lines": 11
+  },
+  {
+   "bench": "rust_closures_call_fn_no_state_closure_Insts_CoreOpsFunctionFnOnceTupleU32U32_call_once",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.call_fn_no_state.closure.Insts.CoreOpsFunctionFnOnceTupleU32U32.call_once",
+   "lines": 9
+  },
+  {
+   "bench": "rust_closures_call_fn_no_state_closure_Insts_CoreOpsFunctionFnTupleU32U32_call",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.call_fn_no_state.closure.Insts.CoreOpsFunctionFnTupleU32U32.call",
+   "lines": 7
+  },
+  {
+   "bench": "rust_closures_call_fn_shared",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.call_fn_shared",
+   "lines": 5
+  },
+  {
+   "bench": "rust_closures_call_fn_shared_closure_Insts_CoreOpsFunctionFnMutTupleUsizeU8_call_mut",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.closures.call_fn_shared.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU8.call_mut",
+   "lines": 11
+  },
+  {
+   "bench": "rust_closures_call_fn_shared_closure_Insts_CoreOpsFunctionFnOnceTupleUsizeU8_call_once",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.call_fn_shared.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeU8.call_once",
+   "lines": 9
+  },
+  {
+   "bench": "rust_closures_call_fn_shared_closure_Insts_CoreOpsFunctionFnTupleUsizeU8_call",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.call_fn_shared.closure.Insts.CoreOpsFunctionFnTupleUsizeU8.call",
+   "lines": 7
+  },
+  {
+   "bench": "rust_closures_map_fn_pointer",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.map_fn_pointer",
+   "lines": 9
+  },
+  {
+   "bench": "rust_closures_u8_id",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.closures.u8_id",
+   "lines": 4
+  },
+  {
+   "bench": "rust_constants_Wrap_new",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.constants.Wrap.new",
+   "lines": 5
+  },
+  {
+   "bench": "rust_constants_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.constants.add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_constants_get_z1",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.constants.get_z1",
+   "lines": 5
+  },
+  {
+   "bench": "rust_constants_get_z2",
+   "callees": 6,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.constants.get_z2",
+   "lines": 8
+  },
+  {
+   "bench": "rust_constants_incr",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.constants.incr",
+   "lines": 5
+  },
+  {
+   "bench": "rust_constants_mk_pair0",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.constants.mk_pair0",
+   "lines": 6
+  },
+  {
+   "bench": "rust_constants_mk_pair1",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.constants.mk_pair1",
+   "lines": 6
+  },
+  {
+   "bench": "rust_constants_unwrap_y",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.constants.unwrap_y",
+   "lines": 6
+  },
+  {
+   "bench": "rust_constants_use_v",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.constants.use_v",
+   "lines": 5
+  },
+  {
+   "bench": "rust_core_option_Option_Insts_Aeneas_standaloneTraitsBoolTrait_get_bool",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.core.option.Option.Insts.Aeneas_standaloneTraitsBoolTrait.get_bool",
+   "lines": 8
+  },
+  {
+   "bench": "rust_curve25519_Scalar52_Insts_CoreOpsIndexIndexUsizeU64_index",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.curve25519.Scalar52.Insts.CoreOpsIndexIndexUsizeU64.index",
+   "lines": 6
+  },
+  {
+   "bench": "rust_curve25519_m",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.curve25519.m",
+   "lines": 6
+  },
+  {
+   "bench": "rust_curve25519_mul_internal",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.curve25519.mul_internal",
+   "lines": 77
+  },
+  {
+   "bench": "rust_deref_test_deref_box",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.deref.test_deref_box",
+   "lines": 8
+  },
+  {
+   "bench": "rust_deref_use_deref_box",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.deref.use_deref_box",
+   "lines": 5
+  },
+  {
+   "bench": "rust_deref_use_deref_mut_box",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.deref.use_deref_mut_box",
+   "lines": 5
+  },
+  {
+   "bench": "rust_deref_use_deref_mut_vec",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.deref.use_deref_mut_vec",
+   "lines": 8
+  },
+  {
+   "bench": "rust_deref_use_deref_vec",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.deref.use_deref_vec",
+   "lines": 6
+  },
+  {
+   "bench": "rust_hashmap_Fraction_Insts_CoreCloneClone_clone",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.hashmap.Fraction.Insts.CoreCloneClone.clone",
+   "lines": 6
+  },
+  {
+   "bench": "rust_hashmap_HashMap_allocate_slots",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.allocate_slots",
+   "lines": 8
+  },
+  {
+   "bench": "rust_hashmap_HashMap_allocate_slots_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.allocate_slots_loop",
+   "lines": 10
+  },
+  {
+   "bench": "rust_hashmap_HashMap_allocate_slots_loop_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.allocate_slots_loop.body",
+   "lines": 14
+  },
+  {
+   "bench": "rust_hashmap_HashMap_clear",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.clear",
+   "lines": 7
+  },
+  {
+   "bench": "rust_hashmap_HashMap_clear_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.clear_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_hashmap_HashMap_clear_loop_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.clear_loop.body",
+   "lines": 19
+  },
+  {
+   "bench": "rust_hashmap_HashMap_contains_key",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.contains_key",
+   "lines": 12
+  },
+  {
+   "bench": "rust_hashmap_HashMap_contains_key_in_list",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.contains_key_in_list",
+   "lines": 7
+  },
+  {
+   "bench": "rust_hashmap_HashMap_contains_key_in_list_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.contains_key_in_list_loop",
+   "lines": 13
+  },
+  {
+   "bench": "rust_hashmap_HashMap_get",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.get",
+   "lines": 14
+  },
+  {
+   "bench": "rust_hashmap_HashMap_get_in_list",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.get_in_list",
+   "lines": 6
+  },
+  {
+   "bench": "rust_hashmap_HashMap_get_in_list_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.get_in_list_loop",
+   "lines": 12
+  },
+  {
+   "bench": "rust_hashmap_HashMap_get_mut",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.get_mut",
+   "lines": 20
+  },
+  {
+   "bench": "rust_hashmap_HashMap_get_mut_in_list",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.get_mut_in_list",
+   "lines": 9
+  },
+  {
+   "bench": "rust_hashmap_HashMap_get_mut_in_list_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.get_mut_in_list_loop",
+   "lines": 25
+  },
+  {
+   "bench": "rust_hashmap_HashMap_insert",
+   "callees": 15,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.insert",
+   "lines": 14
+  },
+  {
+   "bench": "rust_hashmap_HashMap_insert_in_list",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.insert_in_list",
+   "lines": 8
+  },
+  {
+   "bench": "rust_hashmap_HashMap_insert_in_list_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.insert_in_list_loop",
+   "lines": 18
+  },
+  {
+   "bench": "rust_hashmap_HashMap_insert_no_resize",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.insert_no_resize",
+   "lines": 20
+  },
+  {
+   "bench": "rust_hashmap_HashMap_len",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.len",
+   "lines": 6
+  },
+  {
+   "bench": "rust_hashmap_HashMap_move_elements",
+   "callees": 8,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.move_elements",
+   "lines": 9
+  },
+  {
+   "bench": "rust_hashmap_HashMap_move_elements_from_list",
+   "callees": 5,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.move_elements_from_list",
+   "lines": 8
+  },
+  {
+   "bench": "rust_hashmap_HashMap_move_elements_loop",
+   "callees": 7,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.move_elements_loop",
+   "lines": 12
+  },
+  {
+   "bench": "rust_hashmap_HashMap_move_elements_loop_body",
+   "callees": 6,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.move_elements_loop.body",
+   "lines": 21
+  },
+  {
+   "bench": "rust_hashmap_HashMap_new",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.new",
+   "lines": 6
+  },
+  {
+   "bench": "rust_hashmap_HashMap_new_with_capacity",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.new_with_capacity",
+   "lines": 19
+  },
+  {
+   "bench": "rust_hashmap_HashMap_remove",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.remove",
+   "lines": 21
+  },
+  {
+   "bench": "rust_hashmap_HashMap_remove_from_list",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.remove_from_list",
+   "lines": 8
+  },
+  {
+   "bench": "rust_hashmap_HashMap_remove_from_list_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.remove_from_list_loop",
+   "lines": 21
+  },
+  {
+   "bench": "rust_hashmap_HashMap_try_resize",
+   "callees": 13,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.hashmap.HashMap.try_resize",
+   "lines": 14
+  },
+  {
+   "bench": "rust_hashmap_hash_key",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.hashmap.hash_key",
+   "lines": 5
+  },
+  {
+   "bench": "rust_iterators_copy_arrays",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.copy_arrays",
+   "lines": 8
+  },
+  {
+   "bench": "rust_iterators_copy_arrays_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.copy_arrays_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_iterators_copy_arrays_loop_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.copy_arrays_loop.body",
+   "lines": 17
+  },
+  {
+   "bench": "rust_iterators_iter_range",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.iter_range",
+   "lines": 5
+  },
+  {
+   "bench": "rust_iterators_iter_range_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.iter_range_loop",
+   "lines": 8
+  },
+  {
+   "bench": "rust_iterators_iter_range_loop_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.iter_range_loop.body",
+   "lines": 12
+  },
+  {
+   "bench": "rust_iterators_iter_range_step_by",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.iter_range_step_by",
+   "lines": 8
+  },
+  {
+   "bench": "rust_iterators_iter_range_step_by_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.iter_range_step_by_loop",
+   "lines": 10
+  },
+  {
+   "bench": "rust_iterators_iter_range_step_by_loop_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.iter_range_step_by_loop.body",
+   "lines": 14
+  },
+  {
+   "bench": "rust_iterators_key_iter_slice_iter",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.iterators.key_iter_slice_iter",
+   "lines": 6
+  },
+  {
+   "bench": "rust_iterators_key_iter_slice_iter_loop0",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.iterators.key_iter_slice_iter_loop0",
+   "lines": 10
+  },
+  {
+   "bench": "rust_iterators_key_iter_slice_iter_loop0_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.key_iter_slice_iter_loop0.body",
+   "lines": 15
+  },
+  {
+   "bench": "rust_iterators_key_iter_slice_iter_loop0_loop0",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.key_iter_slice_iter_loop0_loop0",
+   "lines": 8
+  },
+  {
+   "bench": "rust_iterators_key_iter_slice_iter_loop0_loop0_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.key_iter_slice_iter_loop0_loop0.body",
+   "lines": 11
+  },
+  {
+   "bench": "rust_iterators_slice_chunks_exact_iter",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_chunks_exact_iter",
+   "lines": 6
+  },
+  {
+   "bench": "rust_iterators_slice_chunks_exact_iter_loop0",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_chunks_exact_iter_loop0",
+   "lines": 11
+  },
+  {
+   "bench": "rust_iterators_slice_chunks_exact_iter_loop0_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_chunks_exact_iter_loop0.body",
+   "lines": 16
+  },
+  {
+   "bench": "rust_iterators_slice_chunks_exact_iter_loop0_loop0",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_chunks_exact_iter_loop0_loop0",
+   "lines": 8
+  },
+  {
+   "bench": "rust_iterators_slice_chunks_exact_iter_loop0_loop0_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_chunks_exact_iter_loop0_loop0.body",
+   "lines": 11
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while",
+   "lines": 7
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while_early_return",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return",
+   "lines": 12
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while_early_return_loop0",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_loop0",
+   "lines": 13
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while_early_return_loop0_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_loop0.body",
+   "lines": 19
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while_early_return_loop0_loop0",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_loop0_loop0",
+   "lines": 8
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while_early_return_loop0_loop0_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_loop0_loop0.body",
+   "lines": 8
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while_early_return_two_bools",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_two_bools",
+   "lines": 13
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while_early_return_two_bools_loop0",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_two_bools_loop0",
+   "lines": 14
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while_early_return_two_bools_loop0_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_two_bools_loop0.body",
+   "lines": 23
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while_early_return_two_bools_loop0_loop0",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_two_bools_loop0_loop0",
+   "lines": 10
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while_early_return_two_bools_loop0_loop0_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_two_bools_loop0_loop0.body",
+   "lines": 8
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while_loop0",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_loop0",
+   "lines": 13
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while_loop0_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_loop0.body",
+   "lines": 19
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while_loop0_loop0",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_loop0_loop0",
+   "lines": 7
+  },
+  {
+   "bench": "rust_iterators_slice_iter_mut_while_loop0_loop0_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_loop0_loop0.body",
+   "lines": 8
+  },
+  {
+   "bench": "rust_iterators_slice_iter_while",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_while",
+   "lines": 6
+  },
+  {
+   "bench": "rust_iterators_slice_iter_while_loop0",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_while_loop0",
+   "lines": 8
+  },
+  {
+   "bench": "rust_iterators_slice_iter_while_loop0_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_while_loop0.body",
+   "lines": 12
+  },
+  {
+   "bench": "rust_iterators_slice_iter_while_loop0_loop0",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_while_loop0_loop0",
+   "lines": 7
+  },
+  {
+   "bench": "rust_iterators_slice_iter_while_loop0_loop0_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.iterators.slice_iter_while_loop0_loop0.body",
+   "lines": 8
+  },
+  {
+   "bench": "rust_iterators_zip_iter",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.zip_iter",
+   "lines": 13
+  },
+  {
+   "bench": "rust_iterators_zip_iter_loop",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.zip_iter_loop",
+   "lines": 12
+  },
+  {
+   "bench": "rust_iterators_zip_iter_loop_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.iterators.zip_iter_loop.body",
+   "lines": 17
+  },
+  {
+   "bench": "rust_loops_nested_Key_atranspose_mut",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.loops_nested.Key.atranspose_mut",
+   "lines": 9
+  },
+  {
+   "bench": "rust_loops_nested_generate_matrix",
+   "callees": 9,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.generate_matrix",
+   "lines": 15
+  },
+  {
+   "bench": "rust_loops_nested_generate_matrix_inner",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.generate_matrix_inner",
+   "lines": 8
+  },
+  {
+   "bench": "rust_loops_nested_generate_matrix_inner_loop",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.generate_matrix_inner_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_loops_nested_generate_matrix_inner_loop_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.generate_matrix_inner_loop.body",
+   "lines": 19
+  },
+  {
+   "bench": "rust_loops_nested_generate_matrix_loop0",
+   "callees": 7,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.generate_matrix_loop0",
+   "lines": 14
+  },
+  {
+   "bench": "rust_loops_nested_generate_matrix_loop0_body",
+   "callees": 6,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.generate_matrix_loop0.body",
+   "lines": 19
+  },
+  {
+   "bench": "rust_loops_nested_generate_matrix_loop0_loop0",
+   "callees": 5,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.generate_matrix_loop0_loop0",
+   "lines": 14
+  },
+  {
+   "bench": "rust_loops_nested_generate_matrix_loop0_loop0_body",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.generate_matrix_loop0_loop0.body",
+   "lines": 29
+  },
+  {
+   "bench": "rust_loops_nested_iter",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.iter",
+   "lines": 6
+  },
+  {
+   "bench": "rust_loops_nested_iter_loop0",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.iter_loop0",
+   "lines": 9
+  },
+  {
+   "bench": "rust_loops_nested_iter_loop0_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.iter_loop0.body",
+   "lines": 13
+  },
+  {
+   "bench": "rust_loops_nested_iter_loop0_loop0",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.iter_loop0_loop0",
+   "lines": 9
+  },
+  {
+   "bench": "rust_loops_nested_iter_loop0_loop0_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.iter_loop0_loop0.body",
+   "lines": 10
+  },
+  {
+   "bench": "rust_loops_nested_mod_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.loops_nested.mod_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_loops_nested_mod_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.loops_nested.mod_sub",
+   "lines": 7
+  },
+  {
+   "bench": "rust_loops_nested_mul_add_as_plus_e",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.mul_add_as_plus_e",
+   "lines": 18
+  },
+  {
+   "bench": "rust_loops_nested_mul_add_as_plus_e_loop0",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.mul_add_as_plus_e_loop0",
+   "lines": 12
+  },
+  {
+   "bench": "rust_loops_nested_mul_add_as_plus_e_loop0_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.mul_add_as_plus_e_loop0.body",
+   "lines": 19
+  },
+  {
+   "bench": "rust_loops_nested_mul_add_as_plus_e_loop0_loop0",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.mul_add_as_plus_e_loop0_loop0",
+   "lines": 12
+  },
+  {
+   "bench": "rust_loops_nested_mul_add_as_plus_e_loop0_loop0_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.mul_add_as_plus_e_loop0_loop0.body",
+   "lines": 19
+  },
+  {
+   "bench": "rust_loops_nested_ntt_layer",
+   "callees": 7,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.ntt_layer",
+   "lines": 8
+  },
+  {
+   "bench": "rust_loops_nested_ntt_layer_loop0",
+   "callees": 6,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.ntt_layer_loop0",
+   "lines": 12
+  },
+  {
+   "bench": "rust_loops_nested_ntt_layer_loop0_body",
+   "callees": 5,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.ntt_layer_loop0.body",
+   "lines": 19
+  },
+  {
+   "bench": "rust_loops_nested_ntt_layer_loop0_loop0",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.ntt_layer_loop0_loop0",
+   "lines": 12
+  },
+  {
+   "bench": "rust_loops_nested_ntt_layer_loop0_loop0_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.ntt_layer_loop0_loop0.body",
+   "lines": 28
+  },
+  {
+   "bench": "rust_loops_nested_sample_ntt",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.loops_nested.sample_ntt",
+   "lines": 7
+  },
+  {
+   "bench": "rust_loops_nested_shake_append",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.loops_nested.shake_append",
+   "lines": 7
+  },
+  {
+   "bench": "rust_loops_nested_shake_init",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.loops_nested.shake_init",
+   "lines": 5
+  },
+  {
+   "bench": "rust_loops_nested_shake_state_copy",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.loops_nested.shake_state_copy",
+   "lines": 7
+  },
+  {
+   "bench": "rust_loops_nested_sum",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.sum",
+   "lines": 6
+  },
+  {
+   "bench": "rust_loops_nested_sum_loop0",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.sum_loop0",
+   "lines": 11
+  },
+  {
+   "bench": "rust_loops_nested_sum_loop0_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.sum_loop0.body",
+   "lines": 14
+  },
+  {
+   "bench": "rust_loops_nested_sum_loop0_loop0",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.sum_loop0_loop0",
+   "lines": 9
+  },
+  {
+   "bench": "rust_loops_nested_sum_loop0_loop0_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.sum_loop0_loop0.body",
+   "lines": 13
+  },
+  {
+   "bench": "rust_loops_nested_update_array",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.update_array",
+   "lines": 5
+  },
+  {
+   "bench": "rust_loops_nested_update_array_loop0",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.update_array_loop0",
+   "lines": 8
+  },
+  {
+   "bench": "rust_loops_nested_update_array_loop0_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.update_array_loop0.body",
+   "lines": 14
+  },
+  {
+   "bench": "rust_loops_nested_update_array_loop0_loop0",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.update_array_loop0_loop0",
+   "lines": 10
+  },
+  {
+   "bench": "rust_loops_nested_update_array_loop0_loop0_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.loops_nested.update_array_loop0_loop0.body",
+   "lines": 14
+  },
+  {
+   "bench": "rust_nested_borrows_BitReader_peek",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.BitReader.peek",
+   "lines": 16
+  },
+  {
+   "bench": "rust_nested_borrows_BitReader_refill",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.nested_borrows.BitReader.refill",
+   "lines": 5
+  },
+  {
+   "bench": "rust_nested_borrows_IterMut_next",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.IterMut.next",
+   "lines": 17
+  },
+  {
+   "bench": "rust_nested_borrows_ListIterMut_next",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.ListIterMut.next",
+   "lines": 38
+  },
+  {
+   "bench": "rust_nested_borrows_List_iter_mut",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.List.iter_mut",
+   "lines": 14
+  },
+  {
+   "bench": "rust_nested_borrows_MutBorrow_store",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.nested_borrows.MutBorrow.store",
+   "lines": 9
+  },
+  {
+   "bench": "rust_nested_borrows_call_inner_mut",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.nested_borrows.call_inner_mut",
+   "lines": 8
+  },
+  {
+   "bench": "rust_nested_borrows_call_inner_mut_swap",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.nested_borrows.call_inner_mut_swap",
+   "lines": 10
+  },
+  {
+   "bench": "rust_nested_borrows_call_iter_mut_next",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.call_iter_mut_next",
+   "lines": 10
+  },
+  {
+   "bench": "rust_nested_borrows_call_iter_mut_next_u32",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.call_iter_mut_next_u32",
+   "lines": 11
+  },
+  {
+   "bench": "rust_nested_borrows_incr_inner",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.nested_borrows.incr_inner",
+   "lines": 6
+  },
+  {
+   "bench": "rust_nested_borrows_incr_list",
+   "callees": 5,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.incr_list",
+   "lines": 9
+  },
+  {
+   "bench": "rust_nested_borrows_incr_list_loop",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.incr_list_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_nested_borrows_incr_list_loop_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.incr_list_loop.body",
+   "lines": 16
+  },
+  {
+   "bench": "rust_nested_borrows_inner_mut",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.nested_borrows.inner_mut",
+   "lines": 7
+  },
+  {
+   "bench": "rust_nested_borrows_inner_mut_swap",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.nested_borrows.inner_mut_swap",
+   "lines": 9
+  },
+  {
+   "bench": "rust_nested_borrows_inner_shared",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.nested_borrows.inner_shared",
+   "lines": 4
+  },
+  {
+   "bench": "rust_nested_borrows_iter_list_while",
+   "callees": 5,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while",
+   "lines": 9
+  },
+  {
+   "bench": "rust_nested_borrows_iter_list_while_loop0",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0",
+   "lines": 13
+  },
+  {
+   "bench": "rust_nested_borrows_iter_list_while_loop0_body",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0.body",
+   "lines": 19
+  },
+  {
+   "bench": "rust_nested_borrows_iter_list_while_loop0_loop0",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0_loop0",
+   "lines": 7
+  },
+  {
+   "bench": "rust_nested_borrows_iter_list_while_loop0_loop0_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0_loop0.body",
+   "lines": 8
+  },
+  {
+   "bench": "rust_nested_borrows_iter_mut_incr",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_mut_incr",
+   "lines": 8
+  },
+  {
+   "bench": "rust_nested_borrows_iter_mut_incr_loop",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_mut_incr_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_nested_borrows_iter_mut_incr_loop_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_mut_incr_loop.body",
+   "lines": 15
+  },
+  {
+   "bench": "rust_nested_borrows_iter_mut_loop",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_mut_loop",
+   "lines": 8
+  },
+  {
+   "bench": "rust_nested_borrows_iter_mut_loop_loop",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_mut_loop_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_nested_borrows_iter_mut_loop_loop_body",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_mut_loop_loop.body",
+   "lines": 13
+  },
+  {
+   "bench": "rust_nested_borrows_next1",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.next1",
+   "lines": 8
+  },
+  {
+   "bench": "rust_nested_borrows_replace_option_mut",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.replace_option_mut",
+   "lines": 8
+  },
+  {
+   "bench": "rust_nested_borrows_take_option_mut",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.take_option_mut",
+   "lines": 7
+  },
+  {
+   "bench": "rust_nested_borrows_use_mut_borrow",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.use_mut_borrow",
+   "lines": 9
+  },
+  {
+   "bench": "rust_nested_borrows_use_mut_borrow_loop",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.use_mut_borrow_loop",
+   "lines": 12
+  },
+  {
+   "bench": "rust_nested_borrows_use_mut_borrow_loop_body",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.use_mut_borrow_loop.body",
+   "lines": 14
+  },
+  {
+   "bench": "rust_options_test_expect",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.options.test_expect",
+   "lines": 4
+  },
+  {
+   "bench": "rust_options_test_is_some",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.options.test_is_some",
+   "lines": 4
+  },
+  {
+   "bench": "rust_options_test_unwrap_or",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.options.test_unwrap_or",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i128_overflowing_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i128_overflowing_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i128_overflowing_div",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i128_overflowing_div",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i128_overflowing_mul",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i128_overflowing_mul",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i128_overflowing_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i128_overflowing_sub",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i16_overflowing_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i16_overflowing_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i16_overflowing_div",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i16_overflowing_div",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i16_overflowing_mul",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i16_overflowing_mul",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i16_overflowing_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i16_overflowing_sub",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i32_overflowing_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i32_overflowing_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i32_overflowing_div",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i32_overflowing_div",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i32_overflowing_mul",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i32_overflowing_mul",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i32_overflowing_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i32_overflowing_sub",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i64_overflowing_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i64_overflowing_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i64_overflowing_div",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i64_overflowing_div",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i64_overflowing_mul",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i64_overflowing_mul",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i64_overflowing_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i64_overflowing_sub",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i8_overflowing_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i8_overflowing_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i8_overflowing_div",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i8_overflowing_div",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i8_overflowing_mul",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i8_overflowing_mul",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_i8_overflowing_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.i8_overflowing_sub",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_isize_overflowing_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.isize_overflowing_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_isize_overflowing_div",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.isize_overflowing_div",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_isize_overflowing_mul",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.isize_overflowing_mul",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_isize_overflowing_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.isize_overflowing_sub",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u128_overflowing_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u128_overflowing_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u128_overflowing_div",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u128_overflowing_div",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u128_overflowing_mul",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u128_overflowing_mul",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u128_overflowing_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u128_overflowing_sub",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u16_overflowing_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u16_overflowing_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u16_overflowing_div",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u16_overflowing_div",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u16_overflowing_mul",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u16_overflowing_mul",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u16_overflowing_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u16_overflowing_sub",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u32_overflowing_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u32_overflowing_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u32_overflowing_div",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u32_overflowing_div",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u32_overflowing_mul",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u32_overflowing_mul",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u32_overflowing_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u32_overflowing_sub",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u64_overflowing_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u64_overflowing_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u64_overflowing_div",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u64_overflowing_div",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u64_overflowing_mul",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u64_overflowing_mul",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u64_overflowing_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u64_overflowing_sub",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u8_overflowing_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u8_overflowing_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u8_overflowing_div",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u8_overflowing_div",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u8_overflowing_mul",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u8_overflowing_mul",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_u8_overflowing_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.u8_overflowing_sub",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_usize_overflowing_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.usize_overflowing_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_usize_overflowing_div",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.usize_overflowing_div",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_usize_overflowing_mul",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.usize_overflowing_mul",
+   "lines": 5
+  },
+  {
+   "bench": "rust_overflowing_ops_usize_overflowing_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.overflowing_ops.usize_overflowing_sub",
+   "lines": 5
+  },
+  {
+   "bench": "rust_paper_call_choose",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.paper.call_choose",
+   "lines": 9
+  },
+  {
+   "bench": "rust_paper_choose",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.paper.choose",
+   "lines": 10
+  },
+  {
+   "bench": "rust_paper_list_nth_mut",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.paper.list_nth_mut",
+   "lines": 20
+  },
+  {
+   "bench": "rust_paper_ref_incr",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.paper.ref_incr",
+   "lines": 5
+  },
+  {
+   "bench": "rust_paper_sum",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "self_rec"
+   ],
+   "lean_name": "AeneasStandalone.paper.sum",
+   "lines": 9
+  },
+  {
+   "bench": "rust_paper_test_choose",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.paper.test_choose",
+   "lines": 10
+  },
+  {
+   "bench": "rust_paper_test_incr",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.paper.test_incr",
+   "lines": 6
+  },
+  {
+   "bench": "rust_paper_test_nth",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "diverge",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.paper.test_nth",
+   "lines": 11
+  },
+  {
+   "bench": "rust_scalars_add_and",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.add_and",
+   "lines": 6
+  },
+  {
+   "bench": "rust_scalars_checked_div",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.checked_div",
+   "lines": 8
+  },
+  {
+   "bench": "rust_scalars_i16_as_u32",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.i16_as_u32",
+   "lines": 4
+  },
+  {
+   "bench": "rust_scalars_i32_default",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.i32_default",
+   "lines": 4
+  },
+  {
+   "bench": "rust_scalars_i32_use_bits",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.i32_use_bits",
+   "lines": 5
+  },
+  {
+   "bench": "rust_scalars_i32_use_rotate_left",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.i32_use_rotate_left",
+   "lines": 4
+  },
+  {
+   "bench": "rust_scalars_i32_use_rotate_right",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.i32_use_rotate_right",
+   "lines": 4
+  },
+  {
+   "bench": "rust_scalars_i32_use_shift_left",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.i32_use_shift_left",
+   "lines": 4
+  },
+  {
+   "bench": "rust_scalars_i32_use_shift_right",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.i32_use_shift_right",
+   "lines": 4
+  },
+  {
+   "bench": "rust_scalars_i32_use_wrapping_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.i32_use_wrapping_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_scalars_i32_use_wrapping_shl",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.i32_use_wrapping_shl",
+   "lines": 5
+  },
+  {
+   "bench": "rust_scalars_i32_use_wrapping_shr",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.i32_use_wrapping_shr",
+   "lines": 5
+  },
+  {
+   "bench": "rust_scalars_i32_use_wrapping_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.i32_use_wrapping_sub",
+   "lines": 5
+  },
+  {
+   "bench": "rust_scalars_match_isize",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.match_isize",
+   "lines": 8
+  },
+  {
+   "bench": "rust_scalars_match_usize",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.match_usize",
+   "lines": 8
+  },
+  {
+   "bench": "rust_scalars_shl_into_index_mut",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.shl_into_index_mut",
+   "lines": 8
+  },
+  {
+   "bench": "rust_scalars_shr_into_index_mut",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.shr_into_index_mut",
+   "lines": 8
+  },
+  {
+   "bench": "rust_scalars_test_is_multiple_of_false",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.test_is_multiple_of_false",
+   "lines": 6
+  },
+  {
+   "bench": "rust_scalars_test_is_multiple_of_true",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.test_is_multiple_of_true",
+   "lines": 6
+  },
+  {
+   "bench": "rust_scalars_test_is_multiple_of_zero_divisor",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.test_is_multiple_of_zero_divisor",
+   "lines": 8
+  },
+  {
+   "bench": "rust_scalars_test_question_mark_err",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.test_question_mark_err",
+   "lines": 7
+  },
+  {
+   "bench": "rust_scalars_test_question_mark_ok",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.test_question_mark_ok",
+   "lines": 9
+  },
+  {
+   "bench": "rust_scalars_test_try_from_usize_u32_ok",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.test_try_from_usize_u32_ok",
+   "lines": 8
+  },
+  {
+   "bench": "rust_scalars_u16_as_u32",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.u16_as_u32",
+   "lines": 4
+  },
+  {
+   "bench": "rust_scalars_u32_as_i16",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.u32_as_i16",
+   "lines": 4
+  },
+  {
+   "bench": "rust_scalars_u32_as_u16",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.u32_as_u16",
+   "lines": 4
+  },
+  {
+   "bench": "rust_scalars_u32_default",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.u32_default",
+   "lines": 4
+  },
+  {
+   "bench": "rust_scalars_u32_use_bits",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.u32_use_bits",
+   "lines": 5
+  },
+  {
+   "bench": "rust_scalars_u32_use_rotate_left",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.u32_use_rotate_left",
+   "lines": 4
+  },
+  {
+   "bench": "rust_scalars_u32_use_rotate_right",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.u32_use_rotate_right",
+   "lines": 4
+  },
+  {
+   "bench": "rust_scalars_u32_use_shift_left",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.u32_use_shift_left",
+   "lines": 4
+  },
+  {
+   "bench": "rust_scalars_u32_use_shift_right",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.u32_use_shift_right",
+   "lines": 4
+  },
+  {
+   "bench": "rust_scalars_u32_use_wrapping_add",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.u32_use_wrapping_add",
+   "lines": 5
+  },
+  {
+   "bench": "rust_scalars_u32_use_wrapping_shl",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.u32_use_wrapping_shl",
+   "lines": 5
+  },
+  {
+   "bench": "rust_scalars_u32_use_wrapping_shr",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.u32_use_wrapping_shr",
+   "lines": 5
+  },
+  {
+   "bench": "rust_scalars_u32_use_wrapping_sub",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.scalars.u32_use_wrapping_sub",
+   "lines": 5
+  },
+  {
+   "bench": "rust_scalars_use_question_mark",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.scalars.use_question_mark",
+   "lines": 13
+  },
+  {
+   "bench": "rust_slices_from_vec",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.slices.from_vec",
+   "lines": 5
+  },
+  {
+   "bench": "rust_slices_slice_subslice_from_mut",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.slices.slice_subslice_from_mut",
+   "lines": 10
+  },
+  {
+   "bench": "rust_slices_slice_subslice_from_shared",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.slices.slice_subslice_from_shared",
+   "lines": 7
+  },
+  {
+   "bench": "rust_slices_split_at",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.slices.split_at",
+   "lines": 8
+  },
+  {
+   "bench": "rust_slices_split_at_mut",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.slices.split_at_mut",
+   "lines": 10
+  },
+  {
+   "bench": "rust_slices_split_at_mut_and_deref",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.slices.split_at_mut_and_deref",
+   "lines": 13
+  },
+  {
+   "bench": "rust_slices_swap",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.slices.swap",
+   "lines": 8
+  },
+  {
+   "bench": "rust_traits_BoolTrait_ret_true_default",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.BoolTrait.ret_true.default",
+   "lines": 7
+  },
+  {
+   "bench": "rust_traits_BoolWrapper_Insts_Aeneas_standaloneTraitsToType_to_type",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.BoolWrapper.Insts.Aeneas_standaloneTraitsToType.to_type",
+   "lines": 9
+  },
+  {
+   "bench": "rust_traits_TestType_test",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.traits.TestType.test",
+   "lines": 13
+  },
+  {
+   "bench": "rust_traits_TestType_test_TestType1_Insts_Aeneas_standaloneTraitsTestTypeTestTestTrait_test",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.traits.TestType.test.TestType1.Insts.Aeneas_standaloneTraitsTestTypeTestTestTrait.test",
+   "lines": 6
+  },
+  {
+   "bench": "rust_traits_Wrapper_Insts_Aeneas_standaloneTraitsToU64_to_u64",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.Wrapper.Insts.Aeneas_standaloneTraitsToU64.to_u64",
+   "lines": 8
+  },
+  {
+   "bench": "rust_traits_f",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.f",
+   "lines": 6
+  },
+  {
+   "bench": "rust_traits_g",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.g",
+   "lines": 8
+  },
+  {
+   "bench": "rust_traits_h0",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.traits.h0",
+   "lines": 5
+  },
+  {
+   "bench": "rust_traits_h1",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.traits.h1",
+   "lines": 6
+  },
+  {
+   "bench": "rust_traits_h2",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.h2",
+   "lines": 8
+  },
+  {
+   "bench": "rust_traits_h3",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.h3",
+   "lines": 9
+  },
+  {
+   "bench": "rust_traits_h4",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.h4",
+   "lines": 9
+  },
+  {
+   "bench": "rust_traits_order1",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.order1",
+   "lines": 10
+  },
+  {
+   "bench": "rust_traits_test_bool_trait",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.test_bool_trait",
+   "lines": 6
+  },
+  {
+   "bench": "rust_traits_test_bool_trait_bool",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [],
+   "lean_name": "AeneasStandalone.traits.test_bool_trait_bool",
+   "lines": 8
+  },
+  {
+   "bench": "rust_traits_test_bool_trait_option",
+   "callees": 2,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.test_bool_trait_option",
+   "lines": 9
+  },
+  {
+   "bench": "rust_traits_test_child_trait1",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.test_child_trait1",
+   "lines": 9
+  },
+  {
+   "bench": "rust_traits_test_child_trait2",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.test_child_trait2",
+   "lines": 9
+  },
+  {
+   "bench": "rust_traits_test_get_trait",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.test_get_trait",
+   "lines": 9
+  },
+  {
+   "bench": "rust_traits_test_where1",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.test_where1",
+   "lines": 5
+  },
+  {
+   "bench": "rust_traits_test_where2",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.test_where2",
+   "lines": 9
+  },
+  {
+   "bench": "rust_traits_use_foo1",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.use_foo1",
+   "lines": 8
+  },
+  {
+   "bench": "rust_traits_use_foo2",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.use_foo2",
+   "lines": 8
+  },
+  {
+   "bench": "rust_traits_use_with_const_ty1",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.use_with_const_ty1",
+   "lines": 9
+  },
+  {
+   "bench": "rust_traits_use_with_const_ty2",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.use_with_const_ty2",
+   "lines": 10
+  },
+  {
+   "bench": "rust_traits_use_with_const_ty3",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.use_with_const_ty3",
+   "lines": 10
+  },
+  {
+   "bench": "rust_traits_use_wrapper_len",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "AeneasStandalone.traits.use_wrapper_len",
+   "lines": 6
+  },
+  {
+   "bench": "rust_I32_Insts_AvlOrd_cmp",
+   "callees": 0,
+   "crate": "Avl",
+   "kinds": [],
+   "lean_name": "Avl.I32.Insts.AvlOrd.cmp",
+   "lines": 10
+  },
+  {
+   "bench": "rust_Node_insert",
+   "callees": 8,
+   "crate": "Avl",
+   "kinds": [
+    "diverge",
+    "generic",
+    "mutual",
+    "deep",
+    "large"
+   ],
+   "lean_name": "Avl.Node.insert",
+   "lines": 12
+  },
+  {
+   "bench": "rust_Node_rotate_left",
+   "callees": 0,
+   "crate": "Avl",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "Avl.Node.rotate_left",
+   "lines": 15
+  },
+  {
+   "bench": "rust_Node_rotate_left_right",
+   "callees": 0,
+   "crate": "Avl",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "Avl.Node.rotate_left_right",
+   "lines": 23
+  },
+  {
+   "bench": "rust_Node_rotate_right",
+   "callees": 0,
+   "crate": "Avl",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "Avl.Node.rotate_right",
+   "lines": 15
+  },
+  {
+   "bench": "rust_Node_rotate_right_left",
+   "callees": 0,
+   "crate": "Avl",
+   "kinds": [
+    "generic",
+    "large"
+   ],
+   "lean_name": "Avl.Node.rotate_right_left",
+   "lines": 23
+  },
+  {
+   "bench": "rust_Tree_find",
+   "callees": 1,
+   "crate": "Avl",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Avl.Tree.find",
+   "lines": 7
+  },
+  {
+   "bench": "rust_Tree_find_loop",
+   "callees": 1,
+   "crate": "Avl",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Avl.Tree.find_loop",
+   "lines": 17
+  },
+  {
+   "bench": "rust_Tree_insert",
+   "callees": 8,
+   "crate": "Avl",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep"
+   ],
+   "lean_name": "Avl.Tree.insert",
+   "lines": 9
+  },
+  {
+   "bench": "rust_Tree_insert_in_opt_node",
+   "callees": 8,
+   "crate": "Avl",
+   "kinds": [
+    "diverge",
+    "generic",
+    "mutual",
+    "deep",
+    "large"
+   ],
+   "lean_name": "Avl.Tree.insert_in_opt_node",
+   "lines": 12
+  },
+  {
+   "bench": "rust_Tree_new",
+   "callees": 0,
+   "crate": "Avl",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "Avl.Tree.new",
+   "lines": 5
+  },
+  {
+   "bench": "rust_TreeSet_find",
+   "callees": 1,
+   "crate": "Bst",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Bst.TreeSet.find",
+   "lines": 9
+  },
+  {
+   "bench": "rust_TreeSet_find_loop",
+   "callees": 1,
+   "crate": "Bst",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Bst.TreeSet.find_loop",
+   "lines": 17
+  },
+  {
+   "bench": "rust_TreeSet_insert",
+   "callees": 1,
+   "crate": "Bst",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Bst.TreeSet.insert",
+   "lines": 9
+  },
+  {
+   "bench": "rust_TreeSet_new",
+   "callees": 0,
+   "crate": "Bst",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "Bst.TreeSet.new",
+   "lines": 5
+  },
+  {
+   "bench": "rust_as_radix_minimized",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.as_radix_minimized",
+   "lines": 5
+  },
+  {
+   "bench": "rust_as_radix_minimized_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.as_radix_minimized_loop",
+   "lines": 8
+  },
+  {
+   "bench": "rust_as_radix_minimized_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.as_radix_minimized_loop.body",
+   "lines": 23
+  },
+  {
+   "bench": "rust_clear",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.clear",
+   "lines": 6
+  },
+  {
+   "bench": "rust_clear_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.clear_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_clear_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.clear_loop.body",
+   "lines": 19
+  },
+  {
+   "bench": "rust_copy_carray",
+   "callees": 3,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "Loops.copy_carray",
+   "lines": 6
+  },
+  {
+   "bench": "rust_copy_carray_loop",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.copy_carray_loop",
+   "lines": 10
+  },
+  {
+   "bench": "rust_copy_carray_loop_body",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.copy_carray_loop.body",
+   "lines": 15
+  },
+  {
+   "bench": "rust_decode",
+   "callees": 4,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "Loops.decode",
+   "lines": 5
+  },
+  {
+   "bench": "rust_decode_loop0",
+   "callees": 3,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "Loops.decode_loop0",
+   "lines": 10
+  },
+  {
+   "bench": "rust_decode_loop0_body",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.decode_loop0.body",
+   "lines": 18
+  },
+  {
+   "bench": "rust_decode_loop0_loop0",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.decode_loop0_loop0",
+   "lines": 7
+  },
+  {
+   "bench": "rust_decode_loop0_loop0_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.decode_loop0_loop0.body",
+   "lines": 8
+  },
+  {
+   "bench": "rust_get_elem_mut",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.get_elem_mut",
+   "lines": 14
+  },
+  {
+   "bench": "rust_get_elem_mut_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.get_elem_mut_loop",
+   "lines": 19
+  },
+  {
+   "bench": "rust_get_elem_shared",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.get_elem_shared",
+   "lines": 11
+  },
+  {
+   "bench": "rust_get_elem_shared_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.get_elem_shared_loop",
+   "lines": 12
+  },
+  {
+   "bench": "rust_id_mut",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "Loops.id_mut",
+   "lines": 6
+  },
+  {
+   "bench": "rust_id_shared",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "Loops.id_shared",
+   "lines": 5
+  },
+  {
+   "bench": "rust_ignore_input_mut_borrow",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.ignore_input_mut_borrow",
+   "lines": 6
+  },
+  {
+   "bench": "rust_ignore_input_mut_borrow_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.ignore_input_mut_borrow_loop",
+   "lines": 8
+  },
+  {
+   "bench": "rust_ignore_input_mut_borrow_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.ignore_input_mut_borrow_loop.body",
+   "lines": 10
+  },
+  {
+   "bench": "rust_ignore_input_shared_borrow",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.ignore_input_shared_borrow",
+   "lines": 7
+  },
+  {
+   "bench": "rust_ignore_input_shared_borrow_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.ignore_input_shared_borrow_loop",
+   "lines": 8
+  },
+  {
+   "bench": "rust_ignore_input_shared_borrow_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.ignore_input_shared_borrow_loop.body",
+   "lines": 10
+  },
+  {
+   "bench": "rust_incr_ignore_input_mut_borrow",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.incr_ignore_input_mut_borrow",
+   "lines": 8
+  },
+  {
+   "bench": "rust_incr_ignore_input_mut_borrow_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.incr_ignore_input_mut_borrow_loop",
+   "lines": 8
+  },
+  {
+   "bench": "rust_incr_ignore_input_mut_borrow_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.incr_ignore_input_mut_borrow_loop.body",
+   "lines": 10
+  },
+  {
+   "bench": "rust_insert_in_list",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Loops.insert_in_list",
+   "lines": 8
+  },
+  {
+   "bench": "rust_insert_in_list_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.insert_in_list_loop",
+   "lines": 17
+  },
+  {
+   "bench": "rust_issue270",
+   "callees": 3,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "Loops.issue270",
+   "lines": 9
+  },
+  {
+   "bench": "rust_issue270_box_get_borrow",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "Loops.issue270.box_get_borrow",
+   "lines": 4
+  },
+  {
+   "bench": "rust_issue270_loop",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.issue270_loop",
+   "lines": 8
+  },
+  {
+   "bench": "rust_issue270_loop_body",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.issue270_loop.body",
+   "lines": 11
+  },
+  {
+   "bench": "rust_issue351",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.issue351",
+   "lines": 5
+  },
+  {
+   "bench": "rust_issue351_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "self_rec"
+   ],
+   "lean_name": "Loops.issue351_loop",
+   "lines": 8
+  },
+  {
+   "bench": "rust_issue400_1",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.issue400_1",
+   "lines": 6
+  },
+  {
+   "bench": "rust_issue400_1_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.issue400_1_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_issue400_1_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.issue400_1_loop.body",
+   "lines": 21
+  },
+  {
+   "bench": "rust_issue400_2",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.issue400_2",
+   "lines": 11
+  },
+  {
+   "bench": "rust_issue400_2_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.issue400_2_loop",
+   "lines": 12
+  },
+  {
+   "bench": "rust_issue400_2_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.issue400_2_loop.body",
+   "lines": 24
+  },
+  {
+   "bench": "rust_issue500_1",
+   "callees": 3,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "Loops.issue500_1",
+   "lines": 4
+  },
+  {
+   "bench": "rust_issue500_1_bar",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [],
+   "lean_name": "Loops.issue500_1.bar",
+   "lines": 4
+  },
+  {
+   "bench": "rust_issue500_1_loop",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.issue500_1_loop",
+   "lines": 7
+  },
+  {
+   "bench": "rust_issue500_1_loop_body",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.issue500_1_loop.body",
+   "lines": 8
+  },
+  {
+   "bench": "rust_issue500_2",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.issue500_2",
+   "lines": 5
+  },
+  {
+   "bench": "rust_issue500_2_bar",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [],
+   "lean_name": "Loops.issue500_2.bar",
+   "lines": 5
+  },
+  {
+   "bench": "rust_issue500_2_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.issue500_2_loop",
+   "lines": 7
+  },
+  {
+   "bench": "rust_issue500_2_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.issue500_2_loop.body",
+   "lines": 5
+  },
+  {
+   "bench": "rust_issue500_3",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.issue500_3",
+   "lines": 5
+  },
+  {
+   "bench": "rust_issue500_3_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.issue500_3_loop",
+   "lines": 7
+  },
+  {
+   "bench": "rust_issue500_3_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.issue500_3_loop.body",
+   "lines": 7
+  },
+  {
+   "bench": "rust_iter",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.iter",
+   "lines": 6
+  },
+  {
+   "bench": "rust_iter_local_mut_borrow",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.iter_local_mut_borrow",
+   "lines": 5
+  },
+  {
+   "bench": "rust_iter_local_mut_borrow_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.iter_local_mut_borrow_loop",
+   "lines": 7
+  },
+  {
+   "bench": "rust_iter_local_mut_borrow_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.iter_local_mut_borrow_loop.body",
+   "lines": 9
+  },
+  {
+   "bench": "rust_iter_local_shared_borrow",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.iter_local_shared_borrow",
+   "lines": 5
+  },
+  {
+   "bench": "rust_iter_local_shared_borrow_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.iter_local_shared_borrow_loop",
+   "lines": 7
+  },
+  {
+   "bench": "rust_iter_local_shared_borrow_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.iter_local_shared_borrow_loop.body",
+   "lines": 7
+  },
+  {
+   "bench": "rust_iter_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.iter_loop",
+   "lines": 8
+  },
+  {
+   "bench": "rust_iter_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.iter_loop.body",
+   "lines": 10
+  },
+  {
+   "bench": "rust_list_mem",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.list_mem",
+   "lines": 6
+  },
+  {
+   "bench": "rust_list_mem_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.list_mem_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_list_nth_mut",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Loops.list_nth_mut",
+   "lines": 7
+  },
+  {
+   "bench": "rust_list_nth_mut_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.list_nth_mut_loop",
+   "lines": 18
+  },
+  {
+   "bench": "rust_list_nth_mut_pair",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Loops.list_nth_mut_pair",
+   "lines": 9
+  },
+  {
+   "bench": "rust_list_nth_mut_pair_merge",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "generic",
+    "large"
+   ],
+   "lean_name": "Loops.list_nth_mut_pair_merge",
+   "lines": 15
+  },
+  {
+   "bench": "rust_list_nth_mut_pair_merge_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.list_nth_mut_pair_merge_loop",
+   "lines": 25
+  },
+  {
+   "bench": "rust_list_nth_mut_shared_pair",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Loops.list_nth_mut_shared_pair",
+   "lines": 9
+  },
+  {
+   "bench": "rust_list_nth_mut_shared_pair_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.list_nth_mut_shared_pair_loop",
+   "lines": 23
+  },
+  {
+   "bench": "rust_list_nth_mut_shared_pair_merge",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Loops.list_nth_mut_shared_pair_merge",
+   "lines": 9
+  },
+  {
+   "bench": "rust_list_nth_mut_shared_pair_merge_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.list_nth_mut_shared_pair_merge_loop",
+   "lines": 23
+  },
+  {
+   "bench": "rust_list_nth_mut_with_id",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Loops.list_nth_mut_with_id",
+   "lines": 10
+  },
+  {
+   "bench": "rust_list_nth_mut_with_id_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.list_nth_mut_with_id_loop",
+   "lines": 18
+  },
+  {
+   "bench": "rust_list_nth_shared",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Loops.list_nth_shared",
+   "lines": 6
+  },
+  {
+   "bench": "rust_list_nth_shared_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.list_nth_shared_loop",
+   "lines": 14
+  },
+  {
+   "bench": "rust_list_nth_shared_mut_pair",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Loops.list_nth_shared_mut_pair",
+   "lines": 9
+  },
+  {
+   "bench": "rust_list_nth_shared_mut_pair_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.list_nth_shared_mut_pair_loop",
+   "lines": 23
+  },
+  {
+   "bench": "rust_list_nth_shared_mut_pair_merge",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Loops.list_nth_shared_mut_pair_merge",
+   "lines": 9
+  },
+  {
+   "bench": "rust_list_nth_shared_mut_pair_merge_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.list_nth_shared_mut_pair_merge_loop",
+   "lines": 23
+  },
+  {
+   "bench": "rust_list_nth_shared_pair",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Loops.list_nth_shared_pair",
+   "lines": 9
+  },
+  {
+   "bench": "rust_list_nth_shared_pair_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.list_nth_shared_pair_loop",
+   "lines": 19
+  },
+  {
+   "bench": "rust_list_nth_shared_pair_merge",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Loops.list_nth_shared_pair_merge",
+   "lines": 9
+  },
+  {
+   "bench": "rust_list_nth_shared_pair_merge_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.list_nth_shared_pair_merge_loop",
+   "lines": 19
+  },
+  {
+   "bench": "rust_list_nth_shared_with_id",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Loops.list_nth_shared_with_id",
+   "lines": 7
+  },
+  {
+   "bench": "rust_list_nth_shared_with_id_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Loops.list_nth_shared_with_id_loop",
+   "lines": 14
+  },
+  {
+   "bench": "rust_reborrow_const",
+   "callees": 3,
+   "crate": "Loops",
+   "kinds": [
+    "diverge",
+    "deep"
+   ],
+   "lean_name": "Loops.reborrow_const",
+   "lines": 4
+  },
+  {
+   "bench": "rust_reborrow_const_loop",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.reborrow_const_loop",
+   "lines": 7
+  },
+  {
+   "bench": "rust_reborrow_const_loop_body",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.reborrow_const_loop.body",
+   "lines": 8
+  },
+  {
+   "bench": "rust_reborrow_const_reborrow",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [],
+   "lean_name": "Loops.reborrow_const.reborrow",
+   "lines": 4
+  },
+  {
+   "bench": "rust_single_break",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.single_break",
+   "lines": 5
+  },
+  {
+   "bench": "rust_single_break_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.single_break_loop",
+   "lines": 7
+  },
+  {
+   "bench": "rust_single_break_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.single_break_loop.body",
+   "lines": 9
+  },
+  {
+   "bench": "rust_sum",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.sum",
+   "lines": 6
+  },
+  {
+   "bench": "rust_sum_array",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.sum_array",
+   "lines": 6
+  },
+  {
+   "bench": "rust_sum_array_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.sum_array_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_sum_array_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.sum_array_loop.body",
+   "lines": 15
+  },
+  {
+   "bench": "rust_sum_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.sum_loop",
+   "lines": 8
+  },
+  {
+   "bench": "rust_sum_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.sum_loop.body",
+   "lines": 13
+  },
+  {
+   "bench": "rust_sum_with_mut_borrows",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.sum_with_mut_borrows",
+   "lines": 6
+  },
+  {
+   "bench": "rust_sum_with_mut_borrows_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.sum_with_mut_borrows_loop",
+   "lines": 9
+  },
+  {
+   "bench": "rust_sum_with_mut_borrows_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.sum_with_mut_borrows_loop.body",
+   "lines": 13
+  },
+  {
+   "bench": "rust_sum_with_shared_borrows",
+   "callees": 2,
+   "crate": "Loops",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Loops.sum_with_shared_borrows",
+   "lines": 6
+  },
+  {
+   "bench": "rust_sum_with_shared_borrows_loop",
+   "callees": 1,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "Loops.sum_with_shared_borrows_loop",
+   "lines": 9
+  },
+  {
+   "bench": "rust_sum_with_shared_borrows_loop_body",
+   "callees": 0,
+   "crate": "Loops",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Loops.sum_with_shared_borrows_loop.body",
+   "lines": 13
+  },
+  {
+   "bench": "rust_ExpandSimpliy_check_expand_simplify_symb1",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.ExpandSimpliy.check_expand_simplify_symb1",
+   "lines": 9
+  },
+  {
+   "bench": "rust_ExpandSimpliy_check_expand_simplify_symb2",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.ExpandSimpliy.check_expand_simplify_symb2",
+   "lines": 8
+  },
+  {
+   "bench": "rust_borrow_mut_tuple",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "NoNestedBorrows.borrow_mut_tuple",
+   "lines": 7
+  },
+  {
+   "bench": "rust_call_incr",
+   "callees": 1,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.call_incr",
+   "lines": 5
+  },
+  {
+   "bench": "rust_cast_bool_to_bool",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.cast_bool_to_bool",
+   "lines": 5
+  },
+  {
+   "bench": "rust_cast_bool_to_i32",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.cast_bool_to_i32",
+   "lines": 5
+  },
+  {
+   "bench": "rust_cast_u32_to_i32",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.cast_u32_to_i32",
+   "lines": 5
+  },
+  {
+   "bench": "rust_choose",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "NoNestedBorrows.choose",
+   "lines": 10
+  },
+  {
+   "bench": "rust_choose_test",
+   "callees": 1,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.choose_test",
+   "lines": 10
+  },
+  {
+   "bench": "rust_copy_int",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.copy_int",
+   "lines": 5
+  },
+  {
+   "bench": "rust_create_id_type",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "NoNestedBorrows.create_id_type",
+   "lines": 5
+  },
+  {
+   "bench": "rust_create_tuple_struct",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.create_tuple_struct",
+   "lines": 6
+  },
+  {
+   "bench": "rust_get_max",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.get_max",
+   "lines": 7
+  },
+  {
+   "bench": "rust_id_mut_pair1",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "NoNestedBorrows.id_mut_pair1",
+   "lines": 8
+  },
+  {
+   "bench": "rust_id_mut_pair2",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "NoNestedBorrows.id_mut_pair2",
+   "lines": 8
+  },
+  {
+   "bench": "rust_id_mut_pair3",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "NoNestedBorrows.id_mut_pair3",
+   "lines": 8
+  },
+  {
+   "bench": "rust_id_mut_pair4",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "NoNestedBorrows.id_mut_pair4",
+   "lines": 8
+  },
+  {
+   "bench": "rust_incr",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.incr",
+   "lines": 5
+  },
+  {
+   "bench": "rust_is_cons",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "NoNestedBorrows.is_cons",
+   "lines": 7
+  },
+  {
+   "bench": "rust_list_length",
+   "callees": 1,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "diverge",
+    "generic",
+    "self_rec"
+   ],
+   "lean_name": "NoNestedBorrows.list_length",
+   "lines": 9
+  },
+  {
+   "bench": "rust_list_nth_shared",
+   "callees": 1,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "NoNestedBorrows.list_nth_shared",
+   "lines": 12
+  },
+  {
+   "bench": "rust_list_rev",
+   "callees": 1,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "NoNestedBorrows.list_rev",
+   "lines": 6
+  },
+  {
+   "bench": "rust_list_rev_aux",
+   "callees": 1,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "diverge",
+    "generic",
+    "self_rec"
+   ],
+   "lean_name": "NoNestedBorrows.list_rev_aux",
+   "lines": 8
+  },
+  {
+   "bench": "rust_new_pair1",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.new_pair1",
+   "lines": 5
+  },
+  {
+   "bench": "rust_new_tuple1",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.new_tuple1",
+   "lines": 5
+  },
+  {
+   "bench": "rust_new_tuple2",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.new_tuple2",
+   "lines": 5
+  },
+  {
+   "bench": "rust_new_tuple3",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.new_tuple3",
+   "lines": 5
+  },
+  {
+   "bench": "rust_not_bool",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.not_bool",
+   "lines": 5
+  },
+  {
+   "bench": "rust_not_i32",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.not_i32",
+   "lines": 5
+  },
+  {
+   "bench": "rust_not_u32",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.not_u32",
+   "lines": 5
+  },
+  {
+   "bench": "rust_panic_mut_borrow",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.panic_mut_borrow",
+   "lines": 5
+  },
+  {
+   "bench": "rust_read_then_incr",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.read_then_incr",
+   "lines": 6
+  },
+  {
+   "bench": "rust_read_tuple",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.read_tuple",
+   "lines": 6
+  },
+  {
+   "bench": "rust_read_tuple_struct",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.read_tuple_struct",
+   "lines": 6
+  },
+  {
+   "bench": "rust_refs_test1",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.refs_test1",
+   "lines": 5
+  },
+  {
+   "bench": "rust_refs_test2",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.refs_test2",
+   "lines": 8
+  },
+  {
+   "bench": "rust_split_list",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "NoNestedBorrows.split_list",
+   "lines": 7
+  },
+  {
+   "bench": "rust_test2",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test2",
+   "lines": 6
+  },
+  {
+   "bench": "rust_test3",
+   "callees": 1,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test3",
+   "lines": 8
+  },
+  {
+   "bench": "rust_test_char",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_char",
+   "lines": 5
+  },
+  {
+   "bench": "rust_test_constants",
+   "callees": 4,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "deep",
+    "large"
+   ],
+   "lean_name": "NoNestedBorrows.test_constants",
+   "lines": 15
+  },
+  {
+   "bench": "rust_test_copy_int",
+   "callees": 1,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_copy_int",
+   "lines": 6
+  },
+  {
+   "bench": "rust_test_is_cons",
+   "callees": 1,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_is_cons",
+   "lines": 6
+  },
+  {
+   "bench": "rust_test_list1",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_list1",
+   "lines": 5
+  },
+  {
+   "bench": "rust_test_list_functions",
+   "callees": 3,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "NoNestedBorrows.test_list_functions",
+   "lines": 29
+  },
+  {
+   "bench": "rust_test_mem_replace",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_mem_replace",
+   "lines": 7
+  },
+  {
+   "bench": "rust_test_neg1",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_neg1",
+   "lines": 6
+  },
+  {
+   "bench": "rust_test_panic",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_panic",
+   "lines": 5
+  },
+  {
+   "bench": "rust_test_panic_msg",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_panic_msg",
+   "lines": 5
+  },
+  {
+   "bench": "rust_test_shared_borrow_bool1",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_shared_borrow_bool1",
+   "lines": 7
+  },
+  {
+   "bench": "rust_test_shared_borrow_bool2",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_shared_borrow_bool2",
+   "lines": 5
+  },
+  {
+   "bench": "rust_test_shared_borrow_enum1",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_shared_borrow_enum1",
+   "lines": 7
+  },
+  {
+   "bench": "rust_test_shared_borrow_enum2",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_shared_borrow_enum2",
+   "lines": 5
+  },
+  {
+   "bench": "rust_test_split_list",
+   "callees": 1,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_split_list",
+   "lines": 6
+  },
+  {
+   "bench": "rust_test_unreachable",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_unreachable",
+   "lines": 5
+  },
+  {
+   "bench": "rust_test_weird_borrows1",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.test_weird_borrows1",
+   "lines": 5
+  },
+  {
+   "bench": "rust_update_tuple",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.update_tuple",
+   "lines": 6
+  },
+  {
+   "bench": "rust_update_tuple_struct",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [],
+   "lean_name": "NoNestedBorrows.update_tuple_struct",
+   "lines": 7
+  },
+  {
+   "bench": "rust_use_id_type",
+   "callees": 0,
+   "crate": "NoNestedBorrows",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "NoNestedBorrows.use_id_type",
+   "lines": 5
+  },
+  {
+   "bench": "rust_Usize_Insts_TutorialCounter_incr",
+   "callees": 0,
+   "crate": "Tutorial",
+   "kinds": [],
+   "lean_name": "Tutorial.Usize.Insts.TutorialCounter.incr",
+   "lines": 7
+  },
+  {
+   "bench": "rust_add",
+   "callees": 4,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge",
+    "deep",
+    "large"
+   ],
+   "lean_name": "Tutorial.add",
+   "lines": 16
+  },
+  {
+   "bench": "rust_add_loop",
+   "callees": 2,
+   "crate": "Tutorial",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Tutorial.add_loop",
+   "lines": 12
+  },
+  {
+   "bench": "rust_add_loop_body",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Tutorial.add_loop.body",
+   "lines": 28
+  },
+  {
+   "bench": "rust_add_no_overflow",
+   "callees": 2,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Tutorial.add_no_overflow",
+   "lines": 9
+  },
+  {
+   "bench": "rust_add_no_overflow_loop",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Tutorial.add_no_overflow_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_add_no_overflow_loop_body",
+   "callees": 0,
+   "crate": "Tutorial",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Tutorial.add_no_overflow_loop.body",
+   "lines": 22
+  },
+  {
+   "bench": "rust_add_with_carry",
+   "callees": 2,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Tutorial.add_with_carry",
+   "lines": 9
+  },
+  {
+   "bench": "rust_add_with_carry_loop",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Tutorial.add_with_carry_loop",
+   "lines": 12
+  },
+  {
+   "bench": "rust_add_with_carry_loop_body",
+   "callees": 0,
+   "crate": "Tutorial",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Tutorial.add_with_carry_loop.body",
+   "lines": 30
+  },
+  {
+   "bench": "rust_append_in_place",
+   "callees": 2,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Tutorial.append_in_place",
+   "lines": 7
+  },
+  {
+   "bench": "rust_choose",
+   "callees": 0,
+   "crate": "Tutorial",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "Tutorial.choose",
+   "lines": 10
+  },
+  {
+   "bench": "rust_even",
+   "callees": 2,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge",
+    "mutual"
+   ],
+   "lean_name": "Tutorial.even",
+   "lines": 9
+  },
+  {
+   "bench": "rust_get_or_zero",
+   "callees": 0,
+   "crate": "Tutorial",
+   "kinds": [],
+   "lean_name": "Tutorial.get_or_zero",
+   "lines": 8
+  },
+  {
+   "bench": "rust_i32_id",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge",
+    "self_rec"
+   ],
+   "lean_name": "Tutorial.i32_id",
+   "lines": 10
+  },
+  {
+   "bench": "rust_incr",
+   "callees": 0,
+   "crate": "Tutorial",
+   "kinds": [],
+   "lean_name": "Tutorial.incr",
+   "lines": 5
+  },
+  {
+   "bench": "rust_list_nth",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Tutorial.list_nth",
+   "lines": 12
+  },
+  {
+   "bench": "rust_list_nth1",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Tutorial.list_nth1",
+   "lines": 6
+  },
+  {
+   "bench": "rust_list_nth1_loop",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Tutorial.list_nth1_loop",
+   "lines": 13
+  },
+  {
+   "bench": "rust_list_nth_mut",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Tutorial.list_nth_mut",
+   "lines": 18
+  },
+  {
+   "bench": "rust_list_nth_mut1",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Tutorial.list_nth_mut1",
+   "lines": 7
+  },
+  {
+   "bench": "rust_list_tail",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Tutorial.list_tail",
+   "lines": 7
+  },
+  {
+   "bench": "rust_list_tail_loop",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec",
+    "large"
+   ],
+   "lean_name": "Tutorial.list_tail_loop",
+   "lines": 13
+  },
+  {
+   "bench": "rust_max",
+   "callees": 0,
+   "crate": "Tutorial",
+   "kinds": [],
+   "lean_name": "Tutorial.max",
+   "lines": 6
+  },
+  {
+   "bench": "rust_mul2_add1",
+   "callees": 0,
+   "crate": "Tutorial",
+   "kinds": [],
+   "lean_name": "Tutorial.mul2_add1",
+   "lines": 6
+  },
+  {
+   "bench": "rust_mul2_add1_add",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [],
+   "lean_name": "Tutorial.mul2_add1_add",
+   "lines": 6
+  },
+  {
+   "bench": "rust_odd",
+   "callees": 2,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge",
+    "mutual"
+   ],
+   "lean_name": "Tutorial.odd",
+   "lines": 9
+  },
+  {
+   "bench": "rust_pseudo_random",
+   "callees": 2,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Tutorial.pseudo_random",
+   "lines": 6
+  },
+  {
+   "bench": "rust_pseudo_random_loop",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Tutorial.pseudo_random_loop",
+   "lines": 9
+  },
+  {
+   "bench": "rust_pseudo_random_loop_body",
+   "callees": 0,
+   "crate": "Tutorial",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "large"
+   ],
+   "lean_name": "Tutorial.pseudo_random_loop.body",
+   "lines": 12
+  },
+  {
+   "bench": "rust_reverse",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge",
+    "generic"
+   ],
+   "lean_name": "Tutorial.reverse",
+   "lines": 6
+  },
+  {
+   "bench": "rust_reverse_loop",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "self_rec"
+   ],
+   "lean_name": "Tutorial.reverse_loop",
+   "lines": 10
+  },
+  {
+   "bench": "rust_use_counter",
+   "callees": 0,
+   "crate": "Tutorial",
+   "kinds": [
+    "generic"
+   ],
+   "lean_name": "Tutorial.use_counter",
+   "lines": 8
+  },
+  {
+   "bench": "rust_use_incr",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [],
+   "lean_name": "Tutorial.use_incr",
+   "lines": 8
+  },
+  {
+   "bench": "rust_zero",
+   "callees": 2,
+   "crate": "Tutorial",
+   "kinds": [
+    "diverge"
+   ],
+   "lean_name": "Tutorial.zero",
+   "lines": 6
+  },
+  {
+   "bench": "rust_zero_loop",
+   "callees": 1,
+   "crate": "Tutorial",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Tutorial.zero_loop",
+   "lines": 11
+  },
+  {
+   "bench": "rust_zero_loop_body",
+   "callees": 0,
+   "crate": "Tutorial",
+   "kinds": [
+    "loop",
+    "diverge",
+    "large"
+   ],
+   "lean_name": "Tutorial.zero_loop.body",
+   "lines": 19
+  }
+ ]
+}

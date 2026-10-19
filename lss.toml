@@ -61,6 +61,16 @@ mutant_hammer_seconds = 120
 [bench]
 # the Aeneas-translated crates the dev and test sets come from (FeatureSuite stays
 # the test fixture and is in neither); tools/bench.py select writes bench/split.json
-suite = []
+suite = [
+  "~/rust_suite/AeneasStandalone",
+  "~/rust_suite/AeneasFieldArithmetic",
+  "~/rust_suite/Loops",
+  "~/rust_suite/NoNestedBorrows",
+  "~/rust_suite/Avl",
+  "~/rust_suite/Bst",
+  "~/rust_suite/Tutorial",
+  "~/rust_suite/FoldStep",
+  "~/rust_suite/FoldArity",
+]
 dev_size = 10
 seed = 0
