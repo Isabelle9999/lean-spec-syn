@@ -56,6 +56,7 @@ if [ "$mode" != "static" ]; then
   run "proof trust" "$PY" tests/test_proof_trust.py
   run "bounded check" "$PY" tests/test_bounded.py
   run "speed and cost" "$PY" tests/test_cost.py
+  run "harness" "$PY" tests/test_bench.py
 
   leftover() {
     for p in /proc/[0-9]*; do

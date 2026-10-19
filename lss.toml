@@ -57,3 +57,10 @@ hammer_heartbeats = 1000000
 split_seconds = 180
 # hammer seconds shared by the mutant proofs of one pass over a unit's mutants
 mutant_hammer_seconds = 120
+
+[bench]
+# the Aeneas-translated crates the dev and test sets come from (FeatureSuite stays
+# the test fixture and is in neither); tools/bench.py select writes bench/split.json
+suite = []
+dev_size = 10
+seed = 0

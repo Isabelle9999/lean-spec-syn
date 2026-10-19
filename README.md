@@ -121,6 +121,24 @@ python run.py --rust-project <path>                # every function in a crate
 python run.py --rust-project <path> --bench <name> # one function
 ```
 
+## Measuring it
+
+```
+python tools/bench.py select                           # the fixed dev/test split
+python tools/bench.py run dev --tag base               # one config over the dev set
+python tools/bench.py run dev --tag h --set proof.rust_hammer=true
+python tools/bench.py report base
+python tools/bench.py compare base h
+```
+
+The dev set is picked from what the code looks like, never from results: every
+kind of hard function (loops, divergence, generics, mutual and self recursion,
+deep call chains, long definitions) and every crate gets a seat, then the
+hardest by the same features, with a fixed seed. The test set is every other
+function and runs once, for the final numbers. Yield is reported with a Wilson
+interval, and two runs are compared function by function with an exact sign
+test on the functions whose verdict changed.
+
 ## Tests
 
 ```

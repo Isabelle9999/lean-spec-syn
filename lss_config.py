@@ -72,3 +72,9 @@ def proof_cfg():
                 "hammer_heartbeats": 1000000, "split_seconds": 180, "mutant_hammer_seconds": 120}
     p = _cfg().get("proof", {})
     return {k: p.get(k, v) for k, v in defaults.items()}
+
+
+def bench_cfg():
+    defaults = {"suite": [], "dev_size": 10, "seed": 0}
+    b = _cfg().get("bench", {})
+    return {k: b.get(k, v) for k, v in defaults.items()}
