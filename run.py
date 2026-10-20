@@ -3,6 +3,7 @@ import argparse
 import builtins
 import contextvars
 import json
+import re
 import time
 import shutil
 import threading
@@ -13,7 +14,7 @@ import lean_server as _lean_server
 from synth import LLMClient, synthesize, refine, _func_name, get_llm_calls
 import events
 from benchmarks import BENCHMARKS, evaluate
-from metrics import functional_correctness, spec_coverage, generate_report, save_report, summary_table
+from metrics import functional_correctness, spec_coverage, generate_report, save_report, summary_table, yield_counts
 from incremental import (
     lean_version, load_hashes, save_hashes,
     compute_current_hashes, affected_benches,
@@ -32,7 +33,9 @@ def _start_log():
     importing run has no side effects."""
     global _run_id, _log_path
     os.makedirs(".lss/runs", exist_ok=True)
-    _run_id = len([f for f in os.listdir(".lss/runs") if f.startswith("run_")]) + 1
+    # one past the highest id in use, so deleting old runs never reuses an id
+    ids = [int(m.group(1)) for f in os.listdir(".lss/runs") if (m := re.match(r"run_(\d+)\.", f))]
+    _run_id = max(ids, default=0) + 1
     _log_path = f".lss/runs/run_{_run_id}.txt"
     log_file = open(_log_path, "w", encoding="utf-8")
     orig = builtins.print
@@ -74,7 +77,7 @@ def _with_timeout(fn, timeout):
 
 
 def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, func_source=None):
-    """one function. every event it causes carries unit=<bench name>, and it ends with
+    """one function. every LLM and Lean call it makes is logged with unit=<bench name>, and it ends with
     one unit_result event: the status, the spec counts and the wall seconds, also
     after a timeout or a crash (status unknown, with the reason)."""
     t0 = time.time()
@@ -340,7 +343,7 @@ def main():
     events.emit("run_start", tag=os.environ.get("LSS_BENCH_TAG", ""),
                 project=os.path.abspath(args.rust_project) if args.rust_project else "")
 
-    cache = Cache()
+    cache = Cache(os.environ.get("LSS_CACHE_PATH", ".lss/cache.json"))  # the harness gives each tag its own
     llm = LLMClient()
     checker = LeanChecker(cache=cache, project_dir=lean_project_dir)
     store = ExampleStore()
@@ -386,6 +389,7 @@ def main():
     n_carried = 0
 
     reports = []
+    statuses = []  # every function attempted; a timeout or a crash is unknown
     if args.ablation:
         baselines = ["none", "no-mutation", "no-adversarial"]
         for bm in benches:
@@ -409,9 +413,11 @@ def main():
             n_reverified += 1
             try:
                 _, report = run_bench(bm, args, llm, checker, store, args.baseline, project_dir=run_dir, func_source=bm.get("func_source"))
+                statuses.append(report["status"] if report is not None else "unknown")
                 if report is not None:
                     reports.append(report)
             except Exception as e:
+                statuses.append("unknown")
                 print(f"  CRASH on {bm['name']}: {e}")
                 import traceback
                 traceback.print_exc()
@@ -422,6 +428,9 @@ def main():
 
     if len(reports) > 1:
         print("\n" + summary_table(reports))
+    if statuses:
+        k, n = yield_counts(statuses)
+        print(f"yield: {k} of {n} functions attempted have a kernel-proved spec (timeouts and crashes count as unknown)")
 
     _ev = events.get_stats()
     _wall = time.time() - _t_main_start

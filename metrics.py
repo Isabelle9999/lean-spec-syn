@@ -457,6 +457,4 @@ def summary_table(reports):
         rows.append(f"{r['name']:<28} {r['status']:<15} "
                     f"{r['proved_count']:>3}/{r['generated_count']:<3} {mut:>5} "
                     f"{r['llm_calls']:>5} {r['lean_calls']:>5} {r['elapsed_seconds']:>7.1f}")
-    proved, attempted = yield_counts([r["status"] for r in reports])
-    rows.append(f"yield: {proved} of {attempted} functions have a kernel-proved spec")
     return "\n".join(rows)

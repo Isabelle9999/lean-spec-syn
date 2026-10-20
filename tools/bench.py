@@ -147,43 +147,50 @@ def select(size, seed):
 # ---- running a set ----
 
 def _overrides(pairs):
-    """["proof.rust_hammer=true"] -> {"proof": {"rust_hammer": True}}; values are JSON,
-    or a plain string when they do not parse."""
+    """["proof.rust_hammer=true"] -> {"proof": {"rust_hammer": True}}. the key must be a
+    table.key already in lss.toml and the value JSON (true, 120, "local"), so a typo
+    cannot leave a variant silently identical to the baseline."""
+    import lss_config
+    cfg = lss_config.config()
     out = defaultdict(dict)
     for p in pairs or []:
         key, _, raw = p.partition("=")
         table, _, name = key.partition(".")
+        if not isinstance(cfg.get(table), dict) or name not in cfg[table]:
+            sys.exit(f"--set {p}: {key} is not a key in lss.toml")
         try:
-            val = json.loads(raw)
+            out[table][name] = json.loads(raw)
         except json.JSONDecodeError:
-            val = raw
-        out[table][name] = val
+            sys.exit(f"--set {p}: the value must be JSON, e.g. true, 120 or \"local\"")
     return dict(out)
 
 
 def run(set_name, tag, overrides, final=False):
     if set_name == "test" and not final:
         sys.exit("the test set runs once, for the final numbers: pass --final")
+    out_dir = os.path.join(".lss", "bench", tag)
+    if os.path.exists(os.path.join(out_dir, "meta.json")):
+        sys.exit(f"tag {tag} was already run; use a new tag so two runs are never mixed")
     with open(SPLIT, encoding="utf-8") as f:
         units = json.load(f)[set_name]
-    by_crate = defaultdict(list)
-    for u in units:
-        by_crate[u["crate"]].append(u["bench"])
     import loader
     paths = {loader.detect_crate(p, loader.load_manifest(p)): os.path.abspath(p) for p in _suite()}
-    out_dir = os.path.join(".lss", "bench", tag)
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "meta.json"), "w", encoding="utf-8") as f:
         json.dump({"set": set_name, "units": [u["bench"] + "@" + u["crate"] for u in units],
                    "kinds": {u["bench"] + "@" + u["crate"]: u["kinds"] for u in units},
                    "paths": paths, "overrides": overrides}, f, indent=1)
-    env = {**os.environ, "LSS_BENCH_TAG": tag, "LSS_OVERRIDES": json.dumps(overrides)}
-    for crate, names in by_crate.items():
-        log = os.path.join(out_dir, f"{crate}.log")
-        print(f"{crate}: {len(names)} functions (log {log})", flush=True)
+    # a fresh proof cache per tag, so a second config never reuses the first's proofs
+    env = {**os.environ, "LSS_BENCH_TAG": tag, "LSS_OVERRIDES": json.dumps(overrides),
+           "LSS_CACHE_PATH": os.path.join(out_dir, "cache.json")}
+    for u in units:
+        # one process per function: a timed-out function's thread ends with its process
+        # and never shares a Lean server with the next function
+        log = os.path.join(out_dir, f"{u['crate']}.{u['bench']}.log")
+        print(f"{u['crate']}: {u['bench']} (log {log})", flush=True)
         with open(log, "w", encoding="utf-8") as f:
-            r = subprocess.run([sys.executable, "run.py", "--rust-project", paths[crate],
-                                "--bench", *names, "--force-full"], stdout=f, stderr=subprocess.STDOUT, env=env)
+            r = subprocess.run([sys.executable, "run.py", "--rust-project", paths[u["crate"]],
+                                "--bench", u["bench"], "--force-full"], stdout=f, stderr=subprocess.STDOUT, env=env)
         print(f"  exit {r.returncode}", flush=True)
 
 

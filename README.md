@@ -104,8 +104,8 @@ constant, so the trust base remains the Lean kernel alone.
 - contract-discharged calls and underspecified callees
 - Lean seconds per layer, prompt size per function, and how many proofs
   LeanHammer closed on each track
-- an event log per run, in which every event names its function and each
-  function ends with one result line, timeouts and crashes included
+- an event log per run, in which every LLM and Lean call names its function and
+  each attempted function ends with one result line, timeouts and crashes included
 
 ## Requirements
 

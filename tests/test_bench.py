@@ -82,6 +82,16 @@ def run_static_results():
     try:
         import run
         check("importing run starts no run log", not os.path.exists(".lss/runs"))
+        import builtins
+        os.makedirs(".lss/runs")
+        for f in ("run_2.txt", "run_7.txt", "run_7.events.jsonl"):
+            open(os.path.join(".lss/runs", f), "w").close()
+        orig_print = builtins.print
+        try:
+            run._start_log()
+        finally:
+            builtins.print = orig_print
+        check("a new run id is one past the highest in use, never a reused one", run._run_id == 8, str(run._run_id))
 
         events.configure(1, {"t": 1})
         path = events.log_path()
@@ -252,14 +262,31 @@ def run_static_bench():
                 refused = True
             check("the test set runs only with --final", refused and not calls)
             with contextlib.redirect_stdout(io.StringIO()):
-                bench.run("dev", "base", bench._overrides(["proof.rust_hammer=true", "proof.note=x"]))
+                bench.run("dev", "base", bench._overrides(["proof.rust_hammer=true", "proof.split_seconds=60"]))
+            one_each = all(a.count("--bench") == 1 and a[a.index("--bench") + 1] in {b for _, b in dev_keys}
+                           for a, _ in calls)
             argv, env = calls[0] if calls else ([], {})
-            check("each crate runs once, with its functions, the tag and the overrides",
-                  len(calls) == len({c for c, _ in dev_keys}) and "--force-full" in argv
+            check("each function runs in its own process, with the tag, the overrides and the tag's own cache",
+                  len(calls) == len(dev_keys) and one_each and "--force-full" in argv
                   and argv[argv.index("--rust-project") + 1] in ("/s/a", "/s/b")
                   and env.get("LSS_BENCH_TAG") == "base"
-                  and json.loads(env.get("LSS_OVERRIDES", "{}")) == {"proof": {"rust_hammer": True, "note": "x"}},
+                  and env.get("LSS_CACHE_PATH") == os.path.join(".lss", "bench", "base", "cache.json")
+                  and json.loads(env.get("LSS_OVERRIDES", "{}")) == {"proof": {"rust_hammer": True, "split_seconds": 60}},
                   str(calls))
+            n = len(calls)
+            try:
+                bench.run("dev", "base", {})
+                reused = True
+            except SystemExit:
+                reused = False
+            check("a tag already run is refused, so two runs are never mixed", not reused and len(calls) == n)
+        bad = []
+        for arg in ("proof.rust_hamer=true", "proof.rust_hammer=False", "rust_hammer=true"):
+            try:
+                bench._overrides([arg])
+            except SystemExit:
+                bad.append(arg)
+        check("a --set key not in lss.toml, or a value that is not JSON, is refused", len(bad) == 3, str(bad))
 
         # a mutual-recursion group is one seat: its second member never takes a seat
         groups = {"/s/m": _FakeGraph("M", {"M.even": (40, ["M.odd"], False), "M.odd": (40, ["M.even"], False),
