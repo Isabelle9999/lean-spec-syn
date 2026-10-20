@@ -1,157 +1,92 @@
-# Kernel-proved specification synthesis for Lean 4
+# Kernel-proved specification synthesis
 
-Given a program, this system produces formal specifications about it and proves
-them. Every specification it emits has been checked by the Lean kernel; nothing
-unproved is reported as a result.
+Verifying a program means proving that it meets a specification, and writing
+the specification is often the hardest part. This project synthesizes
+specifications for Lean 4 and Rust functions and proves them in Lean. Only
+specifications whose proofs the Lean kernel has checked are reported, so every
+result is a proved statement about the code (for Rust, about its translation
+by Aeneas).
 
-It works on Lean 4 source directly and on Rust, by way of Charon and Aeneas,
-which translate a Rust crate into a pure functional Lean model. Rust source
-needs no annotation.
+> **Work in progress.** The project is under active development and its interfaces may change.
 
-## What it does
+## Pipeline
 
-```
-Rust crate ──► Charon ──► Aeneas ──► Lean 4 definitions
-                                          │
-                                          ▼
-                              candidate specifications
-                                          │
-                                   validation gates
-                                          │
-                                    proof search
-                                          │
-                                     refinement
-                                          ▼
-                          kernel-proved specification set
-```
-
-**Candidate generation.** Six strategies, selected by a complexity
-classification of the target: direct prompting over seven property categories,
-specification from observed input–output pairs, negative examples, joint
-statement-and-proof generation, program slicing that specifies helpers before
-their callers, and a behaviour-only strategy that hides the implementation.
-Candidates are informed by Mathlib retrieval and by specifications proved in
-earlier runs. A prompt about a Rust function carries its definition, the types
-it names and its callees' proved specifications, not the whole crate.
-
-**Validation.** Candidates first meet stored counterexamples from earlier
-rejections and a well-formedness gate that elaborates them. For Rust functions,
-each candidate is then run on sampled inputs, edge values first and then seeded
-random ones, before any prover sees it. A specification false on the function's
-real output is refuted: its input is shrunk, and the refutation is proved by the
-kernel where the witness allows. One that also accepts every perturbed, wrong
-output, and claims nothing about success, carries no information and is
-rejected. A precondition that few sampled inputs meet is flagged, not rejected.
-Unproved candidates are finally tested with Plausible.
-
-**Proof search.** Three layers, stopping at the first success. A curated tactic
-portfolio derived from Mathlib's registered `hint` set, extended with
-definitional and bitvector decision procedures. Then LeanHammer, which performs
-neural premise selection over all of Mathlib rather than only the
-`@[simp]`-tagged fragment. Then decomposition, in which the model proposes
-intermediate lemmas, each is proved separately, and the recombined proof is
-checked by the kernel as a single theorem. For Rust functions every layer, and
-every mutant proof, runs in one environment that holds the crate, the
-specifications proved so far, and LeanHammer when `[proof] rust_hammer` is on. Before the three layers, a Rust
-function is unfolded and walked by Aeneas's `step*`; the goals it leaves go to
-fixed closers and then, with `rust_hammer` on, one by one to LeanHammer. Decomposition's Lean work
-shares one time budget per candidate, split evenly across its lemmas, and the
-hammer calls in each pass over a function's mutants share another.
-
-**Refinement.** Program mutants are generated from an operator table and by
-model rewriting, at most one per source line, then classified by proof into
-equivalent, killed, survived or unresolved — never by inference from a failed check. Surviving mutants are
-concrete evidence that the specification set is too weak. A second tier searches
-for an alternative implementation satisfying every proved specification while
-differing from the original, which is a stronger form of the same evidence.
-
-**Modularity.** For each Rust function, a proved specification is proved again
-with every callee replaced by a function variable that satisfies only that
-callee's specification. A proof that looks inside a callee fails this check, and
-the callee whose body it needs is named. When a proof fails outright, the callee
-whose specification is too weak is named: the one whose inlined body lets the
-proof through.
-
-## Trust boundary
-
-A status is never inferred from the absence of evidence. Every proof is
-checked by the Lean kernel and its axioms are audited: only `propext`,
-`Classical.choice` and `Quot.sound` are allowed, so `sorry`, `native_decide`
-and any declared axiom are rejected. Every killed, survived or equivalent
-verdict rests on a proof confirmed in isolation.
-A failed or timed-out check is reported as unresolved and excluded from the
-denominator of any score. A refutation counts as kernel-checked only when the
-negated statement, instantiated at its witness, is proved by the kernel;
-otherwise it is labelled evaluation-only.
-
-No axioms are introduced. Function abstraction for the modularity check uses
-universal quantification over a function variable rather than an assumed
-constant, so the trust base remains the Lean kernel alone.
-
-## What it reports
-
-- one status per function: proved_total (a kernel-proved specification that also
-  claims the call terminates), proved_partial (every proved specification allows
-  divergence), refuted, unknown, or skipped; yield is the share of attempted
-  functions with a proved specification, and unknown functions stay in its denominator
-- proved specifications, with the layer and tactic that closed each one
-- refuted specifications, with the shrunk input and whether the kernel checked it
-- mutation score, with its denominator and the unresolved count shown separately
-- surviving mutants and accepted adversarial implementations, as named
-  weaknesses with the input that distinguishes them
-- entailment-checked agreement with reference specifications, where a benchmark
-  provides them
-- contract-discharged calls and underspecified callees
-- Lean seconds per layer, prompt size per function, and how many proofs
-  LeanHammer closed on each track
-- an event log per run, in which every LLM and Lean call names its function and
-  each attempted function ends with one result line, timeouts and crashes included
-
-## Requirements
-
-Lean 4 with Mathlib. LeanHammer for the second proof layer. Python 3.11+ and an
-Anthropic API key. For Rust targets, a project translated by Aeneas, with
-Mathlib built.
-
-## Running
-
-```
-python run.py --bench <name>                       # a Lean benchmark
-python run.py --rust-project <path>                # every function in a crate
-python run.py --rust-project <path> --bench <name> # one function
+```mermaid
+flowchart TD
+    R[Rust crate] -->|Charon, Aeneas| M[Lean model of the crate]
+    L[Lean 4 source] --> G
+    M --> G[An LLM proposes<br/>candidate specifications]
+    G --> W{One well-formed theorem<br/>about the function?}
+    W -- no --> F1[LLM repairs it once]
+    F1 --> W
+    W -- yes --> B{Rust: true on<br/>sampled inputs?}
+    B -- false, or says nothing --> X[Rejected with the input,<br/>after one repair]
+    B -- yes, or a Lean function --> P[Proof search]
+    P --> K{Proof found and<br/>checked by the kernel?}
+    K -- no --> U[Unproved: never reported]
+    K -- yes --> S[Proved specification]
+    S --> F[Refinement: mutants and<br/>other implementations]
+    F -- stronger candidates, and the<br/>wrong behaviours it found --> G
+    S --> C[Rust: modularity check,<br/>callees replaced by their specs]
 ```
 
-## Measuring it
+- **Generate: an LLM proposes properties of each function's behaviour.** It reads
+  the function's definition, the types it uses and the proved specifications of
+  the functions it calls; Rust is first translated into a pure Lean model by
+  Charon and Aeneas, with no annotations on the Rust code.
+- **Check: cheap tests discard false and empty candidates before any proof is
+  tried.** A candidate must elaborate as one theorem about the function applied
+  to its own variables, and a Rust candidate is also run on sampled inputs, so a
+  false one is refuted with a shrunk counterexample and one that accepts every
+  wrong output is rejected as saying nothing.
+- **Prove: a candidate becomes a result only when the Lean kernel checks its
+  proof.** Proof search runs Aeneas's `step*`, a tactic portfolio, LeanHammer
+  and lemma decomposition, and the finished proof may use no axioms beyond
+  `propext`, `Classical.choice` and `Quot.sound`.
+- **Refine: wrong programs that the specifications fail to rule out show where
+  they are too weak.** Mutants of the function and other implementations that
+  satisfy every proved specification are classified by proof; what survives is
+  recorded as a wrong behaviour and shown to the LLM in later prompts, and a
+  stronger statement replaces a proved one only when it implies it, is not
+  implied by it, and is itself proved.
+
+## Quick start
+
+Needs Linux or WSL, Python 3.11+, several GB of disk for the Lean projects, and
+an Anthropic API key.
 
 ```
-python tools/bench.py select                           # the fixed dev/test split
-python tools/bench.py run dev --tag base               # one config over the dev set
-python tools/bench.py run dev --tag h --set proof.rust_hammer=true
-python tools/bench.py report base
-python tools/bench.py compare base h
+curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh   # Lean's toolchain manager
+git clone https://github.com/Isabelle9999/lean-spec-syn && cd lean-spec-syn
+pip install -r requirements.txt
+bash scripts/setup_lean.sh all        # builds Lean v4.31.0 with Aeneas, Mathlib and LeanHammer under ~/lss_lean (slow the first time)
+export ANTHROPIC_API_KEY=<your key>
 ```
 
-The dev set is picked from what the code looks like, never from results: every
-kind of hard function (loops, divergence, generics, mutual and self recursion,
-deep call chains, long definitions) and every crate gets a seat, then the
-hardest by the same features, with a fixed seed. The test set is every other
-function and runs once, for the final numbers. Yield is reported with a Wilson
-interval, and two runs are compared function by function with an exact sign
-test on the functions whose verdict changed.
-
-## Tests
+Then:
 
 ```
-python tests/run_all.py
+python run.py --rust-project <dir> --bench rust_<function>   # one Rust function
+python run.py --rust-project <dir>                           # every function in the crate
+python run.py --bench <name>                                 # a built-in Lean benchmark (benchmarks.py)
 ```
 
-Each test plants a case with a known answer — a deliberately weak specification
-that must leave mutants alive, a strong one that must kill them, a callee
-specification too weak to support its caller — and checks that the system
-reaches the right verdict. They exist because several classes of defect in this
-system are invisible in aggregate numbers and visible only against a known
-answer.
+`<dir>` is a crate translated by Aeneas at the pinned version: its
+`translation.json` next to `<Crate>/Code/*.lean`. Each run writes a report per
+function to `.lss/reports/` and an event log to `.lss/runs/`.
 
-## Status
+## Repository layout
 
-Research code under active development. Interfaces change.
+| Path | Purpose |
+|---|---|
+| `run.py`, `synth.py`, `strategies.py` | generation, the checks in order, proof search and refinement |
+| `gate.py`, `bounded.py`, `lean.py`, `lean/` | the checks and every call into Lean |
+| `tools/bench.py`, `bench/split.json` | the fixed dev/test split, runs and comparisons |
+| `tests/`, `scripts/check.sh` | tests with known answers, and the merge check |
+
+## Checks
+
+```
+pip install ruff pyright==1.1.391
+bash scripts/check.sh          # the merge check: lint, types, static and Lean tests
+```
