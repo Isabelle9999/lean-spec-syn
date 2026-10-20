@@ -138,6 +138,8 @@ class LLMClient:
         if fn:
             args, ret_type = _parse_signature(func_source if func_source else lean_code, fn)
             if args is not None:
+                args = [(n, _qualify_types(t, lean_code, func_source)) for n, t in args]
+                ret_type = _qualify_types(ret_type, lean_code, func_source)
                 sig_ctx = f"function signature: {fn} takes {len(args)} argument{'s' if len(args) != 1 else ''}:\n"
                 for i, (n, t) in enumerate(args, 1):
                     sig_ctx += f"  arg{i}: {n} : {t}\n"
@@ -227,7 +229,10 @@ class LLMClient:
                 "notation already extracts the success value as `r` for you.\n"
                 "AENEAS SYNTAX RULES:\n"
                 "- Use exact struct field names from type definitions (first/second, NOT x/y/fst/snd)\n"
-                "- Numeric literals may need type annotation: (0 : Std.U32)\n"
+                "- Integer literals carry their type as a suffix: 0#u32, 5#i8, 1#usize (never (0 : Std.U32))\n"
+                "- Apply the function only to distinct bound variables; state a case as a hypothesis:\n"
+                "  ∀ (l : CList T) (x : T) (tl : CList T), l = CList.CCons x tl → f l ⦃ r => P r ⦄, never f (CList.CCons x tl)\n"
+                "- Write the crate's own types with the crate name, as in the signature above (e.g. Bst.Ord T)\n"
                 "- Arithmetic can fail: a + b returns Result, not a plain value\n"
                 "- Vec type is alloc.vec.Vec Std.U32, not Vec or List\n"
                 "- if (and only if) this function loops or recurses, you may instead write\n"
@@ -739,26 +744,44 @@ def _classify_complexity(lean_code, func_name):
         return "simple"
 
 
+def _qualify_types(t, lean_code, func_source):
+    """a rust unit's signature type with the crate's own type names written in full
+    (Ord T -> Bst.Ord T), so a statement copying it means the crate's type under
+    `open <crate>`, never a same-named Lean one."""
+    crate = re.search(r"^open (?!Aeneas\b)(\S+)\s*$", lean_code or "", re.MULTILINE)
+    if not t or not crate or not func_source:
+        return t
+    local = set(re.findall(r"^(?:structure|inductive|class|abbrev)\s+([A-Za-z_][\w']*)", func_source, re.MULTILINE))
+    for name in sorted(local, key=len, reverse=True):
+        t = re.sub(r"(?<![\w.'])" + re.escape(name) + r"(?![\w'])", f"{crate.group(1)}.{name}", t)
+    return t
+
+
 def _parse_signature(lean_code, fn):
-    m = re.search(r'def\s+' + re.escape(fn) + r'\b(.*?)(?::=|\n\s*\|)', lean_code, re.DOTALL)
+    """the explicit arguments [(name, type)] and the return type of `def fn`;
+    binder groups nest, so `(t : Option (Node T))` is one argument."""
+    m = re.search(r'def\s+' + re.escape(fn) + r"(?![\w'])", lean_code)
     if not m:
         return None, None
-    sig = m.group(1).strip()
-    arg_groups = re.findall(r'\(([^)]+)\)', sig)
-    args = []
-    for group in arg_groups:
-        colon = group.find(':')
-        if colon == -1:
-            continue
-        names = group[:colon].split()
-        typ = group[colon+1:].strip()
-        for n in names:
-            if n.strip():
-                args.append((n.strip(), typ))
-    after = sig[sig.rfind(')')+1:] if arg_groups else sig
-    ret_m = re.match(r'\s*:\s*(.*)', after.split(':=')[0])
-    ret_type = ret_m.group(1).strip() if ret_m else ""
-    return args, ret_type
+    text, i, n, args = lean_code, m.end(), len(lean_code), []
+    while True:
+        while i < n and text[i].isspace():
+            i += 1
+        if i >= n or text[i] not in "({[⦃":
+            break
+        depth, j = 0, i
+        while j < n:
+            depth += (text[j] in "({[⦃") - (text[j] in ")}]⦄")
+            if depth == 0:
+                break
+            j += 1
+        group = text[i + 1:j]
+        if text[i] == "(" and ":" in group:
+            names, typ = group.split(":", 1)
+            args += [(nm, typ.strip()) for nm in names.split() if nm.strip()]
+        i = j + 1
+    ret = re.match(r"\s*:\s*([\s\S]*?)\s*(?::=|\n\s*\||\Z)", text[i:])
+    return args, (ret.group(1).strip() if ret else "")
 
 
 def _replace_body(lean_code):

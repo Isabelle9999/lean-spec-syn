@@ -248,6 +248,21 @@ def run_static():
     check("every LLM reply goes through the one reader: no theorem regex is left",
           "re.search(r':\\s*(.*?)\\s*:='" not in src and "theorem\\s+(\\w+)\\s*:" not in src + strat
           and "(?:\\([^)]*\\)\\s*)*" not in src + strat)
+    args, ret = synth._parse_signature("def TreeSet.insert_loop {T : Type} (OrdInst : Ord T) (value : T)\n"
+                                       "  (current_tree : Option (Node T)) :\n  Result (Bool × Option (Node T)) := do\n",
+                                       "TreeSet.insert_loop")
+    check("a signature argument with nested parentheses is one argument, and the return type is read",
+          args == [("OrdInst", "Ord T"), ("value", "T"), ("current_tree", "Option (Node T)")]
+          and ret == "Result (Bool × Option (Node T))", f"{args} {ret}")
+    types = "structure Ord (Self : Type) where\n  cmp : Self → Self → Result Ordering\ninductive Node (T : Type) where\n"
+    check("the crate's own types in the prompt's signature carry the crate name",
+          synth._qualify_types("Ord T", "open Aeneas Aeneas.Std\nopen Bst\n", types) == "Bst.Ord T"
+          and synth._qualify_types("Option (Node T)", "open Bst\n", types) == "Option (Bst.Node T)"
+          and synth._qualify_types("Bst.Ord T", "open Bst\n", types) == "Bst.Ord T")
+    check("the prompt writes Aeneas integers as 0#u32, never as (0 : Std.U32)",
+          "Numeric literals may need type annotation" not in src and "0#u32, 5#i8" in src)
+    check("the prompt states a case as a hypothesis, the function on bound variables only",
+          "state a case as a hypothesis" in src)
 
 
 def run_full():
