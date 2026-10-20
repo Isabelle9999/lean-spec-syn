@@ -27,6 +27,6 @@ def mark_divergent_specs(specs, divergent_funcs, func_name):
     if func_name not in divergent_funcs:
         return specs
     for s in specs:
-        if s.get('status') not in ('proved', 'validated'):
+        if s.get('status') not in ('proved', 'unproved'):
             s['blocked_by_divergence'] = True
     return specs

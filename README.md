@@ -90,6 +90,10 @@ constant, so the trust base remains the Lean kernel alone.
 
 ## What it reports
 
+- one status per function: proved_total (a kernel-proved specification that also
+  claims the call terminates), proved_partial (every proved specification allows
+  divergence), refuted, unknown, or skipped; yield is the share of attempted
+  functions with a proved specification, and unknown functions stay in its denominator
 - proved specifications, with the layer and tactic that closed each one
 - refuted specifications, with the shrunk input and whether the kernel checked it
 - mutation score, with its denominator and the unresolved count shown separately
@@ -100,6 +104,8 @@ constant, so the trust base remains the Lean kernel alone.
 - contract-discharged calls and underspecified callees
 - Lean seconds per layer, prompt size per function, and how many proofs
   LeanHammer closed on each track
+- an event log per run, in which every LLM and Lean call names its function and
+  each attempted function ends with one result line, timeouts and crashes included
 
 ## Requirements
 
@@ -114,6 +120,24 @@ python run.py --bench <name>                       # a Lean benchmark
 python run.py --rust-project <path>                # every function in a crate
 python run.py --rust-project <path> --bench <name> # one function
 ```
+
+## Measuring it
+
+```
+python tools/bench.py select                           # the fixed dev/test split
+python tools/bench.py run dev --tag base               # one config over the dev set
+python tools/bench.py run dev --tag h --set proof.rust_hammer=true
+python tools/bench.py report base
+python tools/bench.py compare base h
+```
+
+The dev set is picked from what the code looks like, never from results: every
+kind of hard function (loops, divergence, generics, mutual and self recursion,
+deep call chains, long definitions) and every crate gets a seat, then the
+hardest by the same features, with a fixed seed. The test set is every other
+function and runs once, for the final numbers. Yield is reported with a Wilson
+interval, and two runs are compared function by function with an exact sign
+test on the functions whose verdict changed.
 
 ## Tests
 

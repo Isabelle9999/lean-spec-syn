@@ -1,3 +1,4 @@
+import json
 import os
 import tomllib
 from pathlib import Path
@@ -11,7 +12,15 @@ def _cfg():
     if _CFG is None:
         with open(_CFG_PATH, "rb") as f:
             _CFG = tomllib.load(f)
+        # a bench variant: LSS_OVERRIDES='{"proof": {"rust_hammer": true}}' sets keys per table
+        for table, keys in json.loads(os.environ.get("LSS_OVERRIDES") or "{}").items():
+            _CFG.setdefault(table, {}).update(keys)
     return _CFG
+
+
+def config():
+    """lss.toml with any LSS_OVERRIDES applied."""
+    return _cfg()
 
 
 def project_dir(name):
@@ -63,3 +72,9 @@ def proof_cfg():
                 "hammer_heartbeats": 1000000, "split_seconds": 180, "mutant_hammer_seconds": 120}
     p = _cfg().get("proof", {})
     return {k: p.get(k, v) for k, v in defaults.items()}
+
+
+def bench_cfg():
+    defaults = {"suite": [], "dev_size": 10, "seed": 0}
+    b = _cfg().get("bench", {})
+    return {k: b.get(k, v) for k, v in defaults.items()}

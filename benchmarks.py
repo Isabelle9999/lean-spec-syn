@@ -164,20 +164,8 @@ def pow' : Nat → Nat → Nat
 
 
 def evaluate(specs, benchmark, lean_checker=None, project_dir=None):
-    total = len(specs)
-    proved = [s for s in specs if s["status"] in ("proved", "validated")]
-    soundness = len(proved) / total if total else 0.0
-
-    gt = benchmark.get("ground_truth", [])
-    if gt and proved:
-        found = sum(
-            1 for kw in gt
-            if any(kw.lower() in s["stmt"].lower() for s in proved)
-        )
-        recall = found / len(gt)
-    else:
-        recall = 0.0
-
+    """mutation score of the kernel-proved specs: killed over killed + survived."""
+    proved = [s for s in specs if s["status"] == "proved"]
     kill_rate = None
     mutation_counts = None
     if lean_checker and proved:
@@ -231,9 +219,6 @@ def evaluate(specs, benchmark, lean_checker=None, project_dir=None):
             kill_rate = counts["KILLED"] / scored if scored > 0 else None
 
     return {
-        "soundness": soundness,
-        "proof_rate": soundness,
-        "recall": recall,
         "kill_rate": kill_rate,
         "mutation_counts": mutation_counts,
     }

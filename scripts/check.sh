@@ -37,6 +37,7 @@ run "translation check (static)" bare tests/test_translation_check.py --static
 run "proof trust (static)" bare tests/test_proof_trust.py --static
 run "bounded check (static)" bare tests/test_bounded.py --static
 run "speed and cost (static)" bare tests/test_cost.py --static
+run "harness (static)" bare tests/test_bench.py --static
 rm -rf "$bare_home"
 
 if [ "$mode" != "static" ]; then
@@ -55,6 +56,7 @@ if [ "$mode" != "static" ]; then
   run "proof trust" "$PY" tests/test_proof_trust.py
   run "bounded check" "$PY" tests/test_bounded.py
   run "speed and cost" "$PY" tests/test_cost.py
+  run "harness" "$PY" tests/test_bench.py
 
   leftover() {
     for p in /proc/[0-9]*; do
