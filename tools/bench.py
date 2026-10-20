@@ -103,9 +103,38 @@ def _suite():
     return [os.path.expanduser(p) for p in lss_config.bench_cfg()["suite"]]
 
 
-def select(size, seed):
+def check(paths=None, checker=None):
+    """build each crate's Lean environment, as a run would, with no LLM call:
+    {path: None, or the first error line}."""
+    import run as _run
+    own = checker is None
+    if own:
+        import lean
+        import lss_config
+        checker = lean.LeanChecker(project_dir=lss_config.project_dir("aeneas"))
+    out = {}
+    try:
+        for p in paths or _suite():
+            out[p] = _run.crate_env_error(checker, os.path.abspath(p))
+            print(("ok    " if out[p] is None else "FAIL  ") + p + ("" if out[p] is None else f": {out[p]}"), flush=True)
+    finally:
+        if own:
+            import lean_server
+            lean_server.shutdown_all()
+    return out
+
+
+def _require_building(paths, checker=None):
+    bad = sorted(p for p, e in check(paths, checker).items() if e)
+    if bad:
+        sys.exit(f"{len(bad)} crate(s) do not build in Lean, so none of their functions can be attempted: "
+                 + ", ".join(bad) + ". fix them, or take them out of [bench] suite in lss.toml")
+
+
+def select(size, seed, checker=None):
     import callgraph
     import loader
+    _require_building(_suite(), checker)
     units = []
     for path in _suite():
         g = callgraph.for_project(path)
@@ -165,7 +194,7 @@ def _overrides(pairs):
     return dict(out)
 
 
-def run(set_name, tag, overrides, final=False):
+def run(set_name, tag, overrides, final=False, checker=None):
     if set_name == "test" and not final:
         sys.exit("the test set runs once, for the final numbers: pass --final")
     out_dir = os.path.join(".lss", "bench", tag)
@@ -175,6 +204,7 @@ def run(set_name, tag, overrides, final=False):
         units = json.load(f)[set_name]
     import loader
     paths = {loader.detect_crate(p, loader.load_manifest(p)): os.path.abspath(p) for p in _suite()}
+    _require_building(sorted({paths[u["crate"]] for u in units}), checker)
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "meta.json"), "w", encoding="utf-8") as f:
         json.dump({"set": set_name, "units": [u["bench"] + "@" + u["crate"] for u in units],
@@ -308,6 +338,7 @@ def compare(a, b):
 def main(argv=None):
     p = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("check")
     s = sub.add_parser("select")
     s.add_argument("--size", type=int, default=None)
     s.add_argument("--seed", type=int, default=None)
@@ -322,7 +353,9 @@ def main(argv=None):
     c.add_argument("a")
     c.add_argument("b")
     args = p.parse_args(argv)
-    if args.cmd == "select":
+    if args.cmd == "check":
+        sys.exit(1 if any(check().values()) else 0)
+    elif args.cmd == "select":
         import lss_config
         cfg = lss_config.bench_cfg()
         select(args.size or cfg["dev_size"], cfg["seed"] if args.seed is None else args.seed)

@@ -76,12 +76,30 @@ def _with_timeout(fn, timeout):
     return result[0], False
 
 
+def crate_env_error(checker, project_dir):
+    """None when the crate's Lean code builds, else its first error line."""
+    if not project_dir:
+        return None
+    state = checker._aeneas_env_for(project_dir)
+    if state["ok"]:
+        return None
+    errs = [ln.strip() for ln in state["error"].splitlines() if "error" in ln]
+    return (errs[0] if errs else state["error"].strip())[:200] or "no error text"
+
+
 def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, func_source=None):
     """one function. every LLM and Lean call it makes is logged with unit=<bench name>, and it ends with
     one unit_result event: the status, the spec counts and the wall seconds, also
     after a timeout or a crash (status unknown, with the reason)."""
     t0 = time.time()
     with events.context(unit=bm["name"]):
+        env_error = crate_env_error(checker, project_dir) if bm.get("source") == "rust-aeneas" else None
+        if env_error:
+            # no environment means no check can run: stop before any LLM call
+            print(f"\n--- {bm['name']} ---\n  not attempted: the crate's Lean code does not build: {env_error}")
+            events.emit("unit_result", status="unknown", reason=f"crate env: {env_error}"[:160],
+                        seconds=time.time() - t0)
+            return None, None
         try:
             score, report = _run_bench(bm, args, llm, checker, store, baseline, project_dir, func_source)
         except Exception as e:

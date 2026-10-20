@@ -138,6 +138,18 @@ def run_static_results():
             check("a crash ends with unit_result unknown and is raised again",
                   raised and len(res) == 1 and res[0]["status"] == "unknown"
                   and res[0]["reason"] == "crash: ValueError", str(res))
+
+            asked = []
+            run.synthesize = lambda *a, **k: asked.append(1) or []
+            try:
+                out = run.run_bench(dict(bm, name="b4", source="rust-aeneas"), args, None, _Builds({"/s/bad"}), None,
+                                    project_dir="/s/bad")
+            except Exception as e:  # an attempt that went ahead, and failed on the fake checker
+                out = repr(e)
+            res = [e for e in _read_events(path) if e["kind"] == "unit_result" and e["unit"] == "b4"]
+            check("a function whose crate does not build is unknown at once, with the build error, before any LLM call",
+                  out == (None, None) and not asked and len(res) == 1 and res[0]["status"] == "unknown"
+                  and res[0]["reason"] == "crate env: :12:4: error: Unknown identifier `x`", str(res))
         finally:
             run.synthesize, run.evaluate, run.check_trait_obligations = saved
     finally:
@@ -175,6 +187,16 @@ def _units():
         _unit("C", "c1", self_rec=True, lines=15), _unit("C", "c2", lines=80, callees=2),
         _unit("C", "c3", lines=4), _unit("C", "c4", diverge=True, lines=9),
     ]
+
+
+class _Builds:
+    """a checker whose crate envs build, except the paths in `bad`."""
+
+    def __init__(self, bad=()):
+        self.bad = set(bad)
+
+    def _aeneas_env_for(self, p):
+        return {"ok": p not in self.bad, "error": "" if p not in self.bad else ":12:4: error: Unknown identifier `x`"}
 
 
 class _FakeGraph:
@@ -248,7 +270,7 @@ def run_static_bench():
                    (loader, "load_manifest", lambda p: {}), (loader, "detect_crate", lambda p, m: graphs[p].crate),
                    (lss_config, "bench_cfg", cfg), (subprocess, "run", fake_run)):
             with contextlib.redirect_stdout(io.StringIO()):
-                split = bench.select(2, 0)
+                split = bench.select(2, 0, checker=_Builds())
             dev_keys = {(u["crate"], u["bench"]) for u in split["dev"]}
             test_keys = {(u["crate"], u["bench"]) for u in split["test"]}
             check("the test set is every other function, never a dev one, and no opaque one",
@@ -256,13 +278,14 @@ def run_static_bench():
                   and dev_keys | test_keys == {("A", "rust_f"), ("A", "rust_g"), ("B", "rust_h")},
                   f"{dev_keys} {test_keys}")
             try:
-                bench.run("test", "t", {})
+                bench.run("test", "t", {}, checker=_Builds())
                 refused = False
             except SystemExit:
                 refused = True
             check("the test set runs only with --final", refused and not calls)
             with contextlib.redirect_stdout(io.StringIO()):
-                bench.run("dev", "base", bench._overrides(["proof.rust_hammer=true", "proof.split_seconds=60"]))
+                bench.run("dev", "base", bench._overrides(["proof.rust_hammer=true", "proof.split_seconds=60"]),
+                          checker=_Builds())
             one_each = all(a.count("--bench") == 1 and a[a.index("--bench") + 1] in {b for _, b in dev_keys}
                            for a, _ in calls)
             argv, env = calls[0] if calls else ([], {})
@@ -275,11 +298,22 @@ def run_static_bench():
                   str(calls))
             n = len(calls)
             try:
-                bench.run("dev", "base", {})
+                bench.run("dev", "base", {}, checker=_Builds())
                 reused = True
             except SystemExit:
                 reused = False
             check("a tag already run is refused, so two runs are never mixed", not reused and len(calls) == n)
+            stopped = []
+            for step in (lambda: bench.select(2, 0, checker=_Builds({"/s/b"})),
+                         lambda: bench.run("dev", "base2", {}, checker=_Builds({"/s/a", "/s/b"}))):
+                try:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        step()
+                except SystemExit as e:
+                    stopped.append(str(e))
+            check("a crate whose Lean code does not build stops select and run before any function is attempted",
+                  len(stopped) == 2 and all("/s/b" in m for m in stopped) and len(calls) == n
+                  and not os.path.exists(os.path.join(".lss", "bench", "base2", "meta.json")), str(stopped))
         bad = []
         for arg in ("proof.rust_hamer=true", "proof.rust_hammer=False", "rust_hammer=true"):
             try:
@@ -297,7 +331,7 @@ def run_static_bench():
         with Patch((callgraph, "for_project", lambda p: groups[p]), (loader, "load_rust_project", lambda p: gbench[p]),
                    (lss_config, "bench_cfg", lambda: {"suite": ["/s/m", "/s/b"], "dev_size": 3, "seed": 0})):
             with contextlib.redirect_stdout(io.StringIO()):
-                gsplit = bench.select(3, 0)
+                gsplit = bench.select(3, 0, checker=_Builds())
         gdev = {u["bench"] for u in gsplit["dev"]}
         gtest = {u["bench"] for u in gsplit["test"]}
         gheld = {u["bench"] for u in gsplit["held_back"]}
