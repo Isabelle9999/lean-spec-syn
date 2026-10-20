@@ -168,17 +168,18 @@ def _units():
 
 
 class _FakeGraph:
-    def __init__(self, crate, defs):  # defs: name -> (lines, callees, opaque)
+    def __init__(self, crate, defs, groups=()):  # defs: name -> (lines, callees, opaque)
         self.crate = crate
         self.defs = defs
         self.names = set(defs)
-        self.sccs = [frozenset([n]) for n in sorted(defs)]
+        grouped = {n for g in groups for n in g}
+        self.sccs = [frozenset(g) for g in groups] + [frozenset([n]) for n in sorted(defs) if n not in grouped]
 
     def def_text(self, n):
         return "\n".join(["x"] * self.defs[n][0])
 
     def scc_of(self, n):
-        return sorted(self.defs).index(n)
+        return next(i for i, c in enumerate(self.sccs) if n in c)
 
     def generic(self, n):
         return False
@@ -260,6 +261,25 @@ def run_static_bench():
                   and json.loads(env.get("LSS_OVERRIDES", "{}")) == {"proof": {"rust_hammer": True, "note": "x"}},
                   str(calls))
 
+        # a mutual-recursion group is one seat: its second member never takes a seat
+        groups = {"/s/m": _FakeGraph("M", {"M.even": (40, ["M.odd"], False), "M.odd": (40, ["M.even"], False),
+                                           "M.plain": (12, [], False)}, groups=[("M.even", "M.odd")]),
+                  "/s/b": graphs["/s/b"]}
+        gbench = {"/s/m": [{"name": "rust_" + n.split(".")[1], "lean_name": n} for n in groups["/s/m"].defs],
+                  "/s/b": benches["/s/b"]}
+        with Patch((callgraph, "for_project", lambda p: groups[p]), (loader, "load_rust_project", lambda p: gbench[p]),
+                   (lss_config, "bench_cfg", lambda: {"suite": ["/s/m", "/s/b"], "dev_size": 3, "seed": 0})):
+            with contextlib.redirect_stdout(io.StringIO()):
+                gsplit = bench.select(3, 0)
+        gdev = {u["bench"] for u in gsplit["dev"]}
+        gtest = {u["bench"] for u in gsplit["test"]}
+        gheld = {u["bench"] for u in gsplit["held_back"]}
+        check("a mutual-recursion group takes one dev seat, not one per member",
+              len(gdev & {"rust_even", "rust_odd"}) == 1 and "rust_plain" in gdev, str(gdev))
+        check("the rest of a dev function's group is held back, never in the test set",
+              len(gheld) == 1 and gheld <= {"rust_even", "rust_odd"} and not gtest & {"rust_even", "rust_odd"},
+              f"{gheld} {gtest}")
+
         # events of two tagged runs (and one untagged), for report and compare
         os.makedirs(".lss/runs", exist_ok=True)
         meta = {"set": "dev", "units": ["u1@A", "u2@A", "u3@A"], "kinds": {"u1@A": ["loop"], "u2@A": [], "u3@A": ["loop"]},
@@ -332,10 +352,11 @@ def run_full_select():
             second = open(bench.SPLIT, encoding="utf-8").read()
     finally:
         os.chdir(old_cwd)
-    units = {u["lean_name"]: u for u in split["dev"] + split["test"]}
-    check("every FeatureSuite function lands in dev or test, once",
-          len(units) == len(split["dev"]) + len(split["test"]) == split["suite"].get("FeatureSuite"),
-          f"{len(split['dev'])}+{len(split['test'])} vs {split['suite']}")
+    sets = split["dev"] + split["test"] + split["held_back"]
+    units = {u["lean_name"]: u for u in sets}
+    check("every FeatureSuite function lands in exactly one of dev, test and held back",
+          len(units) == len(sets) == split["suite"].get("FeatureSuite"),
+          f"{len(split['dev'])}+{len(split['test'])}+{len(split['held_back'])} vs {split['suite']}")
     loop = units.get("FeatureSuite.search.linear_search_loop", {})
     ident = units.get("FeatureSuite.identity", {})
     check("the kinds are read off the unit graph: a loop is a loop, identity is plain",

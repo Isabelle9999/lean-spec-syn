@@ -7,8 +7,8 @@
 
 the suite is lss.toml [bench] suite (Aeneas-translated crates). select uses only what
 the code looks like, never a result: every kind of hard function and every crate gets
-a seat, then the hardest by the same features, at most one function per loop family
-and per_crate per crate. the test set is every other function and is run only with
+a seat, then the hardest by the same features, at most one function per loop family or
+mutual-recursion group and per_crate per crate. the test set is every other function and is run only with
 --final. a function with no result counts as unknown and stays in every denominator.
 """
 import argparse
@@ -47,8 +47,12 @@ def unit_features(bench, graph):
     }
 
 
-def _family(bench, by_lean):
-    """the outermost function a loop or loop body belongs to."""
+def _family(bench, by_lean, graph):
+    """what one dev seat stands for: a mutual-recursion group as a whole (its members
+    share one proof effort), else the outermost function a loop or loop body belongs to."""
+    scc = graph.scc_of(bench["lean_name"])
+    if scc is not None and len(graph.sccs[scc]) > 1:
+        return "group:" + min(graph.sccs[scc])
     seen, n = set(), bench["lean_name"]
     while n in by_lean and by_lean[n].get("parent_lean_name") and n not in seen:
         seen.add(n)
@@ -111,17 +115,22 @@ def select(size, seed):
             if b["lean_name"] not in g.names or g.is_opaque(b["lean_name"]):
                 continue
             units.append({"crate": g.crate, "bench": b["name"], "lean_name": b["lean_name"],
-                          "family": f"{g.crate}:{_family(b, by_lean)}", **unit_features(b, g)})
+                          "family": f"{g.crate}:{_family(b, by_lean, g)}", **unit_features(b, g)})
     dev = pick(units, size, seed)
-    keep = ("crate", "bench", "lean_name", "kinds", "lines", "callees")
+    keep = ("crate", "bench", "lean_name", "family", "kinds", "lines", "callees")
     names = {u["bench"] + "@" + u["crate"] for u in dev}
+    fams = {u["family"] for u in dev}
+    rest = sorted((u for u in units if u["bench"] + "@" + u["crate"] not in names),
+                  key=lambda u: (u["crate"], u["bench"]))
     split = {
         "seed": seed, "size": size,
         "suite": {c: sum(1 for u in units if u["crate"] == c) for c in sorted({u["crate"] for u in units})},
         "kinds_covered": sorted({k for u in dev for k in u["kinds"]}),
         "dev": [{k: u[k] for k in keep} for u in dev],
-        "test": [{k: u[k] for k in keep} for u in sorted(units, key=lambda u: (u["crate"], u["bench"]))
-                 if u["bench"] + "@" + u["crate"] not in names],
+        # the rest of a dev function's loop family or recursion group is in neither set:
+        # tuning on one member would leak into a held-out number on the others
+        "held_back": [{k: u[k] for k in keep} for u in rest if u["family"] in fams],
+        "test": [{k: u[k] for k in keep} for u in rest if u["family"] not in fams],
     }
     os.makedirs(os.path.dirname(SPLIT), exist_ok=True)
     with open(SPLIT, "w", encoding="utf-8") as f:
@@ -131,7 +140,7 @@ def select(size, seed):
     print(f"dev: {len(dev)} functions, kinds covered: {', '.join(split['kinds_covered'])}")
     for u in dev:
         print(f"  {u['crate']}: {u['bench']}  [{', '.join(u['kinds'])}] lines={u['lines']} callees={u['callees']}")
-    print(f"test: {len(split['test'])} functions")
+    print(f"test: {len(split['test'])} functions; held back with their dev family: {len(split['held_back'])}")
     return split
 
 
