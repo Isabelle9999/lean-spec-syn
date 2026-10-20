@@ -229,6 +229,26 @@ def run_static():
           "theorem swap_ordered (p : records.Pair) (h : p.first.val ≤ p.second.val) : records.swap p "
           "⦃ r => r.second.val ≤ r.first.val ⦄ := sorry" in src)
 
+    # statements as the LLM writes them reach the gate whole
+    import strategies
+    got = strategies.theorems("```lean\n"
+                              "theorem a (T : Type) {x : T} (h : (0#u32).val < 3) : f x ⦃ r => ∀ (t : T), r.2 t = g t ⦄ := sorry\n"
+                              "theorem b : ∀ (n : Std.U32), f n ⦃ r => r = n ⦄ := by simp\n```")
+    check("a reply's binders become a leading ∀, so the statement stands alone",
+          [(n, s) for n, s, _ in got] == [
+              ("a", "∀ (T : Type) {x : T} (h : (0#u32).val < 3), f x ⦃ r => ∀ (t : T), r.2 t = g t ⦄"),
+              ("b", "∀ (n : Std.U32), f n ⦃ r => r = n ⦄")], str(got))
+    got = strategies.theorems("Here is the fixed theorem: theorem c (l : CList T) :\n  f l\n"
+                              "  ⦃ r => let y := r.1; y = 0#u32 ⦄div := sorry")
+    check("a fixed theorem after prose, over several lines, with a `let`, is read whole",
+          [(n, s) for n, s, _ in got] == [("c", "∀ (l : CList T), f l\n  ⦃ r => let y := r.1; y = 0#u32 ⦄div")],
+          str(got))
+    strat = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "strategies.py"),
+                 encoding="utf-8").read()
+    check("every LLM reply goes through the one reader: no theorem regex is left",
+          "re.search(r':\\s*(.*?)\\s*:='" not in src and "theorem\\s+(\\w+)\\s*:" not in src + strat
+          and "(?:\\([^)]*\\)\\s*)*" not in src + strat)
+
 
 def run_full():
     print("=== full ===")

@@ -7,7 +7,7 @@ import anthropic
 from lean import (_errors, run_in_project, classify_function, MutationEngine, Cache,
                   ProofResult, TACTICS, _find_def_in_text, check_proof,
                   _witnesses_for_type, _diverse_tuples, _parse_struct_defs, MIN_TRY)
-from strategies import generate_from_examples, generate_from_negatives, generate_with_proof
+from strategies import generate_from_examples, generate_from_negatives, generate_with_proof, theorems
 import events
 import pricing
 import lss_config as _lss_config
@@ -316,8 +316,8 @@ class LLMClient:
                 if not re.search(r'^(?!--)[^\s]', preamble, re.MULTILINE):
                     preamble = ""
             specs = []
-            for m2 in re.finditer(r"theorem\s+([a-zA-Z_][a-zA-Z0-9_'!?]*)\s*(?:\([^)]*\)\s*)*:\s*([\s\S]*?)\s*:=\s*(?:sorry|by)\b", block):
-                spec = {"name": m2.group(1), "stmt": m2.group(2).strip(), "status": "pending", "method": ""}
+            for name, stmt, _ in theorems(block):
+                spec = {"name": name, "stmt": stmt, "status": "pending", "method": ""}
                 if preamble:
                     spec["preamble"] = preamble
                 specs.append(spec)
@@ -673,10 +673,10 @@ class LLMClient:
         if not resp:
             return []
         specs = []
-        for m in re.finditer(r'theorem\s+(\w+)\s*:\s*([\s\S]*?)\s*:=\s*(?:by\s+[\s\S]*?(?=\ntheorem|\Z)|sorry)', resp):
+        for name, stmt, _ in theorems(resp):
             specs.append({
-                "name": m.group(1),
-                "stmt": m.group(2).strip(),
+                "name": name,
+                "stmt": stmt,
                 "status": "pending",
                 "method": None,
                 "preamble": "",
@@ -1393,9 +1393,9 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                     )
                     fixed = llm._ask(fix_prompt)
                     if fixed:
-                        fm = re.search(r':\s*(.*?)\s*:=', fixed)
+                        fm = theorems(fixed)
                         if fm:
-                            spec["stmt"] = fm.group(1).strip()
+                            spec["stmt"] = fm[0][1]
                             candidate_text = f"theorem {spec['name']} : {spec['stmt']} := sorry"
                             verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source)
                             if _gate.is_well_formed(verdicts):
@@ -1436,9 +1436,9 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                                 f"Function it is about:\n{func_source if func_source else lean_code}\n\n"
                                 f"Fix the statement so it is true of the function and still says what it computes.\n"
                                 f"Return ONLY the fixed theorem line: theorem name : fixed_statement := sorry")
-                            fm = re.search(r':\s*(.*?)\s*:=', fixed or "")
+                            fm = theorems(fixed)
                             if fm:
-                                specs.append({"name": spec["name"] + "_r", "stmt": fm.group(1).strip(),
+                                specs.append({"name": spec["name"] + "_r", "stmt": fm[0][1],
                                               "preamble": spec.get("preamble", ""), "_b_repaired": True})
                         spec["status"] = "refuted" if b["status"] == "refuted" else "rejected"
                         spec["fail_gate"] = b["status"]
@@ -2282,8 +2282,8 @@ def generate_from_plan(obligations, lean_code, llm, existing_specs=None):
         m = re.search(r'```\w*\s*([\s\S]*?)```', text)
         if not m:
             continue
-        for m2 in re.finditer(r'theorem\s+(\w+)\s*:\s*([\s\S]*?)\s*:=\s*sorry', m.group(1)):
-            specs.append({"name": m2.group(1), "stmt": m2.group(2).strip(), "status": "pending", "method": ""})
+        for name, stmt, _ in theorems(m.group(1)):
+            specs.append({"name": name, "stmt": stmt, "status": "pending", "method": ""})
     return specs
 
 
@@ -2493,11 +2493,11 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
                     )
                     fix_resp = llm._ask(guided_prompt)
                     if fix_resp:
-                        m = re.search(r'theorem\s+(\w+)\s*:\s*([\s\S]*?)\s*:=\s*sorry', fix_resp)
+                        m = theorems(fix_resp)
                         if m:
                             repaired.append({
-                                "name": m.group(1),
-                                "stmt": m.group(2).strip(),
+                                "name": m[0][0],
+                                "stmt": m[0][1],
                                 "status": "pending",
                                 "method": None,
                                 "preamble": "",

@@ -5,18 +5,71 @@ from lean import LeanChecker, _errors, run_in_project, check_proof
 import events
 
 
-_SPEC_RE = re.compile(
-    r"theorem\s+([a-zA-Z_][a-zA-Z0-9_'!?]*)\s*(?:\([^)]*\)\s*)*:\s*([\s\S]*?)\s*:=\s*(?:sorry|by)\b"
-)
+_THM = re.compile(r"\btheorem\s+([A-Za-z_][\w'!?.]*)")
+_OPEN, _CLOSE = "([{⦃⟨", ")]}⦄⟩"
+
+
+def _statement(text, i):
+    """from just after a theorem's name: its binders, `:`, the statement up to the
+    top-level `:=` that ends it (brackets nest; a `let` or `have` in the statement
+    owns the next one), as (statement with the binders as a leading ∀, the text
+    after that `:=`), or None."""
+    n, binders = len(text), []
+    while True:
+        while i < n and text[i].isspace():
+            i += 1
+        if i >= n or text[i] not in _OPEN:
+            break
+        depth, j = 0, i
+        while j < n:
+            depth += (text[j] in _OPEN) - (text[j] in _CLOSE)
+            if depth == 0:
+                break
+            j += 1
+        if j >= n:
+            return None
+        binders.append(text[i:j + 1])
+        i = j + 1
+    if not (i < n and text[i] == ":" and text[i + 1:i + 2] != "="):
+        return None
+    start = j = i + 1
+    depth = lets = 0
+    while j < n:
+        c = text[j]
+        depth += (c in _OPEN) - (c in _CLOSE)
+        if depth == 0 and text.startswith(":=", j):
+            if lets:
+                lets -= 1
+                j += 2
+                continue
+            stmt = text[start:j].strip()
+            if not stmt:
+                return None
+            return ("∀ " + " ".join(binders) + ", " + stmt if binders else stmt), text[j + 2:]
+        if depth == 0 and re.match(r"(let|have)\b", text[j:j + 5]) and not (j and (text[j - 1].isalnum() or text[j - 1] in "_.'")):
+            lets += 1
+        j += 1
+    return None
+
+
+def theorems(text):
+    """every `theorem name binders : statement := ...` in an LLM reply, as (name,
+    statement, text after the `:=`), with the binders turned into a leading ∀ so
+    the statement stands alone. reads the fenced blocks that hold a theorem, else
+    the whole reply; a statement may span lines and hold brackets, colons and `:=`."""
+    text = text or ""
+    blocks = [m.group(1) for m in re.finditer(r"```\w*\s*([\s\S]*?)```", text)]
+    out = []
+    for b in [b for b in blocks if _THM.search(b)] or [text]:
+        for m in _THM.finditer(b):
+            r = _statement(b, m.end())
+            if r:
+                out.append((m.group(1), r[0], r[1]))
+    return out
 
 
 def _parse_specs(text):
-    m = re.search(r'```\w*\s*([\s\S]*?)```', text)
-    block = m.group(1) if m else text
-    specs = []
-    for m2 in _SPEC_RE.finditer(block):
-        specs.append({"name": m2.group(1), "stmt": m2.group(2).strip(), "status": "pending", "method": ""})
-    return specs
+    return [{"name": n, "stmt": s, "status": "pending", "method": ""} for n, s, _ in theorems(text)]
 
 
 def _wrong_outputs(val):
@@ -135,15 +188,11 @@ def generate_with_proof(lean_code, func_name, llm, lean_checker, project_dir=Non
         for i, start in enumerate(thm_starts):
             end = thm_starts[i + 1] if i + 1 < len(thm_starts) else len(block)
             chunk = block[start:end].strip()
-            m2 = re.match(
-                r'theorem\s+([a-zA-Z_][a-zA-Z0-9_\'!?]*)\s*(?:\([^)]*\)\s*)*:\s*([\s\S]*?)\s*:=\s*by\b([\s\S]*)',
-                chunk
-            )
-            if not m2:
+            found = theorems(chunk)
+            pm = re.match(r"\s*by\b([\s\S]*)", found[0][2]) if found else None
+            if not pm:
                 continue
-            name = m2.group(1)
-            stmt = m2.group(2).strip()
-            proof = m2.group(3).strip()
+            name, stmt, proof = found[0][0], found[0][1], pm.group(1).strip()
             # don't duplicate if LLM already included the function definition
             if helpers and re.search(r'\bdef\s+' + re.escape(func_name) + r'\b', helpers):
                 env = helpers.rstrip()
@@ -205,17 +254,15 @@ def generate_from_slices(lean_code, func_name, llm, lean_checker, verbose=False,
             )
             resp = llm._ask(prompt)
             if resp:
-                for m2 in re.finditer(
-                    r'theorem\s+(\w+)\s*:\s*([\s\S]*?)\s*:=\s*(?:by\s+[\s\S]*?(?=\ntheorem|\n```|\Z)|sorry)',
-                    resp):
+                for name, stmt, _ in theorems(resp):
                     specs.append({
-                        "name": m2.group(1),
-                        "stmt": m2.group(2).strip(),
+                        "name": name,
+                        "stmt": stmt,
                         "status": "pending",
                         "method": None,
                         "preamble": "",
                     })
-                    proved_helper_specs.append(f"  {m2.group(2).strip()[:100]}")
+                    proved_helper_specs.append(f"  {stmt[:100]}")
 
         if verbose and helpers:
             print(f"  [slice] {len(helpers)} helpers produced {len(specs)} specs")
@@ -238,12 +285,10 @@ def generate_from_slices(lean_code, func_name, llm, lean_checker, verbose=False,
             )
             resp = llm._ask(prompt)
             if resp:
-                for m2 in re.finditer(
-                    r'theorem\s+(\w+)\s*:\s*([\s\S]*?)\s*:=\s*(?:by\s+[\s\S]*?(?=\ntheorem|\n```|\Z)|sorry)',
-                    resp):
+                for name, stmt, _ in theorems(resp):
                     specs.append({
-                        "name": m2.group(1),
-                        "stmt": m2.group(2).strip(),
+                        "name": name,
+                        "stmt": stmt,
                         "status": "pending",
                         "method": None,
                         "preamble": "",
@@ -272,12 +317,10 @@ def generate_from_slices(lean_code, func_name, llm, lean_checker, verbose=False,
                     )
                     resp = llm._ask(prompt)
                     if resp:
-                        for m2 in re.finditer(
-                            r'theorem\s+(\w+)\s*:\s*([\s\S]*?)\s*:=\s*(?:by\s+[\s\S]*?(?=\ntheorem|\n```|\Z)|sorry)',
-                            resp):
+                        for name, stmt, _ in theorems(resp):
                             specs.append({
-                                "name": m2.group(1),
-                                "stmt": m2.group(2).strip(),
+                                "name": name,
+                                "stmt": stmt,
                                 "status": "pending",
                                 "method": None,
                                 "preamble": "",
