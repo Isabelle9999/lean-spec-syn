@@ -92,7 +92,8 @@ constant, so the trust base remains the Lean kernel alone.
 
 - one status per function: proved_total (a kernel-proved specification that also
   claims the call terminates), proved_partial (every proved specification allows
-  divergence), refuted, unknown, or skipped; yield is the share of attempted
+  divergence), unknown, or skipped; a refuted candidate is a wrong guess, so it
+  is a count, never a function's status; yield is the share of attempted
   functions with a proved specification, and unknown functions stay in its denominator
 - proved specifications, with the layer and tactic that closed each one
 - refuted specifications, with the shrunk input and whether the kernel checked it

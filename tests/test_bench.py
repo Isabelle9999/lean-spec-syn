@@ -37,10 +37,10 @@ def run_static_metrics():
     check("a function whose proved specs all allow divergence is proved_partial",
           st([_spec("proved", "f x ⦃ r => r = x ⦄div")]) == "proved_partial"
           and st([_spec("proved", "f x ⦃ r => r = x ⦄div"), _spec("proved")]) == "proved_total")
-    check("refuted when nothing is proved and a candidate was refuted",
-          st([_spec("refuted"), _spec("unproved")]) == "refuted" and st([]) == "unknown")
+    check("a function whose only refuted specs are wrong guesses is unknown, not refuted",
+          st([_spec("refuted"), _spec("unproved")]) == "unknown" and st([]) == "unknown")
     check("unknown functions stay in the yield denominator, skipped ones leave it",
-          metrics.yield_counts(["proved_total", "proved_partial", "unknown", "refuted", "skipped"]) == (2, 4))
+          metrics.yield_counts(["proved_total", "proved_partial", "unknown", "unknown", "skipped"]) == (2, 4))
     rep = metrics.generate_report("f", [_spec("proved"), _spec("unproved")], 1.0, 3, 4, kill_rate=0.5)
     gone = ("soundness", "avg_clarity", "avg_uniqueness", "admissibility", "precision", "validated_count")
     check("the report has a status and no ad hoc scores",

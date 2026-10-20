@@ -1438,7 +1438,9 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                     spec["wf_fail_check"] = _gate.failing_check(verdicts)
                     if verbose:
                         print(f"         stmt: {spec['stmt'][:100]}")
-                    events.emit("verdict", status="rejected", method="", fail_gate="g1")
+                    events.emit("verdict", status="rejected", method="", fail_gate="g1",
+                                check=spec["wf_fail_check"], stmt=spec["stmt"],
+                                detail=next((v["detail"] for v in verdicts if not v.get("ok")), "")[:300])
                     continue
 
                 # bounded check (rust units): run the spec on sampled inputs before any

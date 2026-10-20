@@ -250,6 +250,28 @@ def run_static_synth():
           str(rep))
     check("a repaired spec is not repaired again", sum(1 for x in specs if x["name"].endswith("_r_r")) == 0)
 
+    # a gate rejection: the repair reply is read whole, and the event says why
+    emitted = []
+    old_gate, old_emit = synth._gate.check_candidate, synth.events.emit
+    synth._gate.check_candidate = lambda *a, **k: [{"check": "one_theorem", "ok": True, "detail": ""},
+                                                   {"check": "conclusion_shape", "ok": False,
+                                                    "detail": "argument `none` is not a bound variable"}]
+    synth.events.emit = lambda kind, **f: emitted.append((kind, f))
+
+    class FixLLM:
+        def _ask(self, prompt):
+            return "Here is the fix: theorem g (o : Option U32) : f o ⦃ r => r = o ⦄ := sorry"
+    try:
+        g = [{"name": "g", "stmt": "f none ⦃ r => True ⦄"}]
+        synth.validate(g, "def f (x : U32) : Result U32 := ok x", [], Checker(), llm=FixLLM(), func_name="f",
+                       project_dir="/p", source="rust-aeneas")
+    finally:
+        synth._gate.check_candidate, synth.events.emit = old_gate, old_emit
+    rej = [f for k, f in emitted if k == "verdict" and f.get("status") == "rejected"]
+    check("a gate rejection's event names the failing check, its detail and the statement as repaired",
+          len(rej) == 1 and rej[0].get("check") == "conclusion_shape" and "not a bound variable" in rej[0].get("detail", "")
+          and rej[0].get("stmt") == "∀ (o : Option U32), f o ⦃ r => r = o ⦄", str(rej))
+
 
 def run_full():
     print("=== full: bounded checking on FeatureSuite ===")
