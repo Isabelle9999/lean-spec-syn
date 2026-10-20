@@ -75,7 +75,9 @@ def check_candidate(lean_checker, candidate_text, func_name, lean_code, project_
         # asking the graph about it.
         qualified_func = func_name if func_name in g.names else f"{g.crate}.{func_name}"
         allow_div = g.can_diverge(qualified_func) or g.recursive(qualified_func)
-        gate_src = _wf_gate_text() + "\n" + _wf_gate_aeneas_text()
+        # the gate's own commands are elaborated before `open <crate>` (lean._aeneas_build_env)
+        env = state["env0"]
+        gate_src = _wf_gate_text() + "\n" + _wf_gate_aeneas_text() + f"\nopen {state['crate']}\n"
         track_tok = "rust"
     else:
         native_dir = _lss_config.project_dir("lean-native")

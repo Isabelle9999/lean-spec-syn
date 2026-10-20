@@ -187,7 +187,7 @@ def run_static_run():
         lean_calls = 0
 
         def _aeneas_env_for(self, project_dir):
-            return {"ok": True, "env": 42}
+            return {"ok": True, "env": 42, "env0": 41, "crate": "C"}
 
     server = Server()
     old = bounded._lean_server.get_server
@@ -197,10 +197,10 @@ def run_static_run():
     finally:
         bounded._lean_server.get_server = old
     code, env = server.sent[0]
-    check("each command runs against the crate env", env == 42, str(env))
-    check("each command carries the gate's Decidable instances first",
+    check("each command runs against the crate env as built before the crate is opened", env == 41, str(env))
+    check("each command carries the gate's Decidable instances first, then opens the crate",
           "lssSubtypeDecEq" in code and "deriving instance DecidableEq for Aeneas.Std.Result" in code
-          and code.endswith("lss_eval_spec x"), code[-200:])
+          and code.endswith("open C\nlss_eval_spec x"), code[-200:])
 
 
 def run_static_synth():
@@ -295,10 +295,10 @@ def run_full():
     # a diverging evaluation: the server times out, restarts, and the next check works
     state = checker._aeneas_env_for(rust_dir)
     server = lean_server.get_server(lss_config.project_dir("aeneas"))
-    r = server.check("partial def lss_spin (x : Std.U32) : Result Std.U32 := lss_spin x", env=state["env"], timeout=60)
+    r = server.check("partial def lss_spin (x : Std.U32) : Result Std.U32 := lss_spin x", env=state["env0"], timeout=60)
     check("diverging helper added", r.rc == 0 and r.new_env is not None, (r.stderr or "")[:200])
     if r.new_env is not None:
-        state["env"] = r.new_env
+        state["env0"] = r.new_env
         old = bounded.EVAL_TIMEOUT
         bounded.EVAL_TIMEOUT = 20
         try:

@@ -201,9 +201,11 @@ def run_static():
     finally:
         lean_server.get_server = orig_get
         callgraph.for_project = orig_for
-    sent = fake.sent[-1] if fake.sent else ""
+    sent = "\n".join(fake.sent)
     i_pc, i_layer = sent.find('elab "lss_check_proof '), sent.find("macro \"lss_spec_form\"")
     check("crate env holds proof_check.lean before aeneas_layer.lean", 0 <= i_pc < i_layer, f"{i_pc} {i_layer}")
+    check("LSS's own commands are elaborated before the crate is opened, so no crate name can shadow theirs",
+          0 <= i_layer < sent.find("open Crate\n"), f"{i_layer} {sent.find('open Crate')}")
 
 
 class _FakeGraph:
