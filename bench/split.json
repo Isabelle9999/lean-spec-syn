@@ -91,16 +91,14 @@
    "lines": 18
   },
   {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31_try_inverse",
-   "callees": 12,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31.try_inverse",
+   "bench": "rust_fold_step",
+   "callees": 0,
+   "crate": "FoldStep",
+   "family": "FoldStep:FoldStep.fold_step",
    "kinds": [
-    "diverge",
-    "deep",
     "large"
    ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31.try_inverse",
+   "lean_name": "FoldStep.fold_step",
    "lines": 21
   },
   {
@@ -112,17 +110,6 @@
     "large"
    ],
    "lean_name": "FoldArity.compute_log_arity_for_round",
-   "lines": 21
-  },
-  {
-   "bench": "rust_fold_step",
-   "callees": 0,
-   "crate": "FoldStep",
-   "family": "FoldStep:FoldStep.fold_step",
-   "kinds": [
-    "large"
-   ],
-   "lean_name": "FoldStep.fold_step",
    "lines": 21
   },
   {
@@ -139,6 +126,21 @@
    ],
    "lean_name": "AeneasStandalone.hashmap.HashMap.move_elements_loop.body",
    "lines": 21
+  },
+  {
+   "bench": "rust_nested_borrows_iter_list_while_loop0_body",
+   "callees": 3,
+   "crate": "AeneasStandalone",
+   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_list_while",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0.body",
+   "lines": 19
   }
  ],
  "held_back": [
@@ -182,6 +184,58 @@
    ],
    "lean_name": "AeneasStandalone.hashmap.HashMap.move_elements_loop",
    "lines": 12
+  },
+  {
+   "bench": "rust_nested_borrows_iter_list_while",
+   "callees": 5,
+   "crate": "AeneasStandalone",
+   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_list_while",
+   "kinds": [
+    "diverge",
+    "generic",
+    "deep"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while",
+   "lines": 9
+  },
+  {
+   "bench": "rust_nested_borrows_iter_list_while_loop0",
+   "callees": 4,
+   "crate": "AeneasStandalone",
+   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_list_while",
+   "kinds": [
+    "loop",
+    "diverge",
+    "generic",
+    "deep",
+    "large"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0",
+   "lines": 13
+  },
+  {
+   "bench": "rust_nested_borrows_iter_list_while_loop0_loop0",
+   "callees": 1,
+   "crate": "AeneasStandalone",
+   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_list_while",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0_loop0",
+   "lines": 7
+  },
+  {
+   "bench": "rust_nested_borrows_iter_list_while_loop0_loop0_body",
+   "callees": 0,
+   "crate": "AeneasStandalone",
+   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_list_while",
+   "kinds": [
+    "loop",
+    "diverge"
+   ],
+   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0_loop0.body",
+   "lines": 8
   },
   {
    "bench": "rust_Node_insert",
@@ -277,7 +331,6 @@
  "seed": 0,
  "size": 10,
  "suite": {
-  "AeneasFieldArithmetic": 56,
   "AeneasStandalone": 415,
   "Avl": 13,
   "Bst": 5,
@@ -288,623 +341,6 @@
   "Tutorial": 38
  },
  "test": [
-  {
-   "bench": "rust_field_Field_bits_default",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.field.Field.bits.default",
-   "kinds": [
-    "generic",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.field.Field.bits.default",
-   "lines": 13
-  },
-  {
-   "bench": "rust_field_Field_inverse_default",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.field.Field.inverse.default",
-   "kinds": [
-    "generic",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.field.Field.inverse.default",
-   "lines": 12
-  },
-  {
-   "bench": "rust_field_Field_is_one_default",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.field.Field.is_one.default",
-   "kinds": [
-    "generic",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.field.Field.is_one.default",
-   "lines": 12
-  },
-  {
-   "bench": "rust_field_Field_is_zero_default",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.field.Field.is_zero.default",
-   "kinds": [
-    "generic",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.field.Field.is_zero.default",
-   "lines": 12
-  },
-  {
-   "bench": "rust_field_PrimeCharacteristicRing_double_default",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.field.PrimeCharacteristicRing.double.default",
-   "kinds": [
-    "generic",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.field.PrimeCharacteristicRing.double.default",
-   "lines": 11
-  },
-  {
-   "bench": "rust_field_PrimeCharacteristicRing_from_bool_default",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.field.PrimeCharacteristicRing.from_bool.default",
-   "kinds": [
-    "generic",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.field.PrimeCharacteristicRing.from_bool.default",
-   "lines": 12
-  },
-  {
-   "bench": "rust_field_PrimeCharacteristicRing_halve_default",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.field.PrimeCharacteristicRing.halve.default",
-   "kinds": [
-    "generic"
-   ],
-   "lean_name": "AeneasFieldArithmetic.field.PrimeCharacteristicRing.halve.default",
-   "lines": 10
-  },
-  {
-   "bench": "rust_field_PrimeField32_to_unique_u32_default",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.field.PrimeField32.to_unique_u32.default",
-   "kinds": [
-    "generic",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.field.PrimeField32.to_unique_u32.default",
-   "lines": 14
-  },
-  {
-   "bench": "rust_field_PrimeField64_to_unique_u64_default",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.field.PrimeField64.to_unique_u64.default",
-   "kinds": [
-    "generic",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.field.PrimeField64.to_unique_u64.default",
-   "lines": 12
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31_is_zero",
-   "callees": 2,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31.is_zero",
-   "kinds": [
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31.is_zero",
-   "lines": 12
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31_order",
-   "callees": 1,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31.order",
-   "kinds": [],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldFieldMersenne31Mersenne31.order",
-   "lines": 9
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31_div_2exp_u64",
-   "callees": 1,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.div_2exp_u64",
-   "kinds": [
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.div_2exp_u64",
-   "lines": 18
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31_from_bool",
-   "callees": 1,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.from_bool",
-   "kinds": [],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.from_bool",
-   "lines": 8
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31_from_prime_subfield",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.from_prime_subfield",
-   "kinds": [],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.from_prime_subfield",
-   "lines": 7
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31_halve",
-   "callees": 2,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.halve",
-   "kinds": [],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.halve",
-   "lines": 8
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31_mul_2exp_u64",
-   "callees": 1,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.mul_2exp_u64",
-   "kinds": [
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeCharacteristicRingMersenne31.mul_2exp_u64",
-   "lines": 17
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeField32Mersenne31Mersenne31_as_canonical_u32",
-   "callees": 2,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeField32Mersenne31Mersenne31.as_canonical_u32",
-   "kinds": [
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeField32Mersenne31Mersenne31.as_canonical_u32",
-   "lines": 11
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeField64Mersenne31Mersenne31_as_canonical_u64",
-   "callees": 3,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeField64Mersenne31Mersenne31.as_canonical_u64",
-   "kinds": [
-    "deep"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeField64Mersenne31Mersenne31.as_canonical_u64",
-   "lines": 10
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldPrimeFieldMersenne31Mersenne31_as_canonical_biguint",
-   "callees": 3,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeFieldMersenne31Mersenne31.as_canonical_biguint",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldPrimeFieldMersenne31Mersenne31.as_canonical_biguint",
-   "lines": 11
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapI32_from_canonical_checked",
-   "callees": 3,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI32.from_canonical_checked",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI32.from_canonical_checked",
-   "lines": 37
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapI32_from_canonical_unchecked",
-   "callees": 3,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI32.from_canonical_unchecked",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI32.from_canonical_unchecked",
-   "lines": 15
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapI32_from_int",
-   "callees": 4,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI32.from_int",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI32.from_int",
-   "lines": 20
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapI64_from_canonical_checked",
-   "callees": 4,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI64.from_canonical_checked",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI64.from_canonical_checked",
-   "lines": 16
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapI64_from_canonical_unchecked",
-   "callees": 4,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI64.from_canonical_unchecked",
-   "kinds": [
-    "deep"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI64.from_canonical_unchecked",
-   "lines": 9
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapI64_from_int",
-   "callees": 6,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI64.from_int",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapI64.from_int",
-   "lines": 18
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapU32_from_canonical_checked",
-   "callees": 5,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU32.from_canonical_checked",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU32.from_canonical_checked",
-   "lines": 11
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapU32_from_canonical_unchecked",
-   "callees": 3,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU32.from_canonical_unchecked",
-   "kinds": [
-    "deep"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU32.from_canonical_unchecked",
-   "lines": 10
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapU32_from_int",
-   "callees": 4,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU32.from_int",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU32.from_int",
-   "lines": 13
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapU64_from_canonical_checked",
-   "callees": 4,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU64.from_canonical_checked",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU64.from_canonical_checked",
-   "lines": 17
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapU64_from_canonical_unchecked",
-   "callees": 4,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU64.from_canonical_unchecked",
-   "kinds": [
-    "deep"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU64.from_canonical_unchecked",
-   "lines": 9
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_Aeneas_field_arithmeticFieldQuotientMapU64_from_int",
-   "callees": 4,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU64.from_int",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.Aeneas_field_arithmeticFieldQuotientMapU64.from_int",
-   "lines": 13
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreCloneClone_clone",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCloneClone.clone",
-   "kinds": [],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCloneClone.clone",
-   "lines": 6
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreCmpOrd_clamp",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpOrd.clamp",
-   "kinds": [
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpOrd.clamp",
-   "lines": 28
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreCmpOrd_cmp",
-   "callees": 3,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpOrd.cmp",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpOrd.cmp",
-   "lines": 14
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreCmpOrd_max",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpOrd.max",
-   "kinds": [
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpOrd.max",
-   "lines": 13
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreCmpOrd_min",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpOrd.min",
-   "kinds": [
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpOrd.min",
-   "lines": 13
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreCmpPartialEqMersenne31_eq",
-   "callees": 3,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpPartialEqMersenne31.eq",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpPartialEqMersenne31.eq",
-   "lines": 14
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreCmpPartialOrdMersenne31_partial_cmp",
-   "callees": 4,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpPartialOrdMersenne31.partial_cmp",
-   "kinds": [
-    "deep"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreCmpPartialOrdMersenne31.partial_cmp",
-   "lines": 9
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreDefaultDefault_default",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreDefaultDefault.default",
-   "kinds": [],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreDefaultDefault.default",
-   "lines": 6
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreOpsArithAddAssignMersenne31_add_assign",
-   "callees": 4,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithAddAssignMersenne31.add_assign",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithAddAssignMersenne31.add_assign",
-   "lines": 11
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreOpsArithAddMersenne31Mersenne31_add",
-   "callees": 3,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithAddMersenne31Mersenne31.add",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithAddMersenne31Mersenne31.add",
-   "lines": 18
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreOpsArithMulAssignMersenne31_mul_assign",
-   "callees": 6,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithMulAssignMersenne31.mul_assign",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithMulAssignMersenne31.mul_assign",
-   "lines": 11
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreOpsArithMulMersenne31Mersenne31_mul",
-   "callees": 5,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithMulMersenne31Mersenne31.mul",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithMulMersenne31Mersenne31.mul",
-   "lines": 11
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreOpsArithNegMersenne31_neg",
-   "callees": 3,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithNegMersenne31.neg",
-   "kinds": [
-    "deep"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithNegMersenne31.neg",
-   "lines": 9
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreOpsArithSubAssignMersenne31_sub_assign",
-   "callees": 4,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithSubAssignMersenne31.sub_assign",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithSubAssignMersenne31.sub_assign",
-   "lines": 11
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_Insts_CoreOpsArithSubMersenne31Mersenne31_sub",
-   "callees": 3,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithSubMersenne31Mersenne31.sub",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.Insts.CoreOpsArithSubMersenne31Mersenne31.sub",
-   "lines": 14
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_new",
-   "callees": 1,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.new",
-   "kinds": [],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.new",
-   "lines": 8
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_new_checked",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.new_checked",
-   "kinds": [],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.new_checked",
-   "lines": 9
-  },
-  {
-   "bench": "rust_mersenne31_Mersenne31_new_reduced",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.Mersenne31.new_reduced",
-   "kinds": [],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.Mersenne31.new_reduced",
-   "lines": 7
-  },
-  {
-   "bench": "rust_mersenne31_QuotientMapMersenne31U32_from_canonical_checked_closure_Insts_CoreOpsFunctionFnOnceTupleMersenne31_call_once",
-   "callees": 1,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.QuotientMapMersenne31U32.from_canonical_checked.closure.Insts.CoreOpsFunctionFnOnceTupleMersenne31.call_once",
-   "kinds": [],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.QuotientMapMersenne31U32.from_canonical_checked.closure.Insts.CoreOpsFunctionFnOnceTupleMersenne31.call_once",
-   "lines": 9
-  },
-  {
-   "bench": "rust_mersenne31_from_u62",
-   "callees": 4,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.mersenne31.from_u62",
-   "kinds": [
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.mersenne31.from_u62",
-   "lines": 14
-  },
-  {
-   "bench": "rust_util_gcd_inversion_prime_field_32",
-   "callees": 2,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.util.gcd_inversion_prime_field_32",
-   "kinds": [
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.util.gcd_inversion_prime_field_32",
-   "lines": 11
-  },
-  {
-   "bench": "rust_util_gcd_inversion_prime_field_32_loop",
-   "callees": 1,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.util.gcd_inversion_prime_field_32",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.util.gcd_inversion_prime_field_32_loop",
-   "lines": 13
-  },
-  {
-   "bench": "rust_util_gcd_inversion_prime_field_32_loop_body",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.util.gcd_inversion_prime_field_32",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.util.gcd_inversion_prime_field_32_loop.body",
-   "lines": 32
-  },
-  {
-   "bench": "rust_util_halve_u32",
-   "callees": 0,
-   "crate": "AeneasFieldArithmetic",
-   "family": "AeneasFieldArithmetic:AeneasFieldArithmetic.util.halve_u32",
-   "kinds": [
-    "large"
-   ],
-   "lean_name": "AeneasFieldArithmetic.util.halve_u32",
-   "lines": 11
-  },
   {
    "bench": "rust_Bool_Insts_Aeneas_standaloneTraitsBoolTrait_get_bool",
    "callees": 0,
@@ -3834,73 +3270,6 @@
    "kinds": [],
    "lean_name": "AeneasStandalone.nested_borrows.inner_shared",
    "lines": 4
-  },
-  {
-   "bench": "rust_nested_borrows_iter_list_while",
-   "callees": 5,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_list_while",
-   "kinds": [
-    "diverge",
-    "generic",
-    "deep"
-   ],
-   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while",
-   "lines": 9
-  },
-  {
-   "bench": "rust_nested_borrows_iter_list_while_loop0",
-   "callees": 4,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_list_while",
-   "kinds": [
-    "loop",
-    "diverge",
-    "generic",
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0",
-   "lines": 13
-  },
-  {
-   "bench": "rust_nested_borrows_iter_list_while_loop0_body",
-   "callees": 3,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_list_while",
-   "kinds": [
-    "loop",
-    "diverge",
-    "generic",
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0.body",
-   "lines": 19
-  },
-  {
-   "bench": "rust_nested_borrows_iter_list_while_loop0_loop0",
-   "callees": 1,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_list_while",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0_loop0",
-   "lines": 7
-  },
-  {
-   "bench": "rust_nested_borrows_iter_list_while_loop0_loop0_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_list_while",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0_loop0.body",
-   "lines": 8
   },
   {
    "bench": "rust_nested_borrows_iter_mut_incr",
