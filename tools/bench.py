@@ -106,16 +106,15 @@ def _suite():
 def check(paths=None, checker=None):
     """build each crate's Lean environment, as a run would, with no LLM call:
     {path: None, or the first error line}."""
-    import run as _run
+    import lean
     own = checker is None
     if own:
-        import lean
         import lss_config
         checker = lean.LeanChecker(project_dir=lss_config.project_dir("aeneas"))
     out = {}
     try:
         for p in paths or _suite():
-            out[p] = _run.crate_env_error(checker, os.path.abspath(p))
+            out[p] = lean.crate_env_error(checker, os.path.abspath(p))
             print(("ok    " if out[p] is None else "FAIL  ") + p + ("" if out[p] is None else f": {out[p]}"), flush=True)
     finally:
         if own:

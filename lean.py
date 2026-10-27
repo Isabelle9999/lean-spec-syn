@@ -253,6 +253,18 @@ HAMMER = "hammer { disableGrind := true }"
 MIN_TRY = 5
 
 
+def crate_env_error(checker, project_dir):
+    """None when the crate's Lean code builds, else its first error line (run.py
+    stops a function on it before any LLM call; tools/bench.py check reports it)."""
+    if not project_dir:
+        return None
+    state = checker._aeneas_env_for(project_dir)
+    if state["ok"]:
+        return None
+    errs = [ln.strip() for ln in state["error"].splitlines() if "error" in ln]
+    return (errs[0] if errs else state["error"].strip())[:200] or "no error text"
+
+
 def _hammer_selector():
     """the premise-selector line hammer runs under ("" for hammer's own default)."""
     if _lss_config.proof_cfg()['premise_selector'] == 'local':

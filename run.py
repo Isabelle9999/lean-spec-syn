@@ -9,7 +9,7 @@ import shutil
 import threading
 import lss_config as _lss_config
 
-from lean import LeanChecker, ExampleStore, Cache, get_lean_calls
+from lean import LeanChecker, ExampleStore, Cache, get_lean_calls, crate_env_error
 import lean_server as _lean_server
 from synth import LLMClient, synthesize, refine, _func_name, get_llm_calls
 import events
@@ -74,17 +74,6 @@ def _with_timeout(fn, timeout):
         raise exc[0]
 
     return result[0], False
-
-
-def crate_env_error(checker, project_dir):
-    """None when the crate's Lean code builds, else its first error line."""
-    if not project_dir:
-        return None
-    state = checker._aeneas_env_for(project_dir)
-    if state["ok"]:
-        return None
-    errs = [ln.strip() for ln in state["error"].splitlines() if "error" in ln]
-    return (errs[0] if errs else state["error"].strip())[:200] or "no error text"
 
 
 def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, func_source=None):

@@ -314,6 +314,12 @@ def run_static_bench():
             check("a crate whose Lean code does not build stops select and run before any function is attempted",
                   len(stopped) == 2 and all("/s/b" in m for m in stopped) and len(calls) == n
                   and not os.path.exists(os.path.join(".lss", "bench", "base2", "meta.json")), str(stopped))
+        probe = ("import contextlib, io, sys\nsys.path.insert(0, '.')\nfrom tools import bench\n"
+                 "class C:\n    def _aeneas_env_for(self, p):\n        return {'ok': True, 'error': ''}\n"
+                 "with contextlib.redirect_stdout(io.StringIO()):\n    out = bench.check(['/x'], C())\nprint(out)")
+        r = subprocess.run([sys.executable, "-c", probe], cwd=old_cwd, capture_output=True, text=True)
+        check("the build check runs with stdout captured, in a fresh process, as the full harness test runs it",
+              r.returncode == 0 and "{'/x': None}" in r.stdout, (r.stderr or r.stdout)[-300:])
         bad = []
         for arg in ("proof.rust_hamer=true", "proof.rust_hammer=False", "rust_hammer=true"):
             try:
