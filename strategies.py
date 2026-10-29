@@ -68,6 +68,100 @@ def theorems(text):
     return out
 
 
+_IDENT = re.compile(r"[^\W\d][\w'!?.]*\Z")
+
+
+def _depth_at(text):
+    """bracket depth before each character of text, as a list."""
+    out, d = [], 0
+    for c in text:
+        if c in _CLOSE:
+            d -= 1
+        out.append(d)
+        if c in _OPEN:
+            d += 1
+    return out
+
+
+def _top_split(text):
+    """text split at top-level whitespace (brackets nest)."""
+    parts, cur, d = [], "", 0
+    for c in text:
+        if c in _OPEN:
+            d += 1
+        elif c in _CLOSE:
+            d -= 1
+        if c.isspace() and d == 0:
+            if cur:
+                parts.append(cur)
+            cur = ""
+        else:
+            cur += c
+    if cur:
+        parts.append(cur)
+    return parts
+
+
+def _bound_names(text):
+    """the names text binds: in bracketed binder groups and after a bare ∀ or ∃."""
+    names = set()
+    for m in re.finditer(r"[(\[{⦃]\s*([^\s:()\[\]{}⦃⦄⟨⟩,][^:()\[\]{}⦃⦄⟨⟩,]*?)\s*:(?!=)", text):
+        names.update(m.group(1).split())
+    for m in re.finditer(r"[∀∃]\s*([^,()\[\]{}⦃⦄⟨⟩:]+?)\s*[,:]", text):
+        names.update(m.group(1).split())
+    return names
+
+
+def normalize_call(stmt, unit):
+    """the Hoare-triple conclusion `f a₁ … aₙ ⦃ … ⦄` with every argument that is not
+    a distinct bound variable (a constructor `List.Cons x tl`, a literal `0#u32`,
+    `none`, a variable used twice) replaced by a fresh variable that a hypothesis
+    defines: `∀ (lss_a0 : _), lss_a0 = (List.Cons x tl) → f lss_a0 … ⦃ … ⦄`. the
+    two statements are equivalent, and the second is the gate's normal form (the
+    function applied to its own distinct variables, as a contract states it); the
+    types are left to elaboration, which the call fixes. any other statement, or
+    a call of another function, comes back unchanged."""
+    depth = _depth_at(stmt)
+    k = next((i for i, c in enumerate(stmt) if c == "⦃" and depth[i] == 0), None)
+    if k is None:
+        return stmt
+    # the call starts after the last top-level `,` or arrow before the triple
+    start = 0
+    for i in range(k - 1, -1, -1):
+        if depth[i] == 0 and (stmt[i] in ",→" or stmt.startswith("->", i)):
+            start = i + (2 if stmt.startswith("->", i) else 1)
+            break
+    parts = _top_split(stmt[start:k])
+    short = unit.rsplit(".", 1)[-1] if unit else ""
+    if not parts or not unit or not (parts[0] == unit or parts[0].endswith("." + unit)
+                                     or (parts[0] == short and "." not in unit)):
+        return stmt
+    bound, seen = _bound_names(stmt[:start]), set()
+    fresh, eqs, args = [], [], []
+    for a in parts[1:]:
+        if re.match(r"\(\s*[\w']+\s*:=", a):  # a named argument: left as written
+            args.append(a)
+            continue
+        if _IDENT.match(a) and a in bound and a not in seen:
+            seen.add(a)
+            args.append(a)
+            continue
+        i = len(fresh)
+        while f"lss_a{i}" in stmt:
+            i += 1
+        v = f"lss_a{i}"
+        fresh.append(v)
+        eqs.append(f"{v} = {a if _IDENT.match(a) or a[0] in _OPEN else '(' + a + ')'}")
+        args.append(v)
+    if not fresh:
+        return stmt
+    pre = stmt[:start].rstrip()
+    sep = "" if not pre else " "
+    call = " ".join([parts[0]] + args) + " "
+    return (pre + sep + "∀ " + " ".join(f"({v} : _)" for v in fresh) + ", "
+            + " → ".join(eqs) + " → " + call + stmt[k:])
+
+
 def _parse_specs(text):
     return [{"name": n, "stmt": s, "status": "pending", "method": ""} for n, s, _ in theorems(text)]
 

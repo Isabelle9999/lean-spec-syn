@@ -813,11 +813,15 @@ class LeanChecker:
         if not state["ok"]:
             return ProofResult(proved=False, method="", error=state["error"])
 
+        # subst_vars: a statement in the gate's normal form (strategies.normalize_call)
+        # defines an argument by a hypothesis `lss_a0 = List.Cons x tl`; substituted
+        # back, the call is on the constructor again and `unfold` reaches its case
+        start = f"lss_spec_form\n  try subst_vars\n  unfold {func_name}"
         attempts = [
-            ("a", f"lss_spec_form\n  unfold {func_name}\n  step*"),
-            ("b", f"lss_spec_form\n  unfold {func_name}\n  "
+            ("a", f"{start}\n  step*"),
+            ("b", f"{start}\n  "
                   "step* <;> first | scalar_tac | simp_scalar | (simp_all <;> simp_lists [*]) | grind"),
-            ("c", f"lss_spec_form\n  unfold {func_name}\n  step*\n  lss_log_goals\n  all_goals sorry"),
+            ("c", f"{start}\n  step*\n  lss_log_goals\n  all_goals sorry"),
         ]
 
         # a and b are proof attempts, each checked by lss_check_proof; c only logs

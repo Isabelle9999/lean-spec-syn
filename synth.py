@@ -7,7 +7,7 @@ import anthropic
 from lean import (_errors, run_in_project, classify_function, MutationEngine, Cache,
                   ProofResult, TACTICS, _find_def_in_text, check_proof,
                   _witnesses_for_type, _diverse_tuples, _parse_struct_defs, MIN_TRY)
-from strategies import generate_from_examples, generate_from_negatives, generate_with_proof, theorems
+from strategies import generate_from_examples, generate_from_negatives, generate_with_proof, theorems, normalize_call
 import events
 import pricing
 import lss_config as _lss_config
@@ -1342,6 +1342,10 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
     with events.context(stage="validate", source=source or "lean-native"):
         for spec_idx, spec in enumerate(specs):
             with events.context(candidate_id=spec["name"]):
+                if _gate.is_rust(source):
+                    # the gate's normal form: the call on distinct variables, any other
+                    # argument defined by a hypothesis (an equivalent statement)
+                    spec["stmt"] = normalize_call(spec["stmt"], func)
                 stmt_norm = _normalize_stmt(spec["stmt"])
                 if stmt_norm in processed_stmts:
                     spec["status"] = "rejected"
@@ -1418,7 +1422,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                     if fixed:
                         fm = theorems(fixed)
                         if fm:
-                            spec["stmt"] = fm[0][1]
+                            spec["stmt"] = (normalize_call(fm[0][1], func) if _gate.is_rust(source)
+                                            else fm[0][1])
                             candidate_text = f"theorem {spec['name']} : {spec['stmt']} := sorry"
                             verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source)
                             if _gate.is_well_formed(verdicts, source):

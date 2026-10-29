@@ -251,11 +251,11 @@ def run_static_synth():
     check("a repaired spec is not repaired again", sum(1 for x in specs if x["name"].endswith("_r_r")) == 0)
 
     # a gate rejection: the repair reply is read whole, and the event says why
-    emitted = []
+    emitted, gated = [], []
     old_gate, old_emit = synth._gate.check_candidate, synth.events.emit
-    synth._gate.check_candidate = lambda *a, **k: [{"check": "one_theorem", "ok": True, "detail": ""},
-                                                   {"check": "conclusion_shape", "ok": False,
-                                                    "detail": "argument `none` is not a bound variable"}]
+    synth._gate.check_candidate = lambda checker, text, *a, **k: gated.append(text) or [
+        {"check": "one_theorem", "ok": True, "detail": ""},
+        {"check": "conclusion_shape", "ok": False, "detail": "argument `none` is not a bound variable"}]
     synth.events.emit = lambda kind, **f: emitted.append((kind, f))
 
     class FixLLM:
@@ -267,6 +267,8 @@ def run_static_synth():
                        project_dir="/p", source="rust-aeneas")
     finally:
         synth._gate.check_candidate, synth.events.emit = old_gate, old_emit
+    check("the gate sees the call in normal form: its argument `none` defined by a hypothesis",
+          gated and gated[0] == "theorem g : ∀ (lss_a0 : _), lss_a0 = none → f lss_a0 ⦃ r => True ⦄ := sorry", str(gated))
     rej = [f for k, f in emitted if k == "verdict" and f.get("status") == "rejected"]
     check("a gate rejection's event names the failing check, its detail and the statement as repaired",
           len(rej) == 1 and rej[0].get("check") == "conclusion_shape" and "not a bound variable" in rej[0].get("detail", "")
