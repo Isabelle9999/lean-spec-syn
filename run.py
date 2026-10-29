@@ -9,7 +9,7 @@ import shutil
 import threading
 import lss_config as _lss_config
 
-from lean import LeanChecker, ExampleStore, Cache, get_lean_calls
+from lean import LeanChecker, ExampleStore, Cache, get_lean_calls, crate_env_error
 import lean_server as _lean_server
 from synth import LLMClient, synthesize, refine, _func_name, get_llm_calls
 import events
@@ -82,6 +82,13 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
     after a timeout or a crash (status unknown, with the reason)."""
     t0 = time.time()
     with events.context(unit=bm["name"]):
+        env_error = crate_env_error(checker, project_dir) if bm.get("source") == "rust-aeneas" else None
+        if env_error:
+            # no environment means no check can run: stop before any LLM call
+            print(f"\n--- {bm['name']} ---\n  not attempted: the crate's Lean code does not build: {env_error}")
+            events.emit("unit_result", status="unknown", reason=f"crate env: {env_error}"[:160],
+                        seconds=time.time() - t0)
+            return None, None
         try:
             score, report = _run_bench(bm, args, llm, checker, store, baseline, project_dir, func_source)
         except Exception as e:

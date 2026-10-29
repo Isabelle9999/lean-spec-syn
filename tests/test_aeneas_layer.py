@@ -442,6 +442,32 @@ theorem top_proved : forall (p : records.Pair),
 """, env=env, timeout=90)
     check("depth3: top proved via the growing env, chainB never unfolded", r3.rc == 0, (r3.stderr or "")[:300])
 
+    # a crate may define a name LSS's own commands use (Loops defines List) and
+    # carry Aeneas #assert unit tests: it still builds, and the gate and the
+    # bounded check still run on it
+    import shutil
+    import tempfile
+    import bounded
+    import gate
+    tmp = tempfile.mkdtemp()
+    for f in os.listdir(rust_dir):
+        if f.endswith(".json"):
+            shutil.copy(os.path.join(rust_dir, f), tmp)
+    shutil.copytree(os.path.join(rust_dir, "FeatureSuite"), os.path.join(tmp, "FeatureSuite"))
+    # appended to the last file, so nothing of the crate itself ever sees the new name
+    with open(os.path.join(tmp, "FeatureSuite", "Code", "Funs.lean"), "a", encoding="utf-8") as f:
+        f.write("\nnamespace FeatureSuite\ninductive List (α : Type) where\n  | nil : List α\n"
+                "end FeatureSuite\n#assert (1 == 2)\n")
+    own = lean.LeanChecker()
+    st = own._aeneas_env_for(tmp)
+    check("a crate defining its own List, with a failing #assert, still builds", st["ok"], st["error"][:300])
+    v = gate.check_candidate(own, "theorem t : ∀ (value : Std.U32), identity value ⦃ r => r = value ⦄ := sorry",
+                             "identity", None, tmp, "rust-aeneas")
+    check("the gate runs on that crate", gate.is_well_formed(v), str(v)[:300])
+    b = bounded.check_spec(own, "∀ (value : Std.U32), identity value ⦃ r => r.val = value.val + 1 ⦄", "identity", tmp)
+    check("the bounded check runs on that crate and refutes a wrong spec", b["status"] == "refuted", str(b)[:300])
+    shutil.rmtree(tmp, ignore_errors=True)
+
     r = run("no top-level open leak", "example : MetaM Unit := pure ()\n")
     check("unqualified MetaM does not resolve after the layer text", r.rc != 0 and "MetaM" in (r.stderr or ""),
           (r.stderr or "")[:300])

@@ -82,10 +82,13 @@ def _topo_order_code_files(code_dir, crate):
 
 
 def _concat_code_files(ordered, texts):
-    """import Aeneas, then each file's body with its own import lines stripped."""
+    """import Aeneas, then each file's body with its own import lines and Aeneas's
+    `#assert` unit tests stripped: a test runs code, it defines nothing a spec
+    needs, and Aeneas can place one before the function it calls."""
     parts = ["import Aeneas"]
     for p in ordered:
-        parts.append("\n".join(l for l in texts[p].splitlines() if not l.strip().startswith("import ")))
+        parts.append("\n".join(l for l in texts[p].splitlines()
+                               if not l.strip().startswith(("import ", "#assert"))))
     return "\n".join(parts)
 
 

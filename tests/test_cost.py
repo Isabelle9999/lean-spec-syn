@@ -102,7 +102,7 @@ def run_static_routing():
         with Patch((lean_server, "get_server", lambda *a, **k: fake), (callgraph, "for_project", lambda p: _Graph()),
                    (lss_config, "proof_cfg", _proof_cfg(rust_hammer=on))):
             lean.LeanChecker()._aeneas_build_env("/crate")
-        text = fake.sent[-1]["code"]
+        text = "\n".join(s["code"] for s in fake.sent)
         has = text.startswith("import Aeneas\nimport Hammer\n") and "set_library_suggestions" in text
         check(f"crate env with rust_hammer={on}: Hammer imported and its selector set" if on else
               "crate env with rust_hammer=False: no Hammer", has == on, text[:80])

@@ -253,6 +253,18 @@ HAMMER = "hammer { disableGrind := true }"
 MIN_TRY = 5
 
 
+def crate_env_error(checker, project_dir):
+    """None when the crate's Lean code builds, else its first error line (run.py
+    stops a function on it before any LLM call; tools/bench.py check reports it)."""
+    if not project_dir:
+        return None
+    state = checker._aeneas_env_for(project_dir)
+    if state["ok"]:
+        return None
+    errs = [ln.strip() for ln in state["error"].splitlines() if "error" in ln]
+    return (errs[0] if errs else state["error"].strip())[:200] or "no error text"
+
+
 def _hammer_selector():
     """the premise-selector line hammer runs under ("" for hammer's own default)."""
     if _lss_config.proof_cfg()['premise_selector'] == 'local':
@@ -705,9 +717,13 @@ class LeanChecker:
     def _aeneas_build_env(self, project_dir):
         """fresh env = crate text + the same options/opens the benches' own
         lean_code + lean_preamble use (so a statement elaborates the same way in
-        every layer) + the aeneas layer, in the pinned aeneas project. maxHeartbeats
-        is left out here on purpose: each attempt sets its own cap. printed once
-        per crate since cost grows with crate size."""
+        every layer) + the aeneas layer, in the pinned aeneas project. LSS's own
+        commands are elaborated before `open <crate>`, so a crate defining a name
+        they use (a `List` of its own) cannot make them ambiguous; that env is kept
+        as "env0" for the gate and the bounded check, which send their own Lean
+        text and open the crate after it. maxHeartbeats is left out here on
+        purpose: each attempt sets its own cap. printed once per crate since cost
+        grows with crate size."""
         aeneas_dir = _lss_config.project_dir("aeneas")
         server = _lean_server.get_server(aeneas_dir)
         g = _callgraph.for_project(project_dir)
@@ -717,11 +733,13 @@ class LeanChecker:
             selector = _hammer_selector()
         text = (crate +
                 "\nset_option maxRecDepth 2048\n"
-                f"open Aeneas Aeneas.Std Result ControlFlow Error\nopen {g.crate}\n" + selector +
+                "open Aeneas Aeneas.Std Result ControlFlow Error\n" +
                 proof_check_text() + "\n" + _aeneas_layer_text())
         _CRATE_ENVS[g.crate] = (self, project_dir, hashlib.sha256(g.crate_text.encode("utf-8")).hexdigest()[:16])
         t0 = time.time()
-        r = server.check(text, timeout=600)
+        r0 = r = server.check(text, timeout=600)
+        if r0.rc == 0 and r0.new_env is not None:
+            r = server.check(f"open {g.crate}\n" + selector, timeout=120, env=r0.new_env)
         elapsed = time.time() - t0
         print(f"  aeneas env build: {project_dir} {elapsed:.1f}s")
         self.lean_calls += 1
@@ -730,8 +748,8 @@ class LeanChecker:
         if not ok:
             errs = _errors(combined)
             print(f"  aeneas env build failed: {(errs[0] if errs else combined.strip())[:200]}")
-        state = {"env": r.new_env, "admitted": [], "active": {}, "restarts": server.stats()["restarts"],
-                 "ok": ok, "error": combined[:300]}
+        state = {"env": r.new_env, "env0": r0.new_env, "crate": g.crate, "admitted": [], "active": {},
+                 "restarts": server.stats()["restarts"], "ok": ok, "error": combined[:300]}
         self._aeneas_env[project_dir] = state
         return state
 

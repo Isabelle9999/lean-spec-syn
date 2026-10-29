@@ -295,14 +295,15 @@ class _Lean:
 
     def __init__(self, checker, project_dir):
         self.checker, self.project_dir, self.n = checker, project_dir, 0
-        self.prefix = _gate._wf_gate_text() + "\n" + _gate._wf_gate_aeneas_text() + "\n"
+        self.prefix = _gate._wf_gate_text() + "\n" + _gate._wf_gate_aeneas_text() + "\n"  # then `open <crate>`
 
     def run(self, text):
         state = self.checker._aeneas_env_for(self.project_dir)
         if not state["ok"]:
             return None, "env"
         server = _lean_server.get_server(_lss_config.project_dir("aeneas"))
-        r = server.check(self.prefix + text, timeout=EVAL_TIMEOUT, env=state["env"])
+        # LSS's commands before `open <crate>`, as in the crate env (lean._aeneas_build_env)
+        r = server.check(self.prefix + f"open {state['crate']}\n" + text, timeout=EVAL_TIMEOUT, env=state["env0"])
         self.checker.lean_calls += 1
         if r.timed_out:
             return None, "timeout"

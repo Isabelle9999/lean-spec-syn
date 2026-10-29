@@ -187,7 +187,7 @@ def run_static_run():
         lean_calls = 0
 
         def _aeneas_env_for(self, project_dir):
-            return {"ok": True, "env": 42}
+            return {"ok": True, "env": 42, "env0": 41, "crate": "C"}
 
     server = Server()
     old = bounded._lean_server.get_server
@@ -197,10 +197,10 @@ def run_static_run():
     finally:
         bounded._lean_server.get_server = old
     code, env = server.sent[0]
-    check("each command runs against the crate env", env == 42, str(env))
-    check("each command carries the gate's Decidable instances first",
+    check("each command runs against the crate env as built before the crate is opened", env == 41, str(env))
+    check("each command carries the gate's Decidable instances first, then opens the crate",
           "lssSubtypeDecEq" in code and "deriving instance DecidableEq for Aeneas.Std.Result" in code
-          and code.endswith("lss_eval_spec x"), code[-200:])
+          and code.endswith("open C\nlss_eval_spec x"), code[-200:])
 
 
 def run_static_synth():
@@ -250,6 +250,28 @@ def run_static_synth():
           str(rep))
     check("a repaired spec is not repaired again", sum(1 for x in specs if x["name"].endswith("_r_r")) == 0)
 
+    # a gate rejection: the repair reply is read whole, and the event says why
+    emitted = []
+    old_gate, old_emit = synth._gate.check_candidate, synth.events.emit
+    synth._gate.check_candidate = lambda *a, **k: [{"check": "one_theorem", "ok": True, "detail": ""},
+                                                   {"check": "conclusion_shape", "ok": False,
+                                                    "detail": "argument `none` is not a bound variable"}]
+    synth.events.emit = lambda kind, **f: emitted.append((kind, f))
+
+    class FixLLM:
+        def _ask(self, prompt):
+            return "Here is the fix: theorem g (o : Option U32) : f o ⦃ r => r = o ⦄ := sorry"
+    try:
+        g = [{"name": "g", "stmt": "f none ⦃ r => True ⦄"}]
+        synth.validate(g, "def f (x : U32) : Result U32 := ok x", [], Checker(), llm=FixLLM(), func_name="f",
+                       project_dir="/p", source="rust-aeneas")
+    finally:
+        synth._gate.check_candidate, synth.events.emit = old_gate, old_emit
+    rej = [f for k, f in emitted if k == "verdict" and f.get("status") == "rejected"]
+    check("a gate rejection's event names the failing check, its detail and the statement as repaired",
+          len(rej) == 1 and rej[0].get("check") == "conclusion_shape" and "not a bound variable" in rej[0].get("detail", "")
+          and rej[0].get("stmt") == "∀ (o : Option U32), f o ⦃ r => r = o ⦄", str(rej))
+
 
 def run_full():
     print("=== full: bounded checking on FeatureSuite ===")
@@ -295,10 +317,10 @@ def run_full():
     # a diverging evaluation: the server times out, restarts, and the next check works
     state = checker._aeneas_env_for(rust_dir)
     server = lean_server.get_server(lss_config.project_dir("aeneas"))
-    r = server.check("partial def lss_spin (x : Std.U32) : Result Std.U32 := lss_spin x", env=state["env"], timeout=60)
+    r = server.check("partial def lss_spin (x : Std.U32) : Result Std.U32 := lss_spin x", env=state["env0"], timeout=60)
     check("diverging helper added", r.rc == 0 and r.new_env is not None, (r.stderr or "")[:200])
     if r.new_env is not None:
-        state["env"] = r.new_env
+        state["env0"] = r.new_env
         old = bounded.EVAL_TIMEOUT
         bounded.EVAL_TIMEOUT = 20
         try:

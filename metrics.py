@@ -5,14 +5,15 @@ from lean import _parse_forall_vars, _parse_forall_types
 
 
 # one verdict per function, from kernel-proved specs only
-STATUSES = ("proved_total", "proved_partial", "refuted", "unknown", "skipped")
+STATUSES = ("proved_total", "proved_partial", "unknown", "skipped")
 _PARTIAL = re.compile(r"⦄\s*div\b|\bdspec\b")
 
 
 def unit_status(specs):
     """proved_total: a kernel-proved spec that also claims the call terminates.
-    proved_partial: every proved spec allows divergence (⦃ ⦄div). refuted: nothing
-    proved and some candidate refuted. unknown: anything else, including no candidates.
+    proved_partial: every proved spec allows divergence (⦃ ⦄div). unknown: anything
+    else, including no candidates; a refuted candidate is a wrong guess about the
+    function, never a verdict on it, so it stays a count (refuted_count).
     (skipped is set by the caller, for a function it did not attempt.)"""
     specs = specs or []
     proved = [s for s in specs if s["status"] == "proved"]
@@ -20,8 +21,6 @@ def unit_status(specs):
         return "proved_total"
     if proved:
         return "proved_partial"
-    if any(s["status"] == "refuted" for s in specs):
-        return "refuted"
     return "unknown"
 
 

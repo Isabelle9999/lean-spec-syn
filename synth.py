@@ -7,7 +7,7 @@ import anthropic
 from lean import (_errors, run_in_project, classify_function, MutationEngine, Cache,
                   ProofResult, TACTICS, _find_def_in_text, check_proof,
                   _witnesses_for_type, _diverse_tuples, _parse_struct_defs, MIN_TRY)
-from strategies import generate_from_examples, generate_from_negatives, generate_with_proof
+from strategies import generate_from_examples, generate_from_negatives, generate_with_proof, theorems
 import events
 import pricing
 import lss_config as _lss_config
@@ -138,6 +138,8 @@ class LLMClient:
         if fn:
             args, ret_type = _parse_signature(func_source if func_source else lean_code, fn)
             if args is not None:
+                args = [(n, _qualify_types(t, lean_code, func_source)) for n, t in args]
+                ret_type = _qualify_types(ret_type, lean_code, func_source)
                 sig_ctx = f"function signature: {fn} takes {len(args)} argument{'s' if len(args) != 1 else ''}:\n"
                 for i, (n, t) in enumerate(args, 1):
                     sig_ctx += f"  arg{i}: {n} : {t}\n"
@@ -227,7 +229,10 @@ class LLMClient:
                 "notation already extracts the success value as `r` for you.\n"
                 "AENEAS SYNTAX RULES:\n"
                 "- Use exact struct field names from type definitions (first/second, NOT x/y/fst/snd)\n"
-                "- Numeric literals may need type annotation: (0 : Std.U32)\n"
+                "- Integer literals carry their type as a suffix: 0#u32, 5#i8, 1#usize (never (0 : Std.U32))\n"
+                "- Apply the function only to distinct bound variables; state a case as a hypothesis:\n"
+                "  ∀ (l : CList T) (x : T) (tl : CList T), l = CList.CCons x tl → f l ⦃ r => P r ⦄, never f (CList.CCons x tl)\n"
+                "- Write the crate's own types with the crate name, as in the signature above (e.g. Bst.Ord T)\n"
                 "- Arithmetic can fail: a + b returns Result, not a plain value\n"
                 "- Vec type is alloc.vec.Vec Std.U32, not Vec or List\n"
                 "- if (and only if) this function loops or recurses, you may instead write\n"
@@ -316,8 +321,8 @@ class LLMClient:
                 if not re.search(r'^(?!--)[^\s]', preamble, re.MULTILINE):
                     preamble = ""
             specs = []
-            for m2 in re.finditer(r"theorem\s+([a-zA-Z_][a-zA-Z0-9_'!?]*)\s*(?:\([^)]*\)\s*)*:\s*([\s\S]*?)\s*:=\s*(?:sorry|by)\b", block):
-                spec = {"name": m2.group(1), "stmt": m2.group(2).strip(), "status": "pending", "method": ""}
+            for name, stmt, _ in theorems(block):
+                spec = {"name": name, "stmt": stmt, "status": "pending", "method": ""}
                 if preamble:
                     spec["preamble"] = preamble
                 specs.append(spec)
@@ -673,10 +678,10 @@ class LLMClient:
         if not resp:
             return []
         specs = []
-        for m in re.finditer(r'theorem\s+(\w+)\s*:\s*([\s\S]*?)\s*:=\s*(?:by\s+[\s\S]*?(?=\ntheorem|\Z)|sorry)', resp):
+        for name, stmt, _ in theorems(resp):
             specs.append({
-                "name": m.group(1),
-                "stmt": m.group(2).strip(),
+                "name": name,
+                "stmt": stmt,
                 "status": "pending",
                 "method": None,
                 "preamble": "",
@@ -739,26 +744,44 @@ def _classify_complexity(lean_code, func_name):
         return "simple"
 
 
+def _qualify_types(t, lean_code, func_source):
+    """a rust unit's signature type with the crate's own type names written in full
+    (Ord T -> Bst.Ord T), so a statement copying it means the crate's type under
+    `open <crate>`, never a same-named Lean one."""
+    crate = re.search(r"^open (?!Aeneas\b)(\S+)\s*$", lean_code or "", re.MULTILINE)
+    if not t or not crate or not func_source:
+        return t
+    local = set(re.findall(r"^(?:structure|inductive|class|abbrev)\s+([A-Za-z_][\w']*)", func_source, re.MULTILINE))
+    for name in sorted(local, key=len, reverse=True):
+        t = re.sub(r"(?<![\w.'])" + re.escape(name) + r"(?![\w'])", f"{crate.group(1)}.{name}", t)
+    return t
+
+
 def _parse_signature(lean_code, fn):
-    m = re.search(r'def\s+' + re.escape(fn) + r'\b(.*?)(?::=|\n\s*\|)', lean_code, re.DOTALL)
+    """the explicit arguments [(name, type)] and the return type of `def fn`;
+    binder groups nest, so `(t : Option (Node T))` is one argument."""
+    m = re.search(r'def\s+' + re.escape(fn) + r"(?![\w'])", lean_code)
     if not m:
         return None, None
-    sig = m.group(1).strip()
-    arg_groups = re.findall(r'\(([^)]+)\)', sig)
-    args = []
-    for group in arg_groups:
-        colon = group.find(':')
-        if colon == -1:
-            continue
-        names = group[:colon].split()
-        typ = group[colon+1:].strip()
-        for n in names:
-            if n.strip():
-                args.append((n.strip(), typ))
-    after = sig[sig.rfind(')')+1:] if arg_groups else sig
-    ret_m = re.match(r'\s*:\s*(.*)', after.split(':=')[0])
-    ret_type = ret_m.group(1).strip() if ret_m else ""
-    return args, ret_type
+    text, i, n, args = lean_code, m.end(), len(lean_code), []
+    while True:
+        while i < n and text[i].isspace():
+            i += 1
+        if i >= n or text[i] not in "({[⦃":
+            break
+        depth, j = 0, i
+        while j < n:
+            depth += (text[j] in "({[⦃") - (text[j] in ")}]⦄")
+            if depth == 0:
+                break
+            j += 1
+        group = text[i + 1:j]
+        if text[i] == "(" and ":" in group:
+            names, typ = group.split(":", 1)
+            args += [(nm, typ.strip()) for nm in names.split() if nm.strip()]
+        i = j + 1
+    ret = re.match(r"\s*:\s*([\s\S]*?)\s*(?::=|\n\s*\||\Z)", text[i:])
+    return args, (ret.group(1).strip() if ret else "")
 
 
 def _replace_body(lean_code):
@@ -1393,9 +1416,9 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                     )
                     fixed = llm._ask(fix_prompt)
                     if fixed:
-                        fm = re.search(r':\s*(.*?)\s*:=', fixed)
+                        fm = theorems(fixed)
                         if fm:
-                            spec["stmt"] = fm.group(1).strip()
+                            spec["stmt"] = fm[0][1]
                             candidate_text = f"theorem {spec['name']} : {spec['stmt']} := sorry"
                             verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source)
                             if _gate.is_well_formed(verdicts):
@@ -1415,7 +1438,9 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                     spec["wf_fail_check"] = _gate.failing_check(verdicts)
                     if verbose:
                         print(f"         stmt: {spec['stmt'][:100]}")
-                    events.emit("verdict", status="rejected", method="", fail_gate="g1")
+                    events.emit("verdict", status="rejected", method="", fail_gate="g1",
+                                check=spec["wf_fail_check"], stmt=spec["stmt"],
+                                detail=next((v["detail"] for v in verdicts if not v.get("ok")), "")[:300])
                     continue
 
                 # bounded check (rust units): run the spec on sampled inputs before any
@@ -1436,9 +1461,9 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                                 f"Function it is about:\n{func_source if func_source else lean_code}\n\n"
                                 f"Fix the statement so it is true of the function and still says what it computes.\n"
                                 f"Return ONLY the fixed theorem line: theorem name : fixed_statement := sorry")
-                            fm = re.search(r':\s*(.*?)\s*:=', fixed or "")
+                            fm = theorems(fixed)
                             if fm:
-                                specs.append({"name": spec["name"] + "_r", "stmt": fm.group(1).strip(),
+                                specs.append({"name": spec["name"] + "_r", "stmt": fm[0][1],
                                               "preamble": spec.get("preamble", ""), "_b_repaired": True})
                         spec["status"] = "refuted" if b["status"] == "refuted" else "rejected"
                         spec["fail_gate"] = b["status"]
@@ -2282,8 +2307,8 @@ def generate_from_plan(obligations, lean_code, llm, existing_specs=None):
         m = re.search(r'```\w*\s*([\s\S]*?)```', text)
         if not m:
             continue
-        for m2 in re.finditer(r'theorem\s+(\w+)\s*:\s*([\s\S]*?)\s*:=\s*sorry', m.group(1)):
-            specs.append({"name": m2.group(1), "stmt": m2.group(2).strip(), "status": "pending", "method": ""})
+        for name, stmt, _ in theorems(m.group(1)):
+            specs.append({"name": name, "stmt": stmt, "status": "pending", "method": ""})
     return specs
 
 
@@ -2493,11 +2518,11 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
                     )
                     fix_resp = llm._ask(guided_prompt)
                     if fix_resp:
-                        m = re.search(r'theorem\s+(\w+)\s*:\s*([\s\S]*?)\s*:=\s*sorry', fix_resp)
+                        m = theorems(fix_resp)
                         if m:
                             repaired.append({
-                                "name": m.group(1),
-                                "stmt": m.group(2).strip(),
+                                "name": m[0][0],
+                                "stmt": m[0][1],
                                 "status": "pending",
                                 "method": None,
                                 "preamble": "",

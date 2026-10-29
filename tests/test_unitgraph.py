@@ -50,6 +50,10 @@ def _hand_units():
 
 def run_static():
     print("=== static ===")
+    text = callgraph._concat_code_files(["T.lean"], {"T.lean": "import Aeneas\ndef test1 : Result Unit := ok ()\n"
+                                                                "#assert (test1 == ok ())\ndef g := 1\n"})
+    check("Aeneas's #assert unit tests are dropped from the crate text, every definition kept",
+          "#assert" not in text and "def test1" in text and "def g := 1" in text, text)
     text, units, manifest_info = _hand_units()
     g = callgraph.CallGraph(text, units, manifest_info=manifest_info)
 
