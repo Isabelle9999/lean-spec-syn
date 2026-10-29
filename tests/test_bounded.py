@@ -229,7 +229,7 @@ def run_static_synth():
                 "FIXED": {"status": "timeout", "detail": "timeout"},
                 "V": {"status": "vacuous", "feedback": "says nothing"}}
     old_gate, old_b = synth._gate.check_candidate, synth._bounded.check_spec
-    synth._gate.check_candidate = lambda *a, **k: [{"check": c, "ok": True, "detail": ""} for c in gate.CHECK_ORDER]
+    synth._gate.check_candidate = lambda *a, **k: [{"check": c, "ok": True, "detail": ""} for c in gate.checks_for("rust-aeneas")]
     synth._bounded.check_spec = lambda checker, stmt, unit, project_dir: dict(verdicts[stmt])
     try:
         checker, llm = Checker(), LLM()

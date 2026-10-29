@@ -1387,7 +1387,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                 # already known to typecheck, since the gate elaborates it for real)
                 candidate_text = f"theorem {spec['name']} : {spec['stmt']} := sorry"
                 verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source)
-                ok = _gate.is_well_formed(verdicts)
+                ok = _gate.is_well_formed(verdicts, source)
                 if _gate.failing_check(verdicts) == "env":
                     # the crate/base environment never came up -- a setup error,
                     # not anything about this candidate, so no amount of LLM
@@ -1421,7 +1421,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                             spec["stmt"] = fm[0][1]
                             candidate_text = f"theorem {spec['name']} : {spec['stmt']} := sorry"
                             verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source)
-                            if _gate.is_well_formed(verdicts):
+                            if _gate.is_well_formed(verdicts, source):
                                 ok = True
                                 if verbose:
                                     print(f"  [g1] {spec['name']}: fixed stmt passes the gate")
@@ -1447,7 +1447,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                 # prover. a false spec is refuted with its shrunk witness, a vacuous
                 # one rejected, and either gets one repair from the counterexample; a
                 # narrow precondition only warns, and a timeout goes on to the provers.
-                if source == "rust-aeneas" and func:
+                if _gate.is_rust(source) and func:
                     b = _bounded.check_spec(lean_checker, spec["stmt"], func, project_dir)
                     spec["bounded"] = b
                     if verbose:

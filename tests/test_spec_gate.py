@@ -28,8 +28,7 @@ RUST_CASES = [
       ("is_theorem", True, ""),
       ("no_attribute", True, ""),
       ("conclusion_shape", True, ""),
-      ("vocabulary", True, ""),
-      ("decidable", True, "")]),
+      ("vocabulary", True, "")]),
 
     ("second theorem in one candidate -> one_theorem", "records.swap",
      'theorem swap_spec (p : records.Pair) : records.swap p ⦃ r => r.first = p.second ∧ r.second = p.first ⦄ := sorry\n'
@@ -95,14 +94,14 @@ RUST_CASES = [
       ("conclusion_shape", True, ""),
       ("vocabulary", False, "forbidden crate name(s) used outside the program position: [FeatureSuite.records.swap]")]),
 
-    ("non-decidable postcondition -> decidable, failing subterm reported", "records.swap",
+    ("non-decidable postcondition passes: the rust track has no decidable check "
+     "(the bounded check decides a statement at its instantiation, or leaves it to the provers)", "records.swap",
      'theorem swap_spec (p : records.Pair) : records.swap p ⦃ r => ∃ g : Std.U32 -> Std.U32, g r.first = r.second ⦄ := sorry',
      [("one_theorem", True, ""),
       ("is_theorem", True, ""),
       ("no_attribute", True, ""),
       ("conclusion_shape", True, ""),
-      ("vocabulary", True, ""),
-      ("decidable", False, "postcondition `∃ g, g r.first = r.second` is not Decidable")]),
+      ("vocabulary", True, "")]),
 
     ("⦃⦄div spec on a loop unit passes", "search.linear_search",
      'theorem linear_search_spec (values : Array Std.U32 8#usize) (target : Std.U32) : '
@@ -111,8 +110,7 @@ RUST_CASES = [
       ("is_theorem", True, ""),
       ("no_attribute", True, ""),
       ("conclusion_shape", True, ""),
-      ("vocabulary", True, ""),
-      ("decidable", True, "")]),
+      ("vocabulary", True, "")]),
 ]
 
 # native track: the manifest is the unit plus its own auxiliaries (read from the
@@ -178,6 +176,13 @@ def run_static():
           gate.CHECK_ORDER == ["one_theorem", "is_theorem", "no_attribute",
                                 "conclusion_shape", "vocabulary", "decidable"],
           str(gate.CHECK_ORDER))
+    check("the rust track has every check but decidable",
+          gate.checks_for("rust-aeneas") == gate.CHECK_ORDER[:-1] and gate.checks_for("lean-native") == gate.CHECK_ORDER,
+          str(gate.checks_for("rust-aeneas")))
+    rust_ok = [{"gate": "wf", "check": c, "ok": True, "detail": ""} for c in gate.RUST_CHECK_ORDER]
+    check("a rust candidate passing its five checks is well-formed", gate.is_well_formed(rust_ok, "rust-aeneas"))
+    check("the same five verdicts are not a native pass (it stopped before decidable)",
+          not gate.is_well_formed(rust_ok, "lean-native") and not gate.is_well_formed(rust_ok))
 
     # verdict schema: is_well_formed / failing_check against synthetic verdicts,
     # no Lean involved.
