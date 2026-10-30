@@ -350,6 +350,25 @@ def run_static_run():
     check("bounded.lean failing to build stops the run with Lean's error, never a skipped verdict",
           "does not build" in raised and "778:30" in raised, raised)
 
+    class Lost(Server):
+        def check(self, code, timeout=None, env=None):
+            class R:
+                timed_out, mem_killed = False, True
+                stdout, stderr = "", ""
+                new_env = None
+            return R()
+    bounded._lean_server.get_server = lambda *a, **k: Lost()  # type: ignore[assignment]
+    try:
+        fresh = Checker()
+        fresh.state = {"ok": True, "env": 72, "env0": 71, "crate": "C"}
+        v = bounded.check_spec(fresh, "S", "f", "/p")
+    except Exception as e:  # anything raised stops the run
+        v = {"status": "raised", "detail": repr(e)}
+    finally:
+        bounded._lean_server.get_server = old
+    check("a check env the server lost (a memory kill) skips the candidate, it does not stop the run",
+          v.get("status") == "skipped" and "check env lost" in v.get("detail", ""), str(v))
+
 
 def run_static_synth():
     print("=== static: wiring into validate ===")

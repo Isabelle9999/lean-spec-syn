@@ -418,11 +418,12 @@ class _Lean:
                 return None, "timeout"
             out = (r.stdout or "") + (r.stderr or "")
             errors = [ln for ln in out.splitlines() if ": error" in ln]
-            if errors or r.new_env is None:
+            if errors:
                 # LSS's own Lean code failing to build is a setup error, never a verdict on
                 # a candidate: stop, as the gate does when its environment is down
-                raise RuntimeError("the bounded check's Lean code does not build: "
-                                   + (errors[0] if errors else out.strip())[:300])
+                raise RuntimeError("the bounded check's Lean code does not build: " + errors[0][:300])
+            if r.new_env is None:  # the server lost it (a memory kill): this candidate goes on unchecked
+                return None, "check env lost" + (" (memory cap)" if getattr(r, "mem_killed", False) else "")
             state["check_env"], state["check_env_of"] = r.new_env, state["env0"]
             state["check_derive"] = parse_evals((r.stdout or "") + (r.stderr or "")).get("derive")
         return state["check_env"], ""

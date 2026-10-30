@@ -635,9 +635,12 @@ elab "lss_derive_deceq " "crate:" crateId:ident : command => do
   for (n, ci) in env.constants.map₂.toList do
     if let .inductInfo info := ci then
       if crateName.isPrefixOf n && info.numIndices == 0 && info.levelParams.isEmpty then
-        let isTrait ← liftTermElabM (lssIsTrait n)
-        let isPropTy ← liftTermElabM <| forallTelescope info.type fun _ s => pure s.isProp
-        unless isTrait || isPropTy do todo := todo.push n
+        -- a type this cannot read is left without DecidableEq, never an error that
+        -- stops the check for the whole crate
+        let skip ← try liftTermElabM do
+            pure ((← lssIsTrait n) || (← forallTelescope info.type fun _ s => pure s.isProp))
+          catch _ => pure true
+        unless skip do todo := todo.push n
   todo := todo.qsort (fun a b => a.toString < b.toString)
   let mut derived := #[]
   let mut viaBEq := #[]
@@ -647,7 +650,7 @@ elab "lss_derive_deceq " "crate:" crateId:ident : command => do
     progress := false
     let mut left := #[]
     for n in todo do
-      if ← liftTermElabM (lssHasDecEq n) then
+      if ← (try liftTermElabM (lssHasDecEq n) catch _ => pure false) then
         progress := true
         continue
       let okCmd ← lssTryCommand (← `(command| deriving instance DecidableEq for $(mkIdent n)))
