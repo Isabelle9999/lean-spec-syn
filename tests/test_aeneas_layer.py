@@ -27,6 +27,9 @@ class _StubChecker:
     def typecheck(self, code, project_dir=None):
         return True, []
 
+    def _aeneas_env_for(self, project_dir):
+        return {"ok": False, "error": "no crate env in this stub"}  # the bounded check skips
+
     def try_aeneas(self, stmt, func, project_dir, candidate_id=None):
         self.calls.append("aeneas")
         import lean
@@ -57,7 +60,7 @@ def run_static():
     # the well-formedness gate needs a real Lean server, and only the order of
     # the proof layers is under test here, so every candidate passes the gate
     gate.check_candidate = lambda *a, **k: [
-        {"gate": "wf", "check": c, "ok": True, "detail": ""} for c in gate.CHECK_ORDER]
+        {"gate": "wf", "check": c, "ok": True, "detail": ""} for c in gate.checks_for(k.get("source", a[-1] if a else None))]
 
     check("aeneas_layer defaults to true in lss.toml",
           lss_config.proof_cfg()["aeneas_layer"] is True)
@@ -463,7 +466,7 @@ theorem top_proved : forall (p : records.Pair),
     check("a crate defining its own List, with a failing #assert, still builds", st["ok"], st["error"][:300])
     v = gate.check_candidate(own, "theorem t : ∀ (value : Std.U32), identity value ⦃ r => r = value ⦄ := sorry",
                              "identity", None, tmp, "rust-aeneas")
-    check("the gate runs on that crate", gate.is_well_formed(v), str(v)[:300])
+    check("the gate runs on that crate", gate.is_well_formed(v, "rust-aeneas"), str(v)[:300])
     b = bounded.check_spec(own, "∀ (value : Std.U32), identity value ⦃ r => r.val = value.val + 1 ⦄", "identity", tmp)
     check("the bounded check runs on that crate and refutes a wrong spec", b["status"] == "refuted", str(b)[:300])
     shutil.rmtree(tmp, ignore_errors=True)

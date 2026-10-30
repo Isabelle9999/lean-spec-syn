@@ -266,7 +266,13 @@ def load_rust_project(project_path):
 
     benchmarks = []
     for decl in normalize_declarations(manifest):
-        if not include_loops and (decl.get("loop_is_body") or decl.get("loop_id") is not None):
+        # a loop body (`f_loop.body`) is never a unit of its own: it is the step
+        # function `loop` iterates, and its specification is the loop invariant,
+        # stated and proved with its loop (Aeneas's loop.spec takes the body's spec
+        # as a premise; its own Hashmap proofs state specs of `f_loop`, never of a body)
+        if decl.get("loop_is_body"):
+            continue
+        if not include_loops and decl.get("loop_id") is not None:
             continue
         if not decl.get("is_local", False):
             continue

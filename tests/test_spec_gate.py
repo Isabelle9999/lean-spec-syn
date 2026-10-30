@@ -21,6 +21,10 @@ def check(name, ok, msg=""):
 # the full candidate shapes below (unit applied directly in ⦃ r => P r ⦄ form) are
 # exactly what synth.py's prompt now asks the LLM to emit -- see run_static's own
 # checks on that prompt text, and synth.py:218-244.
+# what synth.validate (strategies.normalize_call) makes of a call on a struct literal
+RAW_SWAP = '∀ (a b : Std.U32), records.swap { first := a, second := b } ⦃ r => r.first = b ⦄'
+NORMAL_SWAP = ('∀ (a b : Std.U32), ∀ (lss_a0 : _), lss_a0 = { first := a, second := b } → '
+               'records.swap lss_a0 ⦃ r => r.first = b ⦄')
 RUST_CASES = [
     ("correct spec passes every check", "records.swap",
      'theorem swap_spec (p : records.Pair) : records.swap p ⦃ r => r.first = p.second ∧ r.second = p.first ⦄ := sorry',
@@ -28,8 +32,7 @@ RUST_CASES = [
       ("is_theorem", True, ""),
       ("no_attribute", True, ""),
       ("conclusion_shape", True, ""),
-      ("vocabulary", True, ""),
-      ("decidable", True, "")]),
+      ("vocabulary", True, "")]),
 
     ("second theorem in one candidate -> one_theorem", "records.swap",
      'theorem swap_spec (p : records.Pair) : records.swap p ⦃ r => r.first = p.second ∧ r.second = p.first ⦄ := sorry\n'
@@ -95,14 +98,22 @@ RUST_CASES = [
       ("conclusion_shape", True, ""),
       ("vocabulary", False, "forbidden crate name(s) used outside the program position: [FeatureSuite.records.swap]")]),
 
-    ("non-decidable postcondition -> decidable, failing subterm reported", "records.swap",
+    ("non-decidable postcondition passes: the rust track has no decidable check "
+     "(the bounded check decides a statement at its instantiation, or leaves it to the provers)", "records.swap",
      'theorem swap_spec (p : records.Pair) : records.swap p ⦃ r => ∃ g : Std.U32 -> Std.U32, g r.first = r.second ⦄ := sorry',
      [("one_theorem", True, ""),
       ("is_theorem", True, ""),
       ("no_attribute", True, ""),
       ("conclusion_shape", True, ""),
-      ("vocabulary", True, ""),
-      ("decidable", False, "postcondition `∃ g, g r.first = r.second` is not Decidable")]),
+      ("vocabulary", True, "")]),
+
+    ("a call on a constructor in the normal form python gives it passes", "records.swap",
+     'theorem swap_spec : ' + NORMAL_SWAP + ' := sorry',
+     [("one_theorem", True, ""),
+      ("is_theorem", True, ""),
+      ("no_attribute", True, ""),
+      ("conclusion_shape", True, ""),
+      ("vocabulary", True, "")]),
 
     ("⦃⦄div spec on a loop unit passes", "search.linear_search",
      'theorem linear_search_spec (values : Array Std.U32 8#usize) (target : Std.U32) : '
@@ -111,8 +122,7 @@ RUST_CASES = [
       ("is_theorem", True, ""),
       ("no_attribute", True, ""),
       ("conclusion_shape", True, ""),
-      ("vocabulary", True, ""),
-      ("decidable", True, "")]),
+      ("vocabulary", True, "")]),
 ]
 
 # native track: the manifest is the unit plus its own auxiliaries (read from the
@@ -174,10 +184,50 @@ def run_static():
     check("gate.py has no _fix_aeneas_spec-style regex fixups left in synth.py",
           not hasattr(synth, "_fix_aeneas_spec"))
 
+    import strategies
+    norm = strategies.normalize_call
+    check("a call on a struct literal gets the normal form the full test gates", norm(RAW_SWAP, "records.swap") == NORMAL_SWAP,
+          norm(RAW_SWAP, "records.swap"))
+    cases = [
+        ("constructors and literals become variables a hypothesis defines",
+         "∀ {T : Type} (x : T) (tl : C.List T), list_nth_mut (C.List.Cons x tl) 0#u32 ⦃ r => r.1 = x ⦄", "list_nth_mut",
+         "∀ {T : Type} (x : T) (tl : C.List T), ∀ (lss_a0 : _) (lss_a1 : _), lss_a0 = (C.List.Cons x tl) → "
+         "lss_a1 = (0#u32) → list_nth_mut lss_a0 lss_a1 ⦃ r => r.1 = x ⦄"),
+        ("a constant (none) is not a bound variable",
+         "∀ {T : Type} (O : C.Ord T) (v : T), TreeSet.insert_loop O v none ⦃ r => r.1 = true ⦄", "TreeSet.insert_loop",
+         "∀ {T : Type} (O : C.Ord T) (v : T), ∀ (lss_a0 : _), lss_a0 = none → TreeSet.insert_loop O v lss_a0 ⦃ r => r.1 = true ⦄"),
+        ("a variable passed twice is passed once",
+         "∀ (x : Std.U32), f x x ⦃ r => True ⦄", "f", "∀ (x : Std.U32), ∀ (lss_a0 : _), lss_a0 = x → f x lss_a0 ⦃ r => True ⦄"),
+        ("the new binders come after the hypotheses, before the call",
+         "∀ (s : S), s.n > 0 → C.g s (s.n - 1) ⦃ r => True ⦄div", "g",
+         "∀ (s : S), s.n > 0 → ∀ (lss_a0 : _), lss_a0 = (s.n - 1) → C.g s lss_a0 ⦃ r => True ⦄div"),
+        ("a statement already in normal form is unchanged",
+         "∀ (s : S) (i : Std.Usize), h.insert s i ⦃ r => True ⦄", "h.insert", "∀ (s : S) (i : Std.Usize), h.insert s i ⦃ r => True ⦄"),
+        ("a call of another function is unchanged", "∀ x, g 0 ⦃ r => True ⦄", "f", "∀ x, g 0 ⦃ r => True ⦄"),
+        ("a statement with no triple is unchanged", "∀ x, f x = 1", "f", "∀ x, f x = 1"),
+        ("every replaced argument gets its own fresh name, past any the statement already uses",
+         "∀ (x : U32) (lss_a0 : U32), lss_a0 = x → f (g x) (h x) ⦃ r => r = x ⦄", "f",
+         "∀ (x : U32) (lss_a0 : U32), lss_a0 = x → ∀ (lss_a1 : _) (lss_a2 : _), lss_a1 = (g x) → lss_a2 = (h x) → "
+         "f lss_a1 lss_a2 ⦃ r => r = x ⦄"),
+        ("a named argument is left as written",
+         "∀ (p : P), f p.1 (T := Std.U32) ⦃ r => True ⦄", "f",
+         "∀ (p : P), ∀ (lss_a0 : _), lss_a0 = p.1 → f lss_a0 (T := Std.U32) ⦃ r => True ⦄"),
+    ]
+    for desc, stmt, unit, want in cases:
+        got = norm(stmt, unit)
+        check(f"normal form: {desc}", got == want, got)
+
     check("gate.CHECK_ORDER is the six named checks, in order",
           gate.CHECK_ORDER == ["one_theorem", "is_theorem", "no_attribute",
                                 "conclusion_shape", "vocabulary", "decidable"],
           str(gate.CHECK_ORDER))
+    check("the rust track has every check but decidable",
+          gate.checks_for("rust-aeneas") == gate.CHECK_ORDER[:-1] and gate.checks_for("lean-native") == gate.CHECK_ORDER,
+          str(gate.checks_for("rust-aeneas")))
+    rust_ok = [{"gate": "wf", "check": c, "ok": True, "detail": ""} for c in gate.RUST_CHECK_ORDER]
+    check("a rust candidate passing its five checks is well-formed", gate.is_well_formed(rust_ok, "rust-aeneas"))
+    check("the same five verdicts are not a native pass (it stopped before decidable)",
+          not gate.is_well_formed(rust_ok, "lean-native") and not gate.is_well_formed(rust_ok))
 
     # verdict schema: is_well_formed / failing_check against synthetic verdicts,
     # no Lean involved.

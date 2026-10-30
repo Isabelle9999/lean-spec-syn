@@ -266,14 +266,11 @@ elab "lss_wf_gate " src:str " unit:" unitId:ident " manifest:" "[" names:ident,*
             if forbidden.size > 0 then
               temit "vocabulary" false s!"forbidden crate name(s) used outside the program position: {forbidden.toList}"
             else
+              -- no `decidable` check on this track: a generic statement is only
+              -- Decidable at an instantiation (equality on `T`), so the bounded
+              -- check decides it there (lean/bounded.lean), and a statement it
+              -- cannot evaluate goes on to the provers.
               temit "vocabulary" true ""
-              let resTy <- whnf (<- inferType progPos)
-              let alpha := resTy.appArg!
-              let bad? <- withLocalDeclD `r alpha fun rFv => do
-                lssDecidableProbe hyps (post.beta #[rFv])
-              match bad? with
-              | some msg => temit "decidable" false msg
-              | none => temit "decidable" true ""
       else if isRust then
         -- the rust track only ever accepts the Hoare-triple conclusion; anything
         -- else (the old `= ok {...}` equation idiom included) is rejected here,

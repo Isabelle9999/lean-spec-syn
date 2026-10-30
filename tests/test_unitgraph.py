@@ -113,28 +113,26 @@ def run_static():
     nr = loader.normalize_declarations(raw_manifest)
     check("both manifest shapes normalize to the same benches", nf == nr, f"{nf} != {nr}")
 
-    # bench names collided when they were only the lean_name's last segment
-    # (every loop body became "rust_body"); they must be unique per crate
-    loop_bodies_manifest = {
+    # bench names collided when they were only the lean_name's last segment; they
+    # must be unique per crate. a loop body is never a unit: it is proved with its loop
+    def loop_decl(name, parent, body):
+        return {"kind": "function", "is_local": True, "lean_name": name, "rust_name": "demo::" + parent,
+                "loop_id": 0, "loop_is_body": body, "parent_lean_name": "Demo." + parent,
+                "is_recursive": not body, "can_fail": True, "can_diverge": True, "is_opaque": False,
+                "lean_file": "Demo/Code/Funs.lean"}
+    loops_manifest = {
         "import": "Demo",
-        "declarations": [
-            {"kind": "function", "is_local": True, "lean_name": "Demo.f.loop.body",
-             "rust_name": "demo::f", "loop_id": 0, "loop_is_body": True,
-             "parent_lean_name": "Demo.f", "is_recursive": False, "can_fail": True,
-             "can_diverge": True, "is_opaque": False, "lean_file": "Demo/Code/Funs.lean"},
-            {"kind": "function", "is_local": True, "lean_name": "Demo.g.loop.body",
-             "rust_name": "demo::g", "loop_id": 0, "loop_is_body": True,
-             "parent_lean_name": "Demo.g", "is_recursive": False, "can_fail": True,
-             "can_diverge": True, "is_opaque": False, "lean_file": "Demo/Code/Funs.lean"},
-        ],
+        "declarations": [loop_decl("Demo.f_loop", "f", False), loop_decl("Demo.f_loop.body", "f", True),
+                         loop_decl("Demo.g_loop", "g", False), loop_decl("Demo.g_loop.body", "g", True)],
     }
     with tempfile.TemporaryDirectory() as tmp:
         with open(os.path.join(tmp, "rust-spec-synthesis.json"), "w", encoding="utf-8") as f:
-            json.dump(loop_bodies_manifest, f)
+            json.dump(loops_manifest, f)
         benches = loader.load_rust_project(tmp)
         bench_names = [b["name"] for b in benches]
-        check("loop body bench names are unique", len(bench_names) == len(set(bench_names)),
-              str(bench_names))
+        check("loop bench names are unique", len(bench_names) == len(set(bench_names)), str(bench_names))
+        check("loop bodies are not units, their loops are",
+              sorted(b["lean_name"] for b in benches) == ["Demo.f_loop", "Demo.g_loop"], str(bench_names))
 
 
 FIXTURE = '''

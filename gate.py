@@ -8,6 +8,19 @@ import lean as _lean
 import events
 
 CHECK_ORDER = ["one_theorem", "is_theorem", "no_attribute", "conclusion_shape", "vocabulary", "decidable"]
+# the rust track has no decidable check: a generic statement is Decidable only at an
+# instantiation, so the bounded check decides it there (bounded.py)
+RUST_CHECK_ORDER = CHECK_ORDER[:-1]
+
+
+def is_rust(source):
+    """is this the rust track: an Aeneas-translated unit, with the aeneas layer on?"""
+    return source == "rust-aeneas" and _lss_config.proof_cfg()["aeneas_layer"]
+
+
+def checks_for(source=None):
+    """the gate's checks, in order, for a candidate from this source."""
+    return RUST_CHECK_ORDER if is_rust(source) else CHECK_ORDER
 
 _GATE_DIR = os.path.dirname(os.path.abspath(__file__))
 _WF_GATE_PATH = os.path.join(_GATE_DIR, "lean", "wf_gate.lean")
@@ -55,12 +68,13 @@ def check_candidate(lean_checker, candidate_text, func_name, lean_code, project_
     `theorem <name> (binders) (hyps) : <stmt> := sorry` declaration -- not just a
     statement string). returns a list of {gate, check, ok, detail} verdicts, in
     CHECK_ORDER, stopping at the first ok=false (same short-circuit the Lean side
-    itself applies). a candidate is well-formed iff all six checks ran and passed.
+    itself applies). a candidate is well-formed iff all its track's checks ran and
+    passed (checks_for).
     """
-    is_rust = source == "rust-aeneas" and _lss_config.proof_cfg()["aeneas_layer"]
+    rust = is_rust(source)
     esc = _lean._escape_lean_str(candidate_text)
 
-    if is_rust:
+    if rust:
         state = lean_checker._aeneas_env_for(project_dir)
         if not state["ok"]:
             return _env_fail(f"crate env unavailable: {state['error'][:200]}")
@@ -105,7 +119,8 @@ def check_candidate(lean_checker, candidate_text, func_name, lean_code, project_
     verdicts = _parse_verdicts(combined)
     if not verdicts and not (r.timed_out or r.mem_killed):
         return _env_fail(f"gate produced no verdicts: {combined.strip()[:300]}")
-    if is_well_formed(verdicts) or not all(v.get("ok") for v in verdicts):
+    order = checks_for(source)
+    if is_well_formed(verdicts, source) or not all(v.get("ok") for v in verdicts):
         return verdicts
     # every check so far passed but the gate stopped early (timeout, memory cap or
     # an error inside a check): reject at the first check that never ran, so the
@@ -113,15 +128,15 @@ def check_candidate(lean_checker, candidate_text, func_name, lean_code, project_
     errors = [ln for ln in combined.splitlines() if ": error" in ln] or ["no error reported"]
     reason = "timed out" if r.timed_out else "hit the memory cap" if r.mem_killed else errors[0][:300]
     ran = {v.get("check") for v in verdicts}
-    missing = next((c for c in CHECK_ORDER if c not in ran), CHECK_ORDER[-1])
+    missing = next((c for c in order if c not in ran), order[-1])
     verdicts.append({"gate": "wf", "check": missing, "ok": False,
                      "detail": f"gate stopped before this check: {reason}"})
     return verdicts
 
 
-def is_well_formed(verdicts):
-    # all six checks ran, in order, and passed: a list that stops early is not a pass
-    return [v.get("check") for v in verdicts] == CHECK_ORDER and all(v.get("ok") for v in verdicts)
+def is_well_formed(verdicts, source=None):
+    # all the track's checks ran, in order, and passed: a list that stops early is not a pass
+    return [v.get("check") for v in verdicts] == checks_for(source) and all(v.get("ok") for v in verdicts)
 
 
 def failing_check(verdicts):

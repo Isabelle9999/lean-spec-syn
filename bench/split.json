@@ -32,10 +32,10 @@
    "lines": 26
   },
   {
-   "bench": "rust_list_nth_mut_pair_loop",
+   "bench": "rust_list_nth_mut_pair_merge_loop",
    "callees": 1,
    "crate": "Loops",
-   "family": "Loops:Loops.list_nth_mut_pair",
+   "family": "Loops:Loops.list_nth_mut_pair_merge",
    "kinds": [
     "loop",
     "diverge",
@@ -43,7 +43,7 @@
     "self_rec",
     "large"
    ],
-   "lean_name": "Loops.list_nth_mut_pair_loop",
+   "lean_name": "Loops.list_nth_mut_pair_merge_loop",
    "lines": 25
   },
   {
@@ -113,8 +113,8 @@
    "lines": 21
   },
   {
-   "bench": "rust_hashmap_HashMap_move_elements_loop_body",
-   "callees": 6,
+   "bench": "rust_hashmap_HashMap_move_elements_loop",
+   "callees": 7,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.hashmap.HashMap.move_elements",
    "kinds": [
@@ -124,12 +124,12 @@
     "deep",
     "large"
    ],
-   "lean_name": "AeneasStandalone.hashmap.HashMap.move_elements_loop.body",
-   "lines": 21
+   "lean_name": "AeneasStandalone.hashmap.HashMap.move_elements_loop",
+   "lines": 12
   },
   {
-   "bench": "rust_nested_borrows_iter_list_while_loop0_body",
-   "callees": 3,
+   "bench": "rust_nested_borrows_iter_list_while_loop0",
+   "callees": 4,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_list_while",
    "kinds": [
@@ -139,8 +139,8 @@
     "deep",
     "large"
    ],
-   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0.body",
-   "lines": 19
+   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0",
+   "lines": 13
   }
  ],
  "held_back": [
@@ -171,21 +171,6 @@
    "lines": 8
   },
   {
-   "bench": "rust_hashmap_HashMap_move_elements_loop",
-   "callees": 7,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.hashmap.HashMap.move_elements",
-   "kinds": [
-    "loop",
-    "diverge",
-    "generic",
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.hashmap.HashMap.move_elements_loop",
-   "lines": 12
-  },
-  {
    "bench": "rust_nested_borrows_iter_list_while",
    "callees": 5,
    "crate": "AeneasStandalone",
@@ -199,21 +184,6 @@
    "lines": 9
   },
   {
-   "bench": "rust_nested_borrows_iter_list_while_loop0",
-   "callees": 4,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_list_while",
-   "kinds": [
-    "loop",
-    "diverge",
-    "generic",
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0",
-   "lines": 13
-  },
-  {
    "bench": "rust_nested_borrows_iter_list_while_loop0_loop0",
    "callees": 1,
    "crate": "AeneasStandalone",
@@ -224,18 +194,6 @@
    ],
    "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0_loop0",
    "lines": 7
-  },
-  {
-   "bench": "rust_nested_borrows_iter_list_while_loop0_loop0_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_list_while",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "AeneasStandalone.nested_borrows.iter_list_while_loop0_loop0.body",
-   "lines": 8
   },
   {
    "bench": "rust_Node_insert",
@@ -295,16 +253,17 @@
    "lines": 9
   },
   {
-   "bench": "rust_list_nth_mut_pair",
+   "bench": "rust_list_nth_mut_pair_merge",
    "callees": 1,
    "crate": "Loops",
-   "family": "Loops:Loops.list_nth_mut_pair",
+   "family": "Loops:Loops.list_nth_mut_pair_merge",
    "kinds": [
     "diverge",
-    "generic"
+    "generic",
+    "large"
    ],
-   "lean_name": "Loops.list_nth_mut_pair",
-   "lines": 9
+   "lean_name": "Loops.list_nth_mut_pair_merge",
+   "lines": 15
   },
   {
    "bench": "rust_list_nth_mut1",
@@ -331,14 +290,14 @@
  "seed": 0,
  "size": 10,
  "suite": {
-  "AeneasStandalone": 415,
+  "AeneasStandalone": 371,
   "Avl": 13,
   "Bst": 5,
   "FoldArity": 1,
   "FoldStep": 1,
-  "Loops": 108,
+  "Loops": 85,
   "NoNestedBorrows": 60,
-  "Tutorial": 38
+  "Tutorial": 33
  },
  "test": [
   {
@@ -403,7 +362,9 @@
    "callees": 0,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.array_slice_index.slice_use_get_mut_range_from",
-   "kinds": [],
+   "kinds": [
+    "large"
+   ],
    "lean_name": "AeneasStandalone.array_slice_index.slice_use_get_mut_range_from",
    "lines": 10
   },
@@ -430,7 +391,9 @@
    "callees": 0,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.array_slice_index.slice_use_index_mut_range_from",
-   "kinds": [],
+   "kinds": [
+    "large"
+   ],
    "lean_name": "AeneasStandalone.array_slice_index.slice_use_index_mut_range_from",
    "lines": 10
   },
@@ -477,19 +440,6 @@
    "lines": 11
   },
   {
-   "bench": "rust_arrays_add_acc_loop_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.arrays.add_acc",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.arrays.add_acc_loop.body",
-   "lines": 19
-  },
-  {
    "bench": "rust_arrays_array_len",
    "callees": 0,
    "crate": "AeneasStandalone",
@@ -514,7 +464,9 @@
    "callees": 0,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.arrays.array_subslice_mut_",
-   "kinds": [],
+   "kinds": [
+    "large"
+   ],
    "lean_name": "AeneasStandalone.arrays.array_subslice_mut_",
    "lines": 10
   },
@@ -523,7 +475,9 @@
    "callees": 0,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.arrays.array_subslice_shared_",
-   "kinds": [],
+   "kinds": [
+    "large"
+   ],
    "lean_name": "AeneasStandalone.arrays.array_subslice_shared_",
    "lines": 10
   },
@@ -572,7 +526,9 @@
    "callees": 0,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.arrays.array_update1",
-   "kinds": [],
+   "kinds": [
+    "large"
+   ],
    "lean_name": "AeneasStandalone.arrays.array_update1",
    "lines": 10
   },
@@ -668,7 +624,8 @@
    "family": "AeneasStandalone:AeneasStandalone.arrays.f3",
    "kinds": [
     "diverge",
-    "deep"
+    "deep",
+    "large"
    ],
    "lean_name": "AeneasStandalone.arrays.f3",
    "lines": 10
@@ -678,7 +635,9 @@
    "callees": 0,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.arrays.f4",
-   "kinds": [],
+   "kinds": [
+    "large"
+   ],
    "lean_name": "AeneasStandalone.arrays.f4",
    "lines": 10
   },
@@ -793,7 +752,9 @@
    "callees": 0,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.arrays.index_index_array",
-   "kinds": [],
+   "kinds": [
+    "large"
+   ],
    "lean_name": "AeneasStandalone.arrays.index_index_array",
    "lines": 10
   },
@@ -894,18 +855,6 @@
    "lines": 9
   },
   {
-   "bench": "rust_arrays_iter_mut_slice_loop_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.arrays.iter_mut_slice",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "AeneasStandalone.arrays.iter_mut_slice_loop.body",
-   "lines": 10
-  },
-  {
    "bench": "rust_arrays_non_copyable_array",
    "callees": 1,
    "crate": "AeneasStandalone",
@@ -1001,19 +950,6 @@
    "lines": 11
   },
   {
-   "bench": "rust_arrays_sum2_loop_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.arrays.sum2",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.arrays.sum2_loop.body",
-   "lines": 18
-  },
-  {
    "bench": "rust_arrays_sum_loop",
    "callees": 1,
    "crate": "AeneasStandalone",
@@ -1024,19 +960,6 @@
    ],
    "lean_name": "AeneasStandalone.arrays.sum_loop",
    "lines": 9
-  },
-  {
-   "bench": "rust_arrays_sum_loop_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.arrays.sum",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.arrays.sum_loop.body",
-   "lines": 16
   },
   {
    "bench": "rust_arrays_sum_mut_slice",
@@ -1060,19 +983,6 @@
    ],
    "lean_name": "AeneasStandalone.arrays.sum_mut_slice_loop",
    "lines": 9
-  },
-  {
-   "bench": "rust_arrays_sum_mut_slice_loop_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.arrays.sum_mut_slice",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.arrays.sum_mut_slice_loop.body",
-   "lines": 16
   },
   {
    "bench": "rust_arrays_take_all",
@@ -1228,19 +1138,6 @@
    "lines": 11
   },
   {
-   "bench": "rust_arrays_zero_slice_loop_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.arrays.zero_slice",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.arrays.zero_slice_loop.body",
-   "lines": 13
-  },
-  {
    "bench": "rust_bitwise_and_bool",
    "callees": 0,
    "crate": "AeneasStandalone",
@@ -1339,7 +1236,9 @@
    "callees": 1,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.closures.call_closure1.closure.Insts.CoreOpsFunctionFnMutTupleU32.call_mut",
-   "kinds": [],
+   "kinds": [
+    "large"
+   ],
    "lean_name": "AeneasStandalone.closures.call_closure1.closure.Insts.CoreOpsFunctionFnMutTupleU32.call_mut",
    "lines": 10
   },
@@ -1406,7 +1305,9 @@
    "callees": 1,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.closures.call_closure2.closure.Insts.CoreOpsFunctionFnMutTupleU32.call_mut",
-   "kinds": [],
+   "kinds": [
+    "large"
+   ],
    "lean_name": "AeneasStandalone.closures.call_closure2.closure.Insts.CoreOpsFunctionFnMutTupleU32.call_mut",
    "lines": 10
   },
@@ -1731,24 +1632,11 @@
    "kinds": [
     "loop",
     "diverge",
-    "generic"
-   ],
-   "lean_name": "AeneasStandalone.hashmap.HashMap.allocate_slots_loop",
-   "lines": 10
-  },
-  {
-   "bench": "rust_hashmap_HashMap_allocate_slots_loop_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.hashmap.HashMap.allocate_slots",
-   "kinds": [
-    "loop",
-    "diverge",
     "generic",
     "large"
    ],
-   "lean_name": "AeneasStandalone.hashmap.HashMap.allocate_slots_loop.body",
-   "lines": 14
+   "lean_name": "AeneasStandalone.hashmap.HashMap.allocate_slots_loop",
+   "lines": 10
   },
   {
    "bench": "rust_hashmap_HashMap_clear",
@@ -1775,20 +1663,6 @@
    ],
    "lean_name": "AeneasStandalone.hashmap.HashMap.clear_loop",
    "lines": 11
-  },
-  {
-   "bench": "rust_hashmap_HashMap_clear_loop_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.hashmap.HashMap.clear",
-   "kinds": [
-    "loop",
-    "diverge",
-    "generic",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.hashmap.HashMap.clear_loop.body",
-   "lines": 19
   },
   {
    "bench": "rust_hashmap_HashMap_contains_key",
@@ -2095,19 +1969,6 @@
    "lines": 11
   },
   {
-   "bench": "rust_iterators_copy_arrays_loop_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.copy_arrays",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.iterators.copy_arrays_loop.body",
-   "lines": 17
-  },
-  {
    "bench": "rust_iterators_iter_range",
    "callees": 2,
    "crate": "AeneasStandalone",
@@ -2131,19 +1992,6 @@
    "lines": 8
   },
   {
-   "bench": "rust_iterators_iter_range_loop_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.iter_range",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.iterators.iter_range_loop.body",
-   "lines": 12
-  },
-  {
    "bench": "rust_iterators_iter_range_step_by",
    "callees": 2,
    "crate": "AeneasStandalone",
@@ -2161,23 +2009,11 @@
    "family": "AeneasStandalone:AeneasStandalone.iterators.iter_range_step_by",
    "kinds": [
     "loop",
-    "diverge"
-   ],
-   "lean_name": "AeneasStandalone.iterators.iter_range_step_by_loop",
-   "lines": 10
-  },
-  {
-   "bench": "rust_iterators_iter_range_step_by_loop_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.iter_range_step_by",
-   "kinds": [
-    "loop",
     "diverge",
     "large"
    ],
-   "lean_name": "AeneasStandalone.iterators.iter_range_step_by_loop.body",
-   "lines": 14
+   "lean_name": "AeneasStandalone.iterators.iter_range_step_by_loop",
+   "lines": 10
   },
   {
    "bench": "rust_iterators_key_iter_slice_iter",
@@ -2199,23 +2035,11 @@
    "kinds": [
     "loop",
     "diverge",
-    "deep"
+    "deep",
+    "large"
    ],
    "lean_name": "AeneasStandalone.iterators.key_iter_slice_iter_loop0",
    "lines": 10
-  },
-  {
-   "bench": "rust_iterators_key_iter_slice_iter_loop0_body",
-   "callees": 2,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.key_iter_slice_iter",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.iterators.key_iter_slice_iter_loop0.body",
-   "lines": 15
   },
   {
    "bench": "rust_iterators_key_iter_slice_iter_loop0_loop0",
@@ -2228,19 +2052,6 @@
    ],
    "lean_name": "AeneasStandalone.iterators.key_iter_slice_iter_loop0_loop0",
    "lines": 8
-  },
-  {
-   "bench": "rust_iterators_key_iter_slice_iter_loop0_loop0_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.key_iter_slice_iter",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.iterators.key_iter_slice_iter_loop0_loop0.body",
-   "lines": 11
   },
   {
    "bench": "rust_iterators_slice_chunks_exact_iter",
@@ -2269,19 +2080,6 @@
    "lines": 11
   },
   {
-   "bench": "rust_iterators_slice_chunks_exact_iter_loop0_body",
-   "callees": 2,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.slice_chunks_exact_iter",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.iterators.slice_chunks_exact_iter_loop0.body",
-   "lines": 16
-  },
-  {
    "bench": "rust_iterators_slice_chunks_exact_iter_loop0_loop0",
    "callees": 1,
    "crate": "AeneasStandalone",
@@ -2292,19 +2090,6 @@
    ],
    "lean_name": "AeneasStandalone.iterators.slice_chunks_exact_iter_loop0_loop0",
    "lines": 8
-  },
-  {
-   "bench": "rust_iterators_slice_chunks_exact_iter_loop0_loop0_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.slice_chunks_exact_iter",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.iterators.slice_chunks_exact_iter_loop0_loop0.body",
-   "lines": 11
   },
   {
    "bench": "rust_iterators_slice_iter_mut_while",
@@ -2346,19 +2131,6 @@
    "lines": 13
   },
   {
-   "bench": "rust_iterators_slice_iter_mut_while_early_return_loop0_body",
-   "callees": 2,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.slice_iter_mut_while_early_return",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_loop0.body",
-   "lines": 19
-  },
-  {
    "bench": "rust_iterators_slice_iter_mut_while_early_return_loop0_loop0",
    "callees": 1,
    "crate": "AeneasStandalone",
@@ -2368,18 +2140,6 @@
     "diverge"
    ],
    "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_loop0_loop0",
-   "lines": 8
-  },
-  {
-   "bench": "rust_iterators_slice_iter_mut_while_early_return_loop0_loop0_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.slice_iter_mut_while_early_return",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_loop0_loop0.body",
    "lines": 8
   },
   {
@@ -2410,8 +2170,8 @@
    "lines": 14
   },
   {
-   "bench": "rust_iterators_slice_iter_mut_while_early_return_two_bools_loop0_body",
-   "callees": 2,
+   "bench": "rust_iterators_slice_iter_mut_while_early_return_two_bools_loop0_loop0",
+   "callees": 1,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.iterators.slice_iter_mut_while_early_return_two_bools",
    "kinds": [
@@ -2419,32 +2179,8 @@
     "diverge",
     "large"
    ],
-   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_two_bools_loop0.body",
-   "lines": 23
-  },
-  {
-   "bench": "rust_iterators_slice_iter_mut_while_early_return_two_bools_loop0_loop0",
-   "callees": 1,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.slice_iter_mut_while_early_return_two_bools",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
    "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_two_bools_loop0_loop0",
    "lines": 10
-  },
-  {
-   "bench": "rust_iterators_slice_iter_mut_while_early_return_two_bools_loop0_loop0_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.slice_iter_mut_while_early_return_two_bools",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_early_return_two_bools_loop0_loop0.body",
-   "lines": 8
   },
   {
    "bench": "rust_iterators_slice_iter_mut_while_loop0",
@@ -2461,19 +2197,6 @@
    "lines": 13
   },
   {
-   "bench": "rust_iterators_slice_iter_mut_while_loop0_body",
-   "callees": 2,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.slice_iter_mut_while",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_loop0.body",
-   "lines": 19
-  },
-  {
    "bench": "rust_iterators_slice_iter_mut_while_loop0_loop0",
    "callees": 1,
    "crate": "AeneasStandalone",
@@ -2484,18 +2207,6 @@
    ],
    "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_loop0_loop0",
    "lines": 7
-  },
-  {
-   "bench": "rust_iterators_slice_iter_mut_while_loop0_loop0_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.slice_iter_mut_while",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "AeneasStandalone.iterators.slice_iter_mut_while_loop0_loop0.body",
-   "lines": 8
   },
   {
    "bench": "rust_iterators_slice_iter_while",
@@ -2523,19 +2234,6 @@
    "lines": 8
   },
   {
-   "bench": "rust_iterators_slice_iter_while_loop0_body",
-   "callees": 2,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.slice_iter_while",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.iterators.slice_iter_while_loop0.body",
-   "lines": 12
-  },
-  {
    "bench": "rust_iterators_slice_iter_while_loop0_loop0",
    "callees": 1,
    "crate": "AeneasStandalone",
@@ -2546,18 +2244,6 @@
    ],
    "lean_name": "AeneasStandalone.iterators.slice_iter_while_loop0_loop0",
    "lines": 7
-  },
-  {
-   "bench": "rust_iterators_slice_iter_while_loop0_loop0_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.slice_iter_while",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "AeneasStandalone.iterators.slice_iter_while_loop0_loop0.body",
-   "lines": 8
   },
   {
    "bench": "rust_iterators_zip_iter",
@@ -2583,19 +2269,6 @@
    ],
    "lean_name": "AeneasStandalone.iterators.zip_iter_loop",
    "lines": 12
-  },
-  {
-   "bench": "rust_iterators_zip_iter_loop_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.iterators.zip_iter",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.iterators.zip_iter_loop.body",
-   "lines": 17
   },
   {
    "bench": "rust_loops_nested_Key_atranspose_mut",
@@ -2646,19 +2319,6 @@
    "lines": 11
   },
   {
-   "bench": "rust_loops_nested_generate_matrix_inner_loop_body",
-   "callees": 2,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.loops_nested.generate_matrix_inner",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.loops_nested.generate_matrix_inner_loop.body",
-   "lines": 19
-  },
-  {
    "bench": "rust_loops_nested_generate_matrix_loop0",
    "callees": 7,
    "crate": "AeneasStandalone",
@@ -2673,20 +2333,6 @@
    "lines": 14
   },
   {
-   "bench": "rust_loops_nested_generate_matrix_loop0_body",
-   "callees": 6,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.loops_nested.generate_matrix",
-   "kinds": [
-    "loop",
-    "diverge",
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.loops_nested.generate_matrix_loop0.body",
-   "lines": 19
-  },
-  {
    "bench": "rust_loops_nested_generate_matrix_loop0_loop0",
    "callees": 5,
    "crate": "AeneasStandalone",
@@ -2699,20 +2345,6 @@
    ],
    "lean_name": "AeneasStandalone.loops_nested.generate_matrix_loop0_loop0",
    "lines": 14
-  },
-  {
-   "bench": "rust_loops_nested_generate_matrix_loop0_loop0_body",
-   "callees": 4,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.loops_nested.generate_matrix",
-   "kinds": [
-    "loop",
-    "diverge",
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.loops_nested.generate_matrix_loop0_loop0.body",
-   "lines": 29
   },
   {
    "bench": "rust_loops_nested_iter",
@@ -2740,19 +2372,6 @@
    "lines": 9
   },
   {
-   "bench": "rust_loops_nested_iter_loop0_body",
-   "callees": 2,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.loops_nested.iter",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.loops_nested.iter_loop0.body",
-   "lines": 13
-  },
-  {
    "bench": "rust_loops_nested_iter_loop0_loop0",
    "callees": 1,
    "crate": "AeneasStandalone",
@@ -2763,18 +2382,6 @@
    ],
    "lean_name": "AeneasStandalone.loops_nested.iter_loop0_loop0",
    "lines": 9
-  },
-  {
-   "bench": "rust_loops_nested_iter_loop0_loop0_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.loops_nested.iter",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "AeneasStandalone.loops_nested.iter_loop0_loop0.body",
-   "lines": 10
   },
   {
    "bench": "rust_loops_nested_mod_add",
@@ -2822,19 +2429,6 @@
    "lines": 12
   },
   {
-   "bench": "rust_loops_nested_mul_add_as_plus_e_loop0_body",
-   "callees": 2,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.loops_nested.mul_add_as_plus_e",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.loops_nested.mul_add_as_plus_e_loop0.body",
-   "lines": 19
-  },
-  {
    "bench": "rust_loops_nested_mul_add_as_plus_e_loop0_loop0",
    "callees": 1,
    "crate": "AeneasStandalone",
@@ -2846,19 +2440,6 @@
    ],
    "lean_name": "AeneasStandalone.loops_nested.mul_add_as_plus_e_loop0_loop0",
    "lines": 12
-  },
-  {
-   "bench": "rust_loops_nested_mul_add_as_plus_e_loop0_loop0_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.loops_nested.mul_add_as_plus_e",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.loops_nested.mul_add_as_plus_e_loop0_loop0.body",
-   "lines": 19
   },
   {
    "bench": "rust_loops_nested_ntt_layer",
@@ -2887,20 +2468,6 @@
    "lines": 12
   },
   {
-   "bench": "rust_loops_nested_ntt_layer_loop0_body",
-   "callees": 5,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.loops_nested.ntt_layer",
-   "kinds": [
-    "loop",
-    "diverge",
-    "deep",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.loops_nested.ntt_layer_loop0.body",
-   "lines": 19
-  },
-  {
    "bench": "rust_loops_nested_ntt_layer_loop0_loop0",
    "callees": 3,
    "crate": "AeneasStandalone",
@@ -2913,19 +2480,6 @@
    ],
    "lean_name": "AeneasStandalone.loops_nested.ntt_layer_loop0_loop0",
    "lines": 12
-  },
-  {
-   "bench": "rust_loops_nested_ntt_layer_loop0_loop0_body",
-   "callees": 2,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.loops_nested.ntt_layer",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.loops_nested.ntt_layer_loop0_loop0.body",
-   "lines": 28
   },
   {
    "bench": "rust_loops_nested_sample_ntt",
@@ -2990,19 +2544,6 @@
    "lines": 11
   },
   {
-   "bench": "rust_loops_nested_sum_loop0_body",
-   "callees": 2,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.loops_nested.sum",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.loops_nested.sum_loop0.body",
-   "lines": 14
-  },
-  {
    "bench": "rust_loops_nested_sum_loop0_loop0",
    "callees": 1,
    "crate": "AeneasStandalone",
@@ -3013,19 +2554,6 @@
    ],
    "lean_name": "AeneasStandalone.loops_nested.sum_loop0_loop0",
    "lines": 9
-  },
-  {
-   "bench": "rust_loops_nested_sum_loop0_loop0_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.loops_nested.sum",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.loops_nested.sum_loop0_loop0.body",
-   "lines": 13
   },
   {
    "bench": "rust_loops_nested_update_array",
@@ -3053,42 +2581,17 @@
    "lines": 8
   },
   {
-   "bench": "rust_loops_nested_update_array_loop0_body",
-   "callees": 2,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.loops_nested.update_array",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.loops_nested.update_array_loop0.body",
-   "lines": 14
-  },
-  {
    "bench": "rust_loops_nested_update_array_loop0_loop0",
    "callees": 1,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.loops_nested.update_array",
    "kinds": [
     "loop",
-    "diverge"
-   ],
-   "lean_name": "AeneasStandalone.loops_nested.update_array_loop0_loop0",
-   "lines": 10
-  },
-  {
-   "bench": "rust_loops_nested_update_array_loop0_loop0_body",
-   "callees": 0,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.loops_nested.update_array",
-   "kinds": [
-    "loop",
     "diverge",
     "large"
    ],
-   "lean_name": "AeneasStandalone.loops_nested.update_array_loop0_loop0.body",
-   "lines": 14
+   "lean_name": "AeneasStandalone.loops_nested.update_array_loop0_loop0",
+   "lines": 10
   },
   {
    "bench": "rust_nested_borrows_BitReader_peek",
@@ -3169,7 +2672,9 @@
    "callees": 1,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.nested_borrows.call_inner_mut_swap",
-   "kinds": [],
+   "kinds": [
+    "large"
+   ],
    "lean_name": "AeneasStandalone.nested_borrows.call_inner_mut_swap",
    "lines": 10
   },
@@ -3179,7 +2684,8 @@
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.nested_borrows.call_iter_mut_next",
    "kinds": [
-    "generic"
+    "generic",
+    "large"
    ],
    "lean_name": "AeneasStandalone.nested_borrows.call_iter_mut_next",
    "lines": 10
@@ -3230,19 +2736,6 @@
    ],
    "lean_name": "AeneasStandalone.nested_borrows.incr_list_loop",
    "lines": 11
-  },
-  {
-   "bench": "rust_nested_borrows_incr_list_loop_body",
-   "callees": 2,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.incr_list",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.nested_borrows.incr_list_loop.body",
-   "lines": 16
   },
   {
    "bench": "rust_nested_borrows_inner_mut",
@@ -3299,19 +2792,6 @@
    "lines": 11
   },
   {
-   "bench": "rust_nested_borrows_iter_mut_incr_loop_body",
-   "callees": 2,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_mut_incr",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.nested_borrows.iter_mut_incr_loop.body",
-   "lines": 15
-  },
-  {
    "bench": "rust_nested_borrows_iter_mut_loop",
    "callees": 4,
    "crate": "AeneasStandalone",
@@ -3338,20 +2818,6 @@
    ],
    "lean_name": "AeneasStandalone.nested_borrows.iter_mut_loop_loop",
    "lines": 11
-  },
-  {
-   "bench": "rust_nested_borrows_iter_mut_loop_loop_body",
-   "callees": 2,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.iter_mut_loop",
-   "kinds": [
-    "loop",
-    "diverge",
-    "generic",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.nested_borrows.iter_mut_loop_loop.body",
-   "lines": 13
   },
   {
    "bench": "rust_nested_borrows_next1",
@@ -3410,19 +2876,6 @@
    ],
    "lean_name": "AeneasStandalone.nested_borrows.use_mut_borrow_loop",
    "lines": 12
-  },
-  {
-   "bench": "rust_nested_borrows_use_mut_borrow_loop_body",
-   "callees": 1,
-   "crate": "AeneasStandalone",
-   "family": "AeneasStandalone:AeneasStandalone.nested_borrows.use_mut_borrow",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "AeneasStandalone.nested_borrows.use_mut_borrow_loop.body",
-   "lines": 14
   },
   {
    "bench": "rust_options_test_expect",
@@ -3904,7 +3357,8 @@
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.paper.choose",
    "kinds": [
-    "generic"
+    "generic",
+    "large"
    ],
    "lean_name": "AeneasStandalone.paper.choose",
    "lines": 10
@@ -3949,7 +3403,9 @@
    "callees": 1,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.paper.test_choose",
-   "kinds": [],
+   "kinds": [
+    "large"
+   ],
    "lean_name": "AeneasStandalone.paper.test_choose",
    "lines": 10
   },
@@ -4325,7 +3781,9 @@
    "callees": 0,
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.slices.slice_subslice_from_mut",
-   "kinds": [],
+   "kinds": [
+    "large"
+   ],
    "lean_name": "AeneasStandalone.slices.slice_subslice_from_mut",
    "lines": 10
   },
@@ -4355,7 +3813,8 @@
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.slices.split_at_mut",
    "kinds": [
-    "generic"
+    "generic",
+    "large"
    ],
    "lean_name": "AeneasStandalone.slices.split_at_mut",
    "lines": 10
@@ -4518,7 +3977,8 @@
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.traits.order1",
    "kinds": [
-    "generic"
+    "generic",
+    "large"
    ],
    "lean_name": "AeneasStandalone.traits.order1",
    "lines": 10
@@ -4648,7 +4108,8 @@
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.traits.use_with_const_ty2",
    "kinds": [
-    "generic"
+    "generic",
+    "large"
    ],
    "lean_name": "AeneasStandalone.traits.use_with_const_ty2",
    "lines": 10
@@ -4659,7 +4120,8 @@
    "crate": "AeneasStandalone",
    "family": "AeneasStandalone:AeneasStandalone.traits.use_with_const_ty3",
    "kinds": [
-    "generic"
+    "generic",
+    "large"
    ],
    "lean_name": "AeneasStandalone.traits.use_with_const_ty3",
    "lines": 10
@@ -4680,7 +4142,9 @@
    "callees": 0,
    "crate": "Avl",
    "family": "Avl:Avl.I32.Insts.AvlOrd.cmp",
-   "kinds": [],
+   "kinds": [
+    "large"
+   ],
    "lean_name": "Avl.I32.Insts.AvlOrd.cmp",
    "lines": 10
   },
@@ -4845,19 +4309,6 @@
    "lines": 8
   },
   {
-   "bench": "rust_as_radix_minimized_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.as_radix_minimized",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "Loops.as_radix_minimized_loop.body",
-   "lines": 23
-  },
-  {
    "bench": "rust_clear",
    "callees": 2,
    "crate": "Loops",
@@ -4882,19 +4333,6 @@
    "lines": 11
   },
   {
-   "bench": "rust_clear_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.clear",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "Loops.clear_loop.body",
-   "lines": 19
-  },
-  {
    "bench": "rust_copy_carray",
    "callees": 3,
    "crate": "Loops",
@@ -4913,23 +4351,11 @@
    "family": "Loops:Loops.copy_carray",
    "kinds": [
     "loop",
-    "diverge"
-   ],
-   "lean_name": "Loops.copy_carray_loop",
-   "lines": 10
-  },
-  {
-   "bench": "rust_copy_carray_loop_body",
-   "callees": 1,
-   "crate": "Loops",
-   "family": "Loops:Loops.copy_carray",
-   "kinds": [
-    "loop",
     "diverge",
     "large"
    ],
-   "lean_name": "Loops.copy_carray_loop.body",
-   "lines": 15
+   "lean_name": "Loops.copy_carray_loop",
+   "lines": 10
   },
   {
    "bench": "rust_decode",
@@ -4951,23 +4377,11 @@
    "kinds": [
     "loop",
     "diverge",
-    "deep"
+    "deep",
+    "large"
    ],
    "lean_name": "Loops.decode_loop0",
    "lines": 10
-  },
-  {
-   "bench": "rust_decode_loop0_body",
-   "callees": 2,
-   "crate": "Loops",
-   "family": "Loops:Loops.decode",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "Loops.decode_loop0.body",
-   "lines": 18
   },
   {
    "bench": "rust_decode_loop0_loop0",
@@ -4980,18 +4394,6 @@
    ],
    "lean_name": "Loops.decode_loop0_loop0",
    "lines": 7
-  },
-  {
-   "bench": "rust_decode_loop0_loop0_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.decode",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "Loops.decode_loop0_loop0.body",
-   "lines": 8
   },
   {
    "bench": "rust_get_elem_mut",
@@ -5091,18 +4493,6 @@
    "lines": 8
   },
   {
-   "bench": "rust_ignore_input_mut_borrow_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.ignore_input_mut_borrow",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "Loops.ignore_input_mut_borrow_loop.body",
-   "lines": 10
-  },
-  {
    "bench": "rust_ignore_input_shared_borrow",
    "callees": 2,
    "crate": "Loops",
@@ -5126,18 +4516,6 @@
    "lines": 8
   },
   {
-   "bench": "rust_ignore_input_shared_borrow_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.ignore_input_shared_borrow",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "Loops.ignore_input_shared_borrow_loop.body",
-   "lines": 10
-  },
-  {
    "bench": "rust_incr_ignore_input_mut_borrow",
    "callees": 2,
    "crate": "Loops",
@@ -5159,18 +4537,6 @@
    ],
    "lean_name": "Loops.incr_ignore_input_mut_borrow_loop",
    "lines": 8
-  },
-  {
-   "bench": "rust_incr_ignore_input_mut_borrow_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.incr_ignore_input_mut_borrow",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "Loops.incr_ignore_input_mut_borrow_loop.body",
-   "lines": 10
   },
   {
    "bench": "rust_insert_in_list",
@@ -5235,19 +4601,6 @@
    "lines": 8
   },
   {
-   "bench": "rust_issue270_loop_body",
-   "callees": 1,
-   "crate": "Loops",
-   "family": "Loops:Loops.issue270",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "Loops.issue270_loop.body",
-   "lines": 11
-  },
-  {
    "bench": "rust_issue351",
    "callees": 1,
    "crate": "Loops",
@@ -5296,19 +4649,6 @@
    "lines": 11
   },
   {
-   "bench": "rust_issue400_1_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.issue400_1",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "Loops.issue400_1_loop.body",
-   "lines": 21
-  },
-  {
    "bench": "rust_issue400_2",
    "callees": 2,
    "crate": "Loops",
@@ -5332,19 +4672,6 @@
    ],
    "lean_name": "Loops.issue400_2_loop",
    "lines": 12
-  },
-  {
-   "bench": "rust_issue400_2_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.issue400_2",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "Loops.issue400_2_loop.body",
-   "lines": 24
   },
   {
    "bench": "rust_issue500_1",
@@ -5380,18 +4707,6 @@
    "lines": 7
   },
   {
-   "bench": "rust_issue500_1_loop_body",
-   "callees": 1,
-   "crate": "Loops",
-   "family": "Loops:Loops.issue500_1",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "Loops.issue500_1_loop.body",
-   "lines": 8
-  },
-  {
    "bench": "rust_issue500_2",
    "callees": 2,
    "crate": "Loops",
@@ -5424,18 +4739,6 @@
    "lines": 7
   },
   {
-   "bench": "rust_issue500_2_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.issue500_2",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "Loops.issue500_2_loop.body",
-   "lines": 5
-  },
-  {
    "bench": "rust_issue500_3",
    "callees": 2,
    "crate": "Loops",
@@ -5456,18 +4759,6 @@
     "diverge"
    ],
    "lean_name": "Loops.issue500_3_loop",
-   "lines": 7
-  },
-  {
-   "bench": "rust_issue500_3_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.issue500_3",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "Loops.issue500_3_loop.body",
    "lines": 7
   },
   {
@@ -5505,18 +4796,6 @@
    "lines": 7
   },
   {
-   "bench": "rust_iter_local_mut_borrow_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.iter_local_mut_borrow",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "Loops.iter_local_mut_borrow_loop.body",
-   "lines": 9
-  },
-  {
    "bench": "rust_iter_local_shared_borrow",
    "callees": 2,
    "crate": "Loops",
@@ -5540,18 +4819,6 @@
    "lines": 7
   },
   {
-   "bench": "rust_iter_local_shared_borrow_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.iter_local_shared_borrow",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "Loops.iter_local_shared_borrow_loop.body",
-   "lines": 7
-  },
-  {
    "bench": "rust_iter_loop",
    "callees": 1,
    "crate": "Loops",
@@ -5562,18 +4829,6 @@
    ],
    "lean_name": "Loops.iter_loop",
    "lines": 8
-  },
-  {
-   "bench": "rust_iter_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.iter",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "Loops.iter_loop.body",
-   "lines": 10
   },
   {
    "bench": "rust_list_mem",
@@ -5628,23 +4883,22 @@
    "lines": 18
   },
   {
-   "bench": "rust_list_nth_mut_pair_merge",
+   "bench": "rust_list_nth_mut_pair",
    "callees": 1,
    "crate": "Loops",
-   "family": "Loops:Loops.list_nth_mut_pair_merge",
+   "family": "Loops:Loops.list_nth_mut_pair",
    "kinds": [
     "diverge",
-    "generic",
-    "large"
+    "generic"
    ],
-   "lean_name": "Loops.list_nth_mut_pair_merge",
-   "lines": 15
+   "lean_name": "Loops.list_nth_mut_pair",
+   "lines": 9
   },
   {
-   "bench": "rust_list_nth_mut_pair_merge_loop",
+   "bench": "rust_list_nth_mut_pair_loop",
    "callees": 1,
    "crate": "Loops",
-   "family": "Loops:Loops.list_nth_mut_pair_merge",
+   "family": "Loops:Loops.list_nth_mut_pair",
    "kinds": [
     "loop",
     "diverge",
@@ -5652,7 +4906,7 @@
     "self_rec",
     "large"
    ],
-   "lean_name": "Loops.list_nth_mut_pair_merge_loop",
+   "lean_name": "Loops.list_nth_mut_pair_loop",
    "lines": 25
   },
   {
@@ -5716,7 +4970,8 @@
    "family": "Loops:Loops.list_nth_mut_with_id",
    "kinds": [
     "diverge",
-    "generic"
+    "generic",
+    "large"
    ],
    "lean_name": "Loops.list_nth_mut_with_id",
    "lines": 10
@@ -5923,18 +5178,6 @@
    "lines": 7
   },
   {
-   "bench": "rust_reborrow_const_loop_body",
-   "callees": 1,
-   "crate": "Loops",
-   "family": "Loops:Loops.reborrow_const",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "Loops.reborrow_const_loop.body",
-   "lines": 8
-  },
-  {
    "bench": "rust_reborrow_const_reborrow",
    "callees": 0,
    "crate": "Loops",
@@ -5965,18 +5208,6 @@
    ],
    "lean_name": "Loops.single_break_loop",
    "lines": 7
-  },
-  {
-   "bench": "rust_single_break_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.single_break",
-   "kinds": [
-    "loop",
-    "diverge"
-   ],
-   "lean_name": "Loops.single_break_loop.body",
-   "lines": 9
   },
   {
    "bench": "rust_sum",
@@ -6014,19 +5245,6 @@
    "lines": 11
   },
   {
-   "bench": "rust_sum_array_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.sum_array",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "Loops.sum_array_loop.body",
-   "lines": 15
-  },
-  {
    "bench": "rust_sum_loop",
    "callees": 1,
    "crate": "Loops",
@@ -6037,19 +5255,6 @@
    ],
    "lean_name": "Loops.sum_loop",
    "lines": 8
-  },
-  {
-   "bench": "rust_sum_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.sum",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "Loops.sum_loop.body",
-   "lines": 13
   },
   {
    "bench": "rust_sum_with_mut_borrows",
@@ -6075,19 +5280,6 @@
    "lines": 9
   },
   {
-   "bench": "rust_sum_with_mut_borrows_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.sum_with_mut_borrows",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "Loops.sum_with_mut_borrows_loop.body",
-   "lines": 13
-  },
-  {
    "bench": "rust_sum_with_shared_borrows",
    "callees": 2,
    "crate": "Loops",
@@ -6109,19 +5301,6 @@
    ],
    "lean_name": "Loops.sum_with_shared_borrows_loop",
    "lines": 9
-  },
-  {
-   "bench": "rust_sum_with_shared_borrows_loop_body",
-   "callees": 0,
-   "crate": "Loops",
-   "family": "Loops:Loops.sum_with_shared_borrows",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "Loops.sum_with_shared_borrows_loop.body",
-   "lines": 13
   },
   {
    "bench": "rust_ExpandSimpliy_check_expand_simplify_symb1",
@@ -6194,7 +5373,8 @@
    "crate": "NoNestedBorrows",
    "family": "NoNestedBorrows:NoNestedBorrows.choose",
    "kinds": [
-    "generic"
+    "generic",
+    "large"
    ],
    "lean_name": "NoNestedBorrows.choose",
    "lines": 10
@@ -6204,7 +5384,9 @@
    "callees": 1,
    "crate": "NoNestedBorrows",
    "family": "NoNestedBorrows:NoNestedBorrows.choose_test",
-   "kinds": [],
+   "kinds": [
+    "large"
+   ],
    "lean_name": "NoNestedBorrows.choose_test",
    "lines": 10
   },
@@ -6733,19 +5915,6 @@
    "lines": 12
   },
   {
-   "bench": "rust_add_loop_body",
-   "callees": 1,
-   "crate": "Tutorial",
-   "family": "Tutorial:Tutorial.add",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "Tutorial.add_loop.body",
-   "lines": 28
-  },
-  {
    "bench": "rust_add_no_overflow",
    "callees": 2,
    "crate": "Tutorial",
@@ -6768,19 +5937,6 @@
    ],
    "lean_name": "Tutorial.add_no_overflow_loop",
    "lines": 11
-  },
-  {
-   "bench": "rust_add_no_overflow_loop_body",
-   "callees": 0,
-   "crate": "Tutorial",
-   "family": "Tutorial:Tutorial.add_no_overflow",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "Tutorial.add_no_overflow_loop.body",
-   "lines": 22
   },
   {
    "bench": "rust_add_with_carry",
@@ -6807,19 +5963,6 @@
    "lines": 12
   },
   {
-   "bench": "rust_add_with_carry_loop_body",
-   "callees": 0,
-   "crate": "Tutorial",
-   "family": "Tutorial:Tutorial.add_with_carry",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "Tutorial.add_with_carry_loop.body",
-   "lines": 30
-  },
-  {
    "bench": "rust_append_in_place",
    "callees": 2,
    "crate": "Tutorial",
@@ -6837,7 +5980,8 @@
    "crate": "Tutorial",
    "family": "Tutorial:Tutorial.choose",
    "kinds": [
-    "generic"
+    "generic",
+    "large"
    ],
    "lean_name": "Tutorial.choose",
    "lines": 10
@@ -6870,7 +6014,8 @@
    "family": "Tutorial:Tutorial.i32_id",
    "kinds": [
     "diverge",
-    "self_rec"
+    "self_rec",
+    "large"
    ],
    "lean_name": "Tutorial.i32_id",
    "lines": 10
@@ -7031,20 +6176,6 @@
    "lines": 9
   },
   {
-   "bench": "rust_pseudo_random_loop_body",
-   "callees": 0,
-   "crate": "Tutorial",
-   "family": "Tutorial:Tutorial.pseudo_random",
-   "kinds": [
-    "loop",
-    "diverge",
-    "generic",
-    "large"
-   ],
-   "lean_name": "Tutorial.pseudo_random_loop.body",
-   "lines": 12
-  },
-  {
    "bench": "rust_reverse",
    "callees": 1,
    "crate": "Tutorial",
@@ -7065,7 +6196,8 @@
     "loop",
     "diverge",
     "generic",
-    "self_rec"
+    "self_rec",
+    "large"
    ],
    "lean_name": "Tutorial.reverse_loop",
    "lines": 10
@@ -7113,19 +6245,6 @@
    ],
    "lean_name": "Tutorial.zero_loop",
    "lines": 11
-  },
-  {
-   "bench": "rust_zero_loop_body",
-   "callees": 0,
-   "crate": "Tutorial",
-   "family": "Tutorial:Tutorial.zero",
-   "kinds": [
-    "loop",
-    "diverge",
-    "large"
-   ],
-   "lean_name": "Tutorial.zero_loop.body",
-   "lines": 19
   }
  ]
 }

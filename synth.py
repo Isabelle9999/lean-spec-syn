@@ -7,7 +7,7 @@ import anthropic
 from lean import (_errors, run_in_project, classify_function, MutationEngine, Cache,
                   ProofResult, TACTICS, _find_def_in_text, check_proof,
                   _witnesses_for_type, _diverse_tuples, _parse_struct_defs, MIN_TRY)
-from strategies import generate_from_examples, generate_from_negatives, generate_with_proof, theorems
+from strategies import generate_from_examples, generate_from_negatives, generate_with_proof, theorems, normalize_call
 import events
 import pricing
 import lss_config as _lss_config
@@ -233,6 +233,10 @@ class LLMClient:
                 "- Apply the function only to distinct bound variables; state a case as a hypothesis:\n"
                 "  ∀ (l : CList T) (x : T) (tl : CList T), l = CList.CCons x tl → f l ⦃ r => P r ⦄, never f (CList.CCons x tl)\n"
                 "- Write the crate's own types with the crate name, as in the signature above (e.g. Bst.Ord T)\n"
+                "- A generic function's theorem stays generic, over all T. For a trait argument (OrdInst : <Crate>.Ord T),\n"
+                "  assume what the property needs of its methods as a hypothesis, with a Mathlib class for T if needed:\n"
+                "  ∀ {T : Type} (OrdInst : <Crate>.Ord T) [LinearOrder T] (hcmp : ∀ a b, OrdInst.cmp a b = ok (if a < b then\n"
+                "  <Crate>.Ordering.Less else if a = b then <Crate>.Ordering.Equal else <Crate>.Ordering.Greater)) ..., f OrdInst ... ⦃ r => P r ⦄\n"
                 "- Arithmetic can fail: a + b returns Result, not a plain value\n"
                 "- Vec type is alloc.vec.Vec Std.U32, not Vec or List\n"
                 "- if (and only if) this function loops or recurses, you may instead write\n"
@@ -1342,6 +1346,10 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
     with events.context(stage="validate", source=source or "lean-native"):
         for spec_idx, spec in enumerate(specs):
             with events.context(candidate_id=spec["name"]):
+                if _gate.is_rust(source):
+                    # the gate's normal form: the call on distinct variables, any other
+                    # argument defined by a hypothesis (an equivalent statement)
+                    spec["stmt"] = normalize_call(spec["stmt"], func)
                 stmt_norm = _normalize_stmt(spec["stmt"])
                 if stmt_norm in processed_stmts:
                     spec["status"] = "rejected"
@@ -1387,7 +1395,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                 # already known to typecheck, since the gate elaborates it for real)
                 candidate_text = f"theorem {spec['name']} : {spec['stmt']} := sorry"
                 verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source)
-                ok = _gate.is_well_formed(verdicts)
+                ok = _gate.is_well_formed(verdicts, source)
                 if _gate.failing_check(verdicts) == "env":
                     # the crate/base environment never came up -- a setup error,
                     # not anything about this candidate, so no amount of LLM
@@ -1418,10 +1426,11 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                     if fixed:
                         fm = theorems(fixed)
                         if fm:
-                            spec["stmt"] = fm[0][1]
+                            spec["stmt"] = (normalize_call(fm[0][1], func) if _gate.is_rust(source)
+                                            else fm[0][1])
                             candidate_text = f"theorem {spec['name']} : {spec['stmt']} := sorry"
                             verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source)
-                            if _gate.is_well_formed(verdicts):
+                            if _gate.is_well_formed(verdicts, source):
                                 ok = True
                                 if verbose:
                                     print(f"  [g1] {spec['name']}: fixed stmt passes the gate")
@@ -1447,9 +1456,11 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                 # prover. a false spec is refuted with its shrunk witness, a vacuous
                 # one rejected, and either gets one repair from the counterexample; a
                 # narrow precondition only warns, and a timeout goes on to the provers.
-                if source == "rust-aeneas" and func:
+                if _gate.is_rust(source) and func:
                     b = _bounded.check_spec(lean_checker, spec["stmt"], func, project_dir)
                     spec["bounded"] = b
+                    events.emit("bounded", status=b["status"], warning=b.get("warning"),
+                                detail=(b.get("detail") or "")[:300], kernel=b.get("kernel"))
                     if verbose:
                         print(f"  [b] {spec['name']}: {b['status']}"
                               + (f" ({b['warning']})" if b.get("warning") else ""))

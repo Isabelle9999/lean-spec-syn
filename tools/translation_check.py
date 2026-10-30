@@ -68,6 +68,10 @@ LEAN_SCALAR_SUFFIX = {
 #  ("enum", lean_name, [(variant, [T, ...]), ...])
 #  ("list_enum", lean_name, nil_variant, cons_variant, elem_T)  -- Nil/Cons(T,Self) shape
 #  ("option", T)  -- Rust Option<T> / Lean Option T, for any T already supported
+# the bounded check reads types off Lean itself (lean/bounded.lean's lssTypeIR), which
+# adds: a struct/enum/list_enum may end with its Lean type text (a generic one at its
+# arguments, e.g. "Crate.List Aeneas.Std.U32"), and ("self",) marks where an inductive
+# contains itself (through Option or directly).
 
 class Unsupported(Exception):
     def __init__(self, reason):
@@ -646,8 +650,12 @@ def _seed_bytes(seed, fn_id):
 
 # ====================== Lean codegen ======================
 
-def lean_literal(T, value):
+def lean_literal(T, value, self_T=None):
     kind = T[0]
+    if kind == "self":
+        return lean_literal(self_T, value, self_T)
+    if kind in ("struct", "enum", "list_enum"):
+        self_T = T
     if kind == "bool":
         return "true" if value else "false"
     if kind == "int":
@@ -674,12 +682,12 @@ def lean_literal(T, value):
         suf = LEAN_SCALAR_SUFFIX[T[1]]
         return f"{lit}#{suf}"
     if kind == "tuple":
-        return "(" + ", ".join(lean_literal(e, v) for e, v in zip(T[1], value)) + ")"
+        return "(" + ", ".join(lean_literal(e, v, self_T) for e, v in zip(T[1], value)) + ")"
     if kind == "array":
         # Array's obligation is l.length = n.val for a small literal n: a
         # plain structural fact, nothing to do with Usize.max/numBits.
-        inner = ", ".join(lean_literal(T[1], v) for v in value)
-        return f"(⟨[{inner}], by decide⟩ : Array {lean_type_str(T[1])} {T[2]}#usize)"
+        inner = ", ".join(lean_literal(T[1], v, self_T) for v in value)
+        return f"(⟨[{inner}], by decide⟩ : Array {lean_type_str(T[1], self_T)} {T[2]}#usize)"
     if kind in ("slice", "vec"):
         # Vec/Slice's obligation is l.length <= Usize.max, which needs the
         # irreducible Usize.max/numBits unfolded and cased on the platform
@@ -687,23 +695,23 @@ def lean_literal(T, value):
         # lists this produces, native_decide a fallback for anything it
         # can't close symbolically.
         ctor = "Slice" if kind == "slice" else "alloc.vec.Vec"
-        inner = ", ".join(lean_literal(T[1], v) for v in value)
+        inner = ", ".join(lean_literal(T[1], v, self_T) for v in value)
         return (f"(⟨[{inner}], by first | decide | "
                 f"(simp [Usize.max, Usize.numBits]; cases System.Platform.numBits_eq <;> simp_all; done) | "
-                f"native_decide⟩ : {ctor} {lean_type_str(T[1])})")
+                f"native_decide⟩ : {ctor} {lean_type_str(T[1], self_T)})")
     if kind == "struct":
-        parts = ", ".join(f"{fn} := {lean_literal(ft, value[fn])}" for fn, ft in T[2])
+        parts = ", ".join(f"{fn} := {lean_literal(ft, value[fn], self_T)}" for fn, ft in T[2])
         return "{ " + parts + " }"
     if kind == "enum":
         for vname, arg_types in T[2]:
             if value.get("tag") == vname:
                 if not arg_types:
                     return f"{T[1]}.{vname}"
-                args = " ".join(lean_literal(a, v) for a, v in zip(arg_types, value["args"]))
+                args = " ".join(lean_literal(a, v, self_T) for a, v in zip(arg_types, value["args"]))
                 return f"({T[1]}.{vname} {args})"
         raise Unsupported(f"unknown variant {value.get('tag')!r} for {T[1]}")
     if kind == "list_enum":
-        _, lean_name, nil_v, cons_v, elem_T = T
+        lean_name, nil_v, cons_v, elem_T = T[1:5]
         items = _list_enum_to_list(T, value)
         acc = f"{lean_name}.{nil_v}"
         for item in reversed(items):
@@ -712,12 +720,12 @@ def lean_literal(T, value):
     if kind == "option":
         if value is None:
             return "none"
-        return f"(some {lean_literal(T[1], value)})"
+        return f"(some {lean_literal(T[1], value, self_T)})"
     raise Unsupported(f"no literal for {T!r}")
 
 
 def _list_enum_to_list(T, value):
-    _, lean_name, nil_v, cons_v, elem_T = T
+    cons_v = T[3]
     items = []
     v = value
     while isinstance(v, dict) and v.get("tag") == cons_v:
@@ -726,29 +734,78 @@ def _list_enum_to_list(T, value):
     return items
 
 
-def lean_type_str(T):
+def type_text(T):
+    """a struct/enum/list_enum's own Lean type text, when the IR carries one."""
+    n = {"struct": 4, "enum": 4, "list_enum": 6}.get(T[0])
+    return T[n - 1] if n and len(T) == n else None
+
+
+def lean_type_str(T, self_T=None):
     kind = T[0]
+    if kind == "self":
+        return lean_type_str(self_T)
+    if type_text(T):
+        return f"({type_text(T)})"
     if kind == "bool":
         return "Bool"
     if kind == "int":
         return T[1]
     if kind == "tuple":
-        return "(" + " × ".join(lean_type_str(e) for e in T[1]) + ")"
+        return "(" + " × ".join(lean_type_str(e, self_T) for e in T[1]) + ")"
     if kind == "array":
-        return f"(Array {lean_type_str(T[1])} {T[2]}#usize)"
+        return f"(Array {lean_type_str(T[1], self_T)} {T[2]}#usize)"
     if kind == "slice":
-        return f"(Slice {lean_type_str(T[1])})"
+        return f"(Slice {lean_type_str(T[1], self_T)})"
     if kind == "vec":
-        return f"(alloc.vec.Vec {lean_type_str(T[1])})"
+        return f"(alloc.vec.Vec {lean_type_str(T[1], self_T)})"
     if kind in ("struct", "enum", "list_enum"):
         return T[1]
     if kind == "option":
-        return f"(Option {lean_type_str(T[1])})"
+        return f"(Option {lean_type_str(T[1], self_T)})"
     raise Unsupported(f"no lean type string for {T!r}")
 
 
-def lean_encode_expr(T, var):
+def has_self(T):
+    """does T contain itself (a ("self",) inside its own struct/enum)?"""
+    def walk(t, top):
+        k = t[0]
+        if k == "self":
+            return True
+        if k in ("struct", "enum", "list_enum") and not top:
+            return False  # a nested named type's own self refers to it, not to T
+        if k == "tuple":
+            return any(walk(e, False) for e in t[1])
+        if k in ("array", "slice", "vec", "option"):
+            return walk(t[1], False)
+        if k == "struct":
+            return any(walk(ft, False) for _, ft in t[2])
+        if k == "enum":
+            return any(walk(a, False) for _, args in t[2] for a in args)
+        return False
+    return walk(T, True)
+
+
+def lean_encode_expr(T, var, defs=None, self_fn=None, _body=False):
+    """a Lean term encoding `var : T` as the JSON python reads back. with `defs` (a
+    list), a type that contains itself is encoded by a `partial def` appended to
+    it (sent before the command that uses it) instead of a `let rec`."""
     kind = T[0]
+    if kind == "self":
+        if self_fn is None:
+            raise Unsupported("a recursive type needs its encoder as a def")
+        return f"({self_fn} {var})"
+    if defs is not None and kind in ("struct", "enum") and not _body and has_self(T):
+        i = len(defs)
+        name = f"lss_enc_{i}"
+        defs.append("")  # the name is taken before the body refers to it
+        body = lean_encode_expr(T, "x", defs, name, _body=True)
+        # after the defs its body calls, which were added while it was built
+        defs.pop(i)
+        defs.append(f"partial def {name} (x : {lean_type_str(T)}) : String :=\n  {body}")
+        return f"({name} {var})"
+
+    def enc(t, v):
+        return lean_encode_expr(t, v) if defs is None else lean_encode_expr(t, v, defs, self_fn)
     if kind == "bool":
         return f'(if {var} then "true" else "false")'
     if kind == "int":
@@ -765,14 +822,14 @@ def lean_encode_expr(T, var):
                     acc = f"{acc}.2"
                 if i < n - 1:
                     acc = f"{acc}.1"
-            parts.append(lean_encode_expr(e, acc))
+            parts.append(enc(e, acc))
         return '("[" ++ String.intercalate "," [' + ", ".join(parts) + '] ++ "]")'
     if kind in ("array", "slice", "vec"):
-        inner = lean_encode_expr(T[1], "_x")
+        inner = enc(T[1], "_x")
         return ('("[" ++ String.intercalate "," (' + f'({var}).val.map (fun _x => {inner})'
                 + ') ++ "]")')
     if kind == "struct":
-        parts = [f'("\\"{fn}\\":" ++ {lean_encode_expr(ft, f"({var}).{fn}")})' for fn, ft in T[2]]
+        parts = [f'("\\"{fn}\\":" ++ {enc(ft, f"({var}).{fn}")})' for fn, ft in T[2]]
         return '("{" ++ String.intercalate "," [' + ", ".join(parts) + '] ++ "}")'
     if kind == "enum":
         arms = []
@@ -781,20 +838,27 @@ def lean_encode_expr(T, var):
                 arms.append(f'| {T[1]}.{vname} => "{{\\"tag\\":\\"{vname}\\",\\"args\\":[]}}"')
             else:
                 binders = " ".join(f"b{i}" for i in range(len(arg_types)))
-                encs = ", ".join(lean_encode_expr(a, f"b{i}") for i, a in enumerate(arg_types))
+                encs = ", ".join(enc(a, f"b{i}") for i, a in enumerate(arg_types))
                 arms.append(f'| {T[1]}.{vname} {binders} => "{{\\"tag\\":\\"{vname}\\",\\"args\\":[" ++ '
                             f'String.intercalate "," [{encs}] ++ "]}}"')
         return f"(match {var} with " + " ".join(arms) + ")"
     if kind == "list_enum":
-        _, lean_name, nil_v, cons_v, elem_T = T
-        enc_elem = lean_encode_expr(elem_T, "h")
+        lean_name, nil_v, cons_v, elem_T = T[1:5]
+        enc_elem = enc(elem_T, "h")
+        if defs is not None:
+            name = f"lss_enc_{len(defs)}"
+            defs.append(f"partial def {name} (x : {lean_type_str(T)}) : String := match x with "
+                        f'| {lean_name}.{nil_v} => "{{\\"tag\\":\\"{nil_v}\\",\\"args\\":[]}}" '
+                        f"| {lean_name}.{cons_v} h t => "
+                        f'"{{\\"tag\\":\\"{cons_v}\\",\\"args\\":[" ++ {enc_elem} ++ "," ++ {name} t ++ "]}}"')
+            return f"({name} {var})"
         return (f"(let rec _enc (x : {lean_name}) : String := match x with "
                 f'| {lean_name}.{nil_v} => "{{\\"tag\\":\\"{nil_v}\\",\\"args\\":[]}}" '
                 f"| {lean_name}.{cons_v} h t => "
                 f'"{{\\"tag\\":\\"{cons_v}\\",\\"args\\":[" ++ {enc_elem} ++ "," ++ _enc t ++ "]}}" '
                 f"_enc {var})")
     if kind == "option":
-        inner = lean_encode_expr(T[1], "x")
+        inner = enc(T[1], "x")
         return f'(match {var} with | none => "null" | some x => {inner})'
     raise Unsupported(f"no encoder for {T!r}")
 
