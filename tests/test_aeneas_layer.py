@@ -27,6 +27,9 @@ class _StubChecker:
     def typecheck(self, code, project_dir=None):
         return True, []
 
+    def _aeneas_env_for(self, project_dir):
+        return {"ok": False, "error": "no crate env in this stub"}  # the bounded check skips
+
     def try_aeneas(self, stmt, func, project_dir, candidate_id=None):
         self.calls.append("aeneas")
         import lean

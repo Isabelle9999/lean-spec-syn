@@ -233,6 +233,10 @@ class LLMClient:
                 "- Apply the function only to distinct bound variables; state a case as a hypothesis:\n"
                 "  ∀ (l : CList T) (x : T) (tl : CList T), l = CList.CCons x tl → f l ⦃ r => P r ⦄, never f (CList.CCons x tl)\n"
                 "- Write the crate's own types with the crate name, as in the signature above (e.g. Bst.Ord T)\n"
+                "- A generic function's theorem stays generic, over all T. For a trait argument (OrdInst : <Crate>.Ord T),\n"
+                "  assume what the property needs of its methods as a hypothesis, with a Mathlib class for T if needed:\n"
+                "  ∀ {T : Type} (OrdInst : <Crate>.Ord T) [LinearOrder T] (hcmp : ∀ a b, OrdInst.cmp a b = ok (if a < b then\n"
+                "  <Crate>.Ordering.Less else if a = b then <Crate>.Ordering.Equal else <Crate>.Ordering.Greater)) ..., f OrdInst ... ⦃ r => P r ⦄\n"
                 "- Arithmetic can fail: a + b returns Result, not a plain value\n"
                 "- Vec type is alloc.vec.Vec Std.U32, not Vec or List\n"
                 "- if (and only if) this function loops or recurses, you may instead write\n"
@@ -1455,6 +1459,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                 if _gate.is_rust(source) and func:
                     b = _bounded.check_spec(lean_checker, spec["stmt"], func, project_dir)
                     spec["bounded"] = b
+                    events.emit("bounded", status=b["status"], warning=b.get("warning"),
+                                detail=(b.get("detail") or "")[:300], kernel=b.get("kernel"))
                     if verbose:
                         print(f"  [b] {spec['name']}: {b['status']}"
                               + (f" ({b['warning']})" if b.get("warning") else ""))
