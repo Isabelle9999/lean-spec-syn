@@ -322,6 +322,26 @@ def run_static_run():
     check("what was derived is kept with the crate env", ck.state.get("check_derive", {}).get("derived") == ["C.T"],
           str(ck.state.get("check_derive")))
 
+    class Broken(Server):
+        def check(self, code, timeout=None, env=None):
+            class R:
+                timed_out = False
+                stdout, stderr = ":778:30: error: unexpected token ':='; expected '}'", ""
+                new_env = 78
+            return R()
+    bounded._lean_server.get_server = lambda *a, **k: Broken()  # type: ignore[assignment]
+    try:
+        fresh = Checker()
+        fresh.state = {"ok": True, "env": 62, "env0": 61, "crate": "C"}
+        bounded.check_spec(fresh, "S", "f", "/p")
+        raised = ""
+    except RuntimeError as e:
+        raised = str(e)
+    finally:
+        bounded._lean_server.get_server = old
+    check("bounded.lean failing to build stops the run with Lean's error, never a skipped verdict",
+          "does not build" in raised and "778:30" in raised, raised)
+
 
 def run_static_synth():
     print("=== static: wiring into validate ===")

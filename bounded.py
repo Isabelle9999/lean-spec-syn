@@ -414,8 +414,15 @@ class _Lean:
             text = self.prefix + _bounded_text() + f"\nlss_derive_deceq crate:{state['crate']}\n"
             r = server.check(text, timeout=EVAL_TIMEOUT, env=state["env0"])
             self.checker.lean_calls += 1
-            if r.timed_out or r.new_env is None:
-                return None, "timeout" if r.timed_out else ((r.stderr or "") + (r.stdout or "")).strip()[:300]
+            if r.timed_out:
+                return None, "timeout"
+            out = (r.stdout or "") + (r.stderr or "")
+            errors = [ln for ln in out.splitlines() if ": error" in ln]
+            if errors or r.new_env is None:
+                # LSS's own Lean code failing to build is a setup error, never a verdict on
+                # a candidate: stop, as the gate does when its environment is down
+                raise RuntimeError("the bounded check's Lean code does not build: "
+                                   + (errors[0] if errors else out.strip())[:300])
             state["check_env"], state["check_env_of"] = r.new_env, state["env0"]
             state["check_derive"] = parse_evals((r.stdout or "") + (r.stderr or "")).get("derive")
         return state["check_env"], ""
