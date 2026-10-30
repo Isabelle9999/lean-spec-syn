@@ -205,6 +205,10 @@ def run_static():
          "∀ (s : S) (i : Std.Usize), h.insert s i ⦃ r => True ⦄", "h.insert", "∀ (s : S) (i : Std.Usize), h.insert s i ⦃ r => True ⦄"),
         ("a call of another function is unchanged", "∀ x, g 0 ⦃ r => True ⦄", "f", "∀ x, g 0 ⦃ r => True ⦄"),
         ("a statement with no triple is unchanged", "∀ x, f x = 1", "f", "∀ x, f x = 1"),
+        ("every replaced argument gets its own fresh name, past any the statement already uses",
+         "∀ (x : U32) (lss_a0 : U32), lss_a0 = x → f (g x) (h x) ⦃ r => r = x ⦄", "f",
+         "∀ (x : U32) (lss_a0 : U32), lss_a0 = x → ∀ (lss_a1 : _) (lss_a2 : _), lss_a1 = (g x) → lss_a2 = (h x) → "
+         "f lss_a1 lss_a2 ⦃ r => r = x ⦄"),
         ("a named argument is left as written",
          "∀ (p : P), f p.1 (T := Std.U32) ⦃ r => True ⦄", "f",
          "∀ (p : P), ∀ (lss_a0 : _), lss_a0 = p.1 → f lss_a0 (T := Std.U32) ⦃ r => True ⦄"),

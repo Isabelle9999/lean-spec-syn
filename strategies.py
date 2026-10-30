@@ -147,7 +147,7 @@ def normalize_call(stmt, unit):
             args.append(a)
             continue
         i = len(fresh)
-        while f"lss_a{i}" in stmt:
+        while f"lss_a{i}" in stmt or f"lss_a{i}" in fresh:
             i += 1
         v = f"lss_a{i}"
         fresh.append(v)
