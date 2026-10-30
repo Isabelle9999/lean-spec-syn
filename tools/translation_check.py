@@ -799,7 +799,9 @@ def lean_encode_expr(T, var, defs=None, self_fn=None, _body=False):
         name = f"lss_enc_{i}"
         defs.append("")  # the name is taken before the body refers to it
         body = lean_encode_expr(T, "x", defs, name, _body=True)
-        defs[i] = f"partial def {name} (x : {lean_type_str(T)}) : String :=\n  {body}"
+        # after the defs its body calls, which were added while it was built
+        defs.pop(i)
+        defs.append(f"partial def {name} (x : {lean_type_str(T)}) : String :=\n  {body}")
         return f"({name} {var})"
 
     def enc(t, v):

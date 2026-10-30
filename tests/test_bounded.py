@@ -93,6 +93,14 @@ def run_static_recursive():
     check("a tree's encoder is a partial def sent before the command",
           len(defs) == 1 and defs[0].startswith("partial def lss_enc_0 (x : (C.Node Aeneas.Std.U32)) : String")
           and "lss_enc_0 x" in defs[0] and "lss_enc_0 x" in enc, f"{defs} {enc}")
+    import re
+    chain = ("struct", "C.Chain", [("items", LIST), ("next", ("option", ("self",)))], "C.Chain")
+    defs = []
+    tc.lean_encode_expr(chain, "v", defs)
+    names = [re.match(r"partial def (\w+)", d).group(1) for d in defs]
+    called = [set(re.findall(r"lss_enc_\d+", d.split(":=", 1)[1])) for d in defs]
+    check("every encoder def comes after the defs it calls (a recursive struct holding a crate list)",
+          len(defs) == 2 and all(c <= set(names[:k + 1]) for k, c in enumerate(called)), str(defs))
     check("a generic type's ascription is its type text",
           tc.lean_type_str(("vec", NODE)) == "(alloc.vec.Vec (C.Node Aeneas.Std.U32))", tc.lean_type_str(("vec", NODE)))
     check("a monomorphic struct still ascribes by name", tc.lean_type_str(PAIR) == "records.Pair")
