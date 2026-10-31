@@ -87,6 +87,9 @@ function to `.lss/reports/` and an event log to `.lss/runs/`.
 ## Checks
 
 ```
-pip install ruff pyright==1.1.391
 bash scripts/check.sh          # the merge check: lint, types, static and Lean tests
 ```
+
+It checks the commit, not the working tree: a clean clone of `HEAD`, with lint,
+types and the static tests in fresh Python 3.12 environments (`python3.12` on
+`PATH`, or `LSS_CI_PYTHON`) and the Lean tests with `LSS_PYTHON`.
