@@ -1326,6 +1326,11 @@ def _llm_repair(llm, lean_code, spec, prev_proofs=None, verbose=False, debug_dir
             return
     spec["status"] = "unproved"
 
+def _verdict(spec, **fields):
+    """one verdict event for spec, always with the statement it was decided on."""
+    events.emit("verdict", stmt=spec["stmt"], **fields)
+
+
 def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=None, verbose=False, debug_dir=None, project_dir=None, func_source=None, source=None):
     func = func_name or _func_name(lean_code)
 
@@ -1344,7 +1349,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                     spec["fail_gate"] = "dedup"
                     if verbose:
                         print(f"  [dedup] skipping duplicate in validate: {spec['name']}")
-                    events.emit("verdict", status="rejected", method="", fail_gate="dedup")
+                    _verdict(spec, status="rejected", method="", fail_gate="dedup")
                     continue
                 processed_stmts.add(stmt_norm)
                 preamble = spec.get("preamble", "")
@@ -1427,8 +1432,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                     spec["wf_fail_check"] = _gate.failing_check(verdicts)
                     if verbose:
                         print(f"         stmt: {spec['stmt'][:100]}")
-                    events.emit("verdict", status="rejected", method="", fail_gate="g1",
-                                check=spec["wf_fail_check"], stmt=spec["stmt"],
+                    _verdict(spec, status="rejected", method="", fail_gate="g1",
+                                check=spec["wf_fail_check"],
                                 detail=next((v["detail"] for v in verdicts if not v.get("ok")), "")[:300])
                     continue
 
@@ -1460,7 +1465,9 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                         spec["fail_gate"] = b["status"]
                         if b["status"] == "refuted":
                             spec["refuted_by"] = "kernel" if b["kernel"] else "evaluation"
-                        events.emit("verdict", status=spec["status"], method="bounded", fail_gate=b["status"])
+                        _verdict(spec, status=spec["status"], method="bounded", fail_gate=b["status"],
+                                **{k: b[k] for k in ("witness", "outcome", "value", "instantiation", "kernel", "feedback")
+                                   if k in b})
                         continue
 
                 # gate 4a: aeneas tactic layer, rust units only
@@ -1477,7 +1484,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                         spec["needs_callee_body"] = pr0.needs_callee_body
                         if verbose:
                             print(f"  [g4] {spec['name']}: proved (aeneas) by {pr0.method}")
-                        events.emit("verdict", status="proved", method=pr0.method)
+                        _verdict(spec, status="proved", method=pr0.method)
                         continue
 
                 # gate 4: three-layer proof search
@@ -1489,7 +1496,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                     spec["axioms"] = pr.axioms
                     if verbose:
                         print(f"  [g4] {spec['name']}: proved (l1) by {pr.method}")
-                    events.emit("verdict", status="proved", method=pr.method)
+                    _verdict(spec, status="proved", method=pr.method)
                     continue
 
                 # layer 2: hammer (60s timeout)
@@ -1500,7 +1507,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                     spec["axioms"] = pr2.axioms
                     if verbose:
                         print(f"  [g4] {spec['name']}: proved (l2) by {pr2.method}")
-                    events.emit("verdict", status="proved", method=pr2.method)
+                    _verdict(spec, status="proved", method=pr2.method)
                     continue
 
                 # layer 3: auxiliary-lemma decomposition
@@ -1513,13 +1520,13 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                         spec["axioms"] = r3.axioms
                         if verbose:
                             print(f"  [g4] {spec['name']}: proved (l3) by {r3.method}")
-                        events.emit("verdict", status="proved", method=r3.method)
+                        _verdict(spec, status="proved", method=r3.method)
                         continue
 
                 if verbose:
                     print(f"  [g4] {spec['name']}: all layers failed, unproved")
                 spec["status"] = "unproved"
-                events.emit("verdict", status="unproved", method="", stmt=spec["stmt"])  # kept for replaying closers
+                _verdict(spec, status="unproved", method="")  # the statement is kept for replaying closers
 
     # pbt: final check for unproved specs
     for spec in specs:
@@ -1533,7 +1540,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
             spec["fail_gate"] = "pbt"
             if verbose:
                 print(f"  [pbt] {spec['name']}: FAIL counterexample found")
-            events.emit("verdict", status="rejected", method="", fail_gate="pbt")
+            with events.context(candidate_id=spec["name"]):
+                _verdict(spec, status="rejected", method="", fail_gate="pbt")
         elif verbose:
             print(f"  [pbt] {spec['name']}: pass")
 
@@ -1734,15 +1742,14 @@ def _admit_with_proof(gwp, specs, lean_code, fn, lean_checker, project_dir, sour
                 raise RuntimeError("well-formedness gate environment unavailable: "
                                    + next((v["detail"] for v in verdicts if not v.get("ok")), ""))
             if not _gate.is_well_formed(verdicts, source):
-                events.emit("verdict", status="rejected", method="", fail_gate="g1", stmt=s["stmt"],
-                            check=_gate.failing_check(verdicts),
+                _verdict(s, status="rejected", method="", fail_gate="g1", check=_gate.failing_check(verdicts),
                             detail=next((v["detail"] for v in verdicts if not v.get("ok")), "")[:300])
                 if verbose:
                     print(f"  [gwp] {s['name']}: wf gate FAIL: {_gate.failing_check(verdicts)}")
                 continue
             if lean_checker.try_proof(wrong, s["stmt"]).proved:
                 continue
-            events.emit("verdict", status="proved", method=s["method"], stmt=s["stmt"])
+            _verdict(s, status="proved", method=s["method"])
         existing = next((x for x in specs if x["stmt"] == s["stmt"]), None)
         if existing:  # the same statement, failed or unproved elsewhere: proved now, by this proof
             for k in ("fail_gate", "refuted_by", "bounded", "wf_fail_check"):

@@ -5,7 +5,6 @@ import contextvars
 import json
 import re
 import time
-import shutil
 import threading
 import lss_config as _lss_config
 
@@ -16,7 +15,7 @@ import events
 from benchmarks import BENCHMARKS
 from metrics import functional_correctness, spec_coverage, generate_report, save_report, summary_table, yield_counts
 from incremental import (
-    lean_version, load_hashes, save_hashes,
+    lean_version, code_version, load_hashes, save_hashes, kept_hashes,
     compute_current_hashes, affected_benches,
     load_cached_specs, save_cached_specs,
 )
@@ -81,11 +80,12 @@ def run_bench(bm, args, llm, checker, project_dir=None, func_source=None):
     one unit_result event: the status, the spec counts and the wall seconds, also
     after a timeout or a crash (status unknown, with the reason)."""
     t0 = time.time()
+    print(f"\n--- {bm['name']} ---")  # at the start, so a long attempt never looks like a hang
     with events.context(unit=bm["name"]):
         env_error = crate_env_error(checker, project_dir) if bm.get("source") == "rust-aeneas" else None
         if env_error:
             # no environment means no check can run: stop before any LLM call
-            print(f"\n--- {bm['name']} ---\n  not attempted: the crate's Lean code does not build: {env_error}")
+            print(f"  not attempted: the crate's Lean code does not build: {env_error}")
             events.emit("unit_result", status="unknown", reason=f"crate env: {env_error}"[:160],
                         seconds=time.time() - t0)
             return None
@@ -130,7 +130,6 @@ def _run_bench(bm, args, llm, checker, project_dir=None, func_source=None):
     timeout = getattr(args, "timeout", 600)
     specs, timed_out = _with_timeout(_synth, timeout)
     if timed_out:
-        print(f"\n--- {bm['name']} ---")
         print(f"  timeout after {timeout}s")
         return None
 
@@ -166,7 +165,6 @@ def _run_bench(bm, args, llm, checker, project_dir=None, func_source=None):
 
     proved = [s for s in specs if s["status"] == "proved"]
     rejected = report["rejected_count"]
-    print(f"\n--- {bm['name']} ---")
     print(f"  status:     {report['status']}")
     print(f"  generated:  {len(specs)}")
     print(f"  proved:     {len(proved)} (kernel-checked; only these count)")
@@ -349,10 +347,12 @@ def main():
 
     lean_ver = lean_version()
     prev_hashes = None if args.force_full else load_hashes()
-    curr_hashes = compute_current_hashes(benches, lean_ver)
+    settings = json.dumps({"toml": _lss_config.config(), "lean_project": lean_project_dir}, sort_keys=True)
+    curr_hashes = compute_current_hashes(benches, lean_ver, code_version(settings))
     need_rerun = affected_benches(prev_hashes, curr_hashes)
     n_reverified = 0
     n_carried = 0
+    carried = set()
 
     reports = []
     statuses = []  # every function attempted; a timeout or a crash is unknown
@@ -362,6 +362,7 @@ def main():
             if cached is not None:
                 print(f"\n--- {bm['name']} (carried forward, {len(cached)} specs) ---")
                 n_carried += 1
+                carried.add(bm["name"])
                 continue
         n_reverified += 1
         try:
@@ -377,7 +378,7 @@ def main():
             continue
 
     print(f"\nincremental: {n_reverified} re-verified, {n_carried} carried forward")
-    save_hashes(curr_hashes)
+    save_hashes(kept_hashes(curr_hashes, {r["name"] for r in reports} | carried))
 
     if len(reports) > 1:
         print("\n" + summary_table(reports))
@@ -403,29 +404,6 @@ def main():
         from tools import cost_report
         print("\ncost report")
         cost_report.report(events.log_path())
-
-    if reports:
-        best_path = ".lss/runs/best.txt"
-        total_proved = sum(r["proved_count"] for r in reports)
-        prev_best = 0
-        prev_run = "none"
-        if os.path.exists(best_path):
-            with open(best_path) as f:
-                for line in f:
-                    if line.startswith("proved:"):
-                        try:
-                            prev_best = int(line.split(":")[1].strip())
-                        except ValueError:
-                            pass
-                    elif line.startswith("run:"):
-                        prev_run = line.split(":", 1)[1].strip()
-        if total_proved >= prev_best:
-            with open(best_path, "w") as f:
-                f.write(f"proved: {total_proved}\nrun: run_{_run_id}\n")
-            shutil.copy(_log_path, ".lss/runs/best_run.txt")
-            print(f"new best: {total_proved} kernel-proved (previous: {prev_best} from {prev_run})")
-        else:
-            print(f"below best ({total_proved} vs {prev_best} from {prev_run})")
 
 
 if __name__ == "__main__":

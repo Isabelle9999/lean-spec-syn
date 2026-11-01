@@ -397,16 +397,26 @@ def run_static_synth():
                       "feedback": "On input (5#u32) the function returned \"5\", and the statement is false there"},
                 "FIXED": {"status": "timeout", "detail": "timeout"},
                 "V": {"status": "vacuous", "feedback": "says nothing"}}
-    old_gate, old_b = synth._gate.check_candidate, synth._bounded.check_spec
+    old_gate, old_b, old_emit = synth._gate.check_candidate, synth._bounded.check_spec, synth.events.emit
     synth._gate.check_candidate = lambda *a, **k: [{"check": c, "ok": True, "detail": ""} for c in gate.checks_for("rust-aeneas")]
     synth._bounded.check_spec = lambda checker, stmt, unit, project_dir: dict(verdicts[stmt])
+    emitted = []
+    synth.events.emit = lambda kind, **f: emitted.append((kind, f))
     try:
         checker, llm = Checker(), LLM()
         specs = [{"name": "s", "stmt": "S"}, {"name": "v", "stmt": "V"}]
         synth.validate(specs, "def f (x : U32) : Result U32 := ok x", [], checker, llm=llm, func_name="f",
                        project_dir="/p", source="rust-aeneas")
     finally:
-        synth._gate.check_candidate, synth._bounded.check_spec = old_gate, old_b
+        synth._gate.check_candidate, synth._bounded.check_spec, synth.events.emit = old_gate, old_b, old_emit
+    vs = [f for k, f in emitted if k == "verdict"]
+    check("every verdict event carries the statement it was decided on, proved ones too",
+          {(f["status"], f.get("stmt")) for f in vs} == {("refuted", "S"), ("rejected", "V"), ("proved", "FIXED")},
+          str(vs))
+    ref = next((f for f in vs if f["status"] == "refuted"), {})
+    check("a refutation's event carries its witness, outcome and the feedback the repair got",
+          ref.get("witness") == [5] and ref.get("outcome") == "violates" and "On input (5#u32)" in ref.get("feedback", ""),
+          str(ref))
     s = specs[0]
     check("a refuted spec gets status refuted, by kernel", s["status"] == "refuted" and s["refuted_by"] == "kernel", str(s))
     check("a vacuous spec is rejected", specs[1]["status"] == "rejected" and specs[1]["fail_gate"] == "vacuous",

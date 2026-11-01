@@ -120,8 +120,14 @@ def run_static_results():
                   and res[0]["seconds"] >= 0, str(res))
 
             run.synthesize = lambda *a, **k: time.sleep(3)
-            run.run_bench(dict(bm, name="b2"), argparse.Namespace(**{**vars(args), "timeout": 1}),
-                          None, None)
+            import contextlib
+            import io
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                run.run_bench(dict(bm, name="b2"), argparse.Namespace(**{**vars(args), "timeout": 1}),
+                              None, None)
+            check("a function's name is printed when it starts, not only when it ends",
+                  buf.getvalue().lstrip().startswith("--- b2 ---") and "timeout after 1s" in buf.getvalue(), buf.getvalue())
             res = [e for e in _read_events(path) if e["kind"] == "unit_result" and e["unit"] == "b2"]
             check("a timeout still ends with one unit_result, status unknown",
                   len(res) == 1 and res[0]["status"] == "unknown" and res[0]["reason"] == "timeout", str(res))
@@ -155,6 +161,35 @@ def run_static_results():
     finally:
         os.chdir(old_cwd)
 
+    import incremental
+    curr = incremental.compute_current_hashes([{"name": "a", "lean_code": "x"}, {"name": "b", "lean_code": "y"}],
+                                              "v4.31.0", "c1")
+    check("a function that crashed or timed out keeps no fingerprint, so it runs again",
+          incremental.kept_hashes(curr, {"a"})["benches"] == {"a": curr["benches"]["a"]})
+    check("specs made by another synthesizer commit, or by uncommitted code, are never carried forward",
+          incremental.affected_benches(curr, curr) == set()
+          and incremental.affected_benches(curr, {**curr, "code": "c2"}) == {"a", "b"}
+          and incremental.affected_benches(curr, {**curr, "code": None}) == {"a", "b"})
+    import subprocess
+    import tempfile
+    with tempfile.TemporaryDirectory() as g:
+        def sh(*a):
+            subprocess.run(["git", "-C", g, "-c", "user.name=t", "-c", "user.email=t@t", *a], capture_output=True, check=True)
+        sh("init", "-q")
+        with open(os.path.join(g, "f.py"), "w") as f:
+            f.write("x = 1\n")
+        sh("add", "f.py")
+        sh("commit", "-qm", "c")
+        clean, other = incremental.code_version("s1", g), incremental.code_version("s2", g)
+        with open(os.path.join(g, "f.py"), "a") as f:
+            f.write("y = 2\n")
+        dirty = incremental.code_version("s1", g)
+    check("the code version is the commit and the run's settings, and none with uncommitted changes",
+          clean is not None and other is not None and clean != other and dirty is None, f"{clean} {other} {dirty}")
+    rust = {"name": "rust_f", "lean_code": "import Aeneas\nimport C.Code.Funs\n", "lean_name": "C.f"}
+    check("a Rust unit's fingerprint covers its crate's code, not only its import lines",
+          incremental.bench_hash({**rust, "func_source": "def f := 1"}) != incremental.bench_hash({**rust, "func_source": "def f := 2"})
+          and incremental.bench_hash(rust) != incremental.bench_hash({**rust, "lean_name": "C.g"}))
     import lean
     native, aeneas = (os.path.abspath(lss_config.project_dir(n)) for n in ("lean-native", "aeneas"))
     check("a Lean run checks in lean-native, its hammer too, and a Rust run in the aeneas project",
