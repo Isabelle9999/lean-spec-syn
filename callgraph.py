@@ -22,10 +22,6 @@ def _driver_text():
         return f.read()
 
 
-def _aeneas_dir():
-    return _lss_config.project_dir("aeneas")
-
-
 def _names_literal(names):
     if names is None:
         return "none"
@@ -33,10 +29,10 @@ def _names_literal(names):
 
 
 @with_context(layer="unitgraph")
-def _run_unit_graph(code_text, names):
-    """send code_text through the pinned aeneas project's server; parse the LSS_UNITS line."""
+def _run_unit_graph(code_text, names, project="aeneas"):
+    """send code_text through a pinned project's server; parse the LSS_UNITS line."""
     full = code_text + "\n" + _driver_text() + f"\n#eval LssUnitGraph.dumpUnits {_names_literal(names)}\n"
-    r = _lean_server.get_server(_aeneas_dir()).check(full)
+    r = _lean_server.get_server(_lss_config.project_dir(project)).check(full)
     for line in (r.stderr or "").splitlines():
         if "LSS_UNITS " in line:
             return json.loads(line.split("LSS_UNITS ", 1)[1])
@@ -326,16 +322,16 @@ def for_project(project_path):
 
 
 def build_call_graph(source_text):
-    """call graph for inline/Lean-native code: names = every definition in source_text.
-    the driver itself needs Lean/Lean.Meta, so import Aeneas is always prepended
-    (harmless if source_text already imports something)."""
-    text = "import Aeneas\n" + source_text
+    """call graph for inline/Lean-native code: names = every definition in source_text,
+    elaborated where every Lean-native text runs, the lean-native project under
+    import Mathlib (the driver itself needs only Lean.Meta)."""
+    text = "import Mathlib\n" + source_text
     key = hashlib.sha256(text.encode("utf-8")).hexdigest()
     cached = _SOURCE_CACHE.get(key)
     if cached is not None:
         return cached
 
-    result = _run_unit_graph(text, None)
+    result = _run_unit_graph(text, None, project="lean-native")
     g = CallGraph(text, result["units"])
     g.lean_version = result.get("lean_version")
     _SOURCE_CACHE[key] = g

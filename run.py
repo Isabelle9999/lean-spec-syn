@@ -271,6 +271,12 @@ def _write_pins_header():
                     print(f"    {pkg['name']}={pkg.get('rev', '?')}")
 
 
+def _lean_project(args):
+    """the Lean project a run checks in: --lean-project, else the aeneas project for a
+    Rust crate (its texts then run in the crate's env) and lean-native for Lean code."""
+    return os.path.abspath(args.lean_project or _lss_config.project_dir("aeneas" if args.rust_project else "lean-native"))
+
+
 def main():
     _start_log()
     _t_main_start = time.time()
@@ -284,16 +290,16 @@ def main():
     p.add_argument("--clever-path", default=r"C:\Users\User\projects\clever")
     p.add_argument("--limit", type=int)
     p.add_argument("--timeout", type=int, default=1800)
-    p.add_argument("--lean-project", type=str,
-                   default=_lss_config.project_dir("aeneas"),
-                   help="Lean project dir for synthesis and checking")
+    p.add_argument("--lean-project", type=str, default=None,
+                   help="Lean project dir for synthesis and checking (default: the aeneas project "
+                        "for --rust-project, else lean-native)")
     p.add_argument("--rust-project", type=str, default=None,
                    help="Path to Aeneas-translated Rust project")
     p.add_argument("--force-full", action="store_true",
                    help="force full re-run, ignore incremental cache")
     args = p.parse_args()
 
-    lean_project_dir = os.path.abspath(args.lean_project)
+    lean_project_dir = _lean_project(args)
     rust_project_dir = os.path.abspath(args.rust_project) if args.rust_project else lean_project_dir
 
     _write_pins_header()

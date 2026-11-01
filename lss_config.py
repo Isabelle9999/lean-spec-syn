@@ -40,10 +40,10 @@ def default_project_dir():
 
 
 def hammer_project_dir():
-    for p in _cfg()["projects"].values():
-        if p.get("has_hammer"):
-            return os.path.expanduser(os.environ.get(p["env_var"], p["dir"]))
-    return None
+    """where hammer runs on a text that is not a Rust crate's (a crate's runs in its
+    own env): the default project, when it has hammer."""
+    p = _cfg()["projects"][default_project()]
+    return os.path.expanduser(os.environ.get(p["env_var"], p["dir"])) if p.get("has_hammer") else None
 
 
 def all_projects():

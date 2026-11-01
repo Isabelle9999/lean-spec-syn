@@ -155,6 +155,14 @@ def run_static_results():
     finally:
         os.chdir(old_cwd)
 
+    import lean
+    native, aeneas = (os.path.abspath(lss_config.project_dir(n)) for n in ("lean-native", "aeneas"))
+    check("a Lean run checks in lean-native, its hammer too, and a Rust run in the aeneas project",
+          run._lean_project(argparse.Namespace(lean_project=None, rust_project=None)) == native
+          and os.path.abspath(lean._PROJECT_DIR) == native
+          and os.path.abspath(lss_config.hammer_project_dir() or "") == native
+          and run._lean_project(argparse.Namespace(lean_project=None, rust_project="/c")) == aeneas,
+          f"{lean._PROJECT_DIR} {lss_config.hammer_project_dir()}")
     base = json.dumps(lss_config.config(), sort_keys=True)
     os.environ["LSS_OVERRIDES"] = json.dumps({"proof": {"rust_hammer": True}})
     lss_config._CFG = None

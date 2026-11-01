@@ -192,20 +192,19 @@ def run_full():
     import lss_config
     import lean_server
 
-    proj = lss_config.project_dir("aeneas")
+    # Lean-native code runs where every Lean-native text does: the lean-native project
+    proj = lss_config.project_dir("lean-native")
     if not os.path.isdir(proj):
-        check("~/lss_lean/aeneas exists", False, f"not a directory: {proj}")
-        return
-    olean = os.path.join(proj, ".lake", "packages", "aeneas", "backends", "lean",
-                          ".lake", "build", "lib", "lean", "Aeneas.olean")
-    if not os.path.exists(olean):
-        check("~/lss_lean/aeneas is built", False, f"missing {olean}")
+        check("~/lss_lean/lean-native exists", False, f"not a directory: {proj}")
         return
 
     server = lean_server.get_server(proj, lss_config.server_cfg())
     check("server started", server._worker is not None)
 
     g = callgraph.build_call_graph(FIXTURE)
+    started = [os.path.abspath(p) for p in lean_server.all_stats()]
+    check("a Lean-native unit graph runs in the lean-native project, never the aeneas one",
+          os.path.abspath(lss_config.project_dir("aeneas")) not in started, str(started))
 
     check("crate_text excludes the unit-graph driver",
           "LssUnitGraph" not in g.crate_text, g.crate_text[-200:])
