@@ -162,8 +162,12 @@ def run_static_routing():
         n = len(fake.sent)
         checker.try_proof(CRATE_CTX, "∀ (x : Std.U32), x = x", func_name="f", project_dir="/crate")
         sent = fake.sent[n:]
-        check("layer 1 on a rust unit is one call, in the crate env",
-              len(sent) == 1 and sent[0]["env"] == 7 and sent[0]["code"].count("lss_check_proof") >= 20, str(sent)[:200])
+        check("layer 1 on a rust unit runs in the crate env, one call per batch",
+              len(sent) == 2 and all(x["env"] == 7 for x in sent)
+              and sum(x["code"].count("lss_check_proof") for x in sent) >= 20, str(sent)[:200])
+        import re
+        check("a rust unit's attempts keep the budget its preamble sets (Aeneas's maxHeartbeats)",
+              set(re.findall(r"heartbeats:(\d+)", "".join(x["code"] for x in sent))) == {"0"}, str(sent)[:200])
 
         # hammer on a rust unit: in the crate env, or skipped when rust_hammer is off
         fake.reply = lambda code: _verdict_line("_hammer_proof", True, "ok", ["propext"])

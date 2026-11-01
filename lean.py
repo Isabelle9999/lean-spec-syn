@@ -188,20 +188,22 @@ def _is_env_error(combined, import_line_count):
     return False
 
 def classify_function(lean_env, func_name):
-    body = lean_env[lean_env.find(":="):] if ":=" in lean_env else ""
+    """what the tactic portfolio needs to know about func_name's own definition in
+    lean_env: whether it calls itself, and whether it is defined by cases at its top
+    (`|` equations, or a body that is one `match`), which gives one equation lemma
+    per case; a recursive definition otherwise has one equation, its whole body, so
+    `simp [f]` unfolds it forever. a definition not in lean_env (a Rust unit, whose
+    text only imports its crate) is neither."""
+    own, name = _find_def_in_text(lean_env, func_name)
+    own = own or ""
+    calls = len(re.findall(r"(?<![\w.'])" + re.escape(name or func_name) + r"(?![\w'])", own))
     all_defs = re.findall(r'def\s+([a-zA-Z_][a-zA-Z0-9_\'!?]*)', lean_env)
-    helpers = [d for d in all_defs if d != func_name]
+    eq, bar = own.find(":="), re.search(r"^\s*\|", own, re.MULTILINE)
+    equations = bar is not None and (eq < 0 or bar.start() < eq)  # `|` cases before any `:=`
     return {
-        "recursive": func_name in body,
-        "pattern_match": bool(re.search(r'^\s*\|', body, re.MULTILINE)),
-        "if_else": "if " in body and "then" in body,
-        "termination_by": "termination_by" in lean_env,
-        "has_list": "List" in lean_env,
-        "has_array": "Array" in lean_env,
-        "has_nat": "Nat" in lean_env,
-        "has_option": "Option" in lean_env,
-        "arity": len(re.findall(r'\([^)]+:[^)]+\)', lean_env[:lean_env.find(":=")])) if ":=" in lean_env else 1,
-        "helpers": helpers,
+        "recursive": calls > 1,
+        "by_cases": equations or (eq >= 0 and re.match(r"\s*match\b", own[eq + 2:]) is not None),
+        "helpers": [d for d in all_defs if d != func_name and d != (name or func_name)],
     }
 
 
@@ -475,160 +477,101 @@ class LeanChecker:
         mathlib_ok = _crate_of(lean_env) is not None or self._precheck_env(pdir)[0]
         imports = "import Mathlib\n" if mathlib_ok else ""
 
-        # layer 1: tactic portfolio
+        # layer 1: a tactic portfolio in two Lean calls, the function-aware and core
+        # tactics first, then general automation only when they prove nothing: a
+        # slow failure among the second can then never cost the first their verdicts.
+        # every attempt has its own heartbeat budget ([proof] tactic_heartbeats), so a
+        # failing tactic stops inside Lean instead of using up the call's time.
+        first = ["rfl", "trivial", "assumption", "decide", "simp", "simp_all", "omega",
+                 "intros; simp_all", "intros; omega",
+                 "intro _ ; first | rfl | simp_all | omega | decide",
+                 "constructor <;> first | rfl | simp_all",
+                 "split <;> first | rfl | simp_all"]
+        rest = ["bv_decide", "grind", "intros; grind"]
         if mathlib_ok:
-            tactics = [
-                "rfl", "trivial", "assumption", "decide",
-                "simp", "simp_all", "omega", "norm_num", "ring", "linarith",
-                "tauto", "fun_induction", "fun_cases", "bv_decide",
-                "aesop", "grind", "exact?",
-                "field_simp", "positivity", "gcongr", "bound", "group", "abel",
-                "add_group", "noncomm_ring", "field", "finiteness", "compute_degree", "fun_prop",
-                # prefix combos (hammer reconstruction shapes)
-                "intro _ ; first | rfl | simp_all | omega | decide",
-                "constructor <;> first | rfl | simp_all",
-                "split <;> first | rfl | simp_all",
-            ]
-        else:
-            # mathlib unavailable: core lean 4 tactics only
-            tactics = [
-                "rfl", "trivial", "assumption", "decide",
-                "simp", "simp_all", "omega", "tauto",
-                "fun_induction", "fun_cases",
-                "intro _ ; first | rfl | simp_all | omega | decide",
-                "constructor <;> first | rfl | simp_all",
-                "split <;> first | rfl | simp_all",
-            ]
-
+            rest += ["norm_num", "ring", "linarith", "tauto", "aesop", "exact?",
+                     "field_simp", "positivity", "gcongr", "bound", "group", "abel",
+                     "add_group", "noncomm_ring", "field", "finiteness", "compute_degree", "fun_prop"]
         names = ""
         if func_name:
             info = classify_function(lean_env, func_name)
-            helpers = info["helpers"]
-            names = ", ".join([func_name] + helpers)
-            helpers_only = ", ".join(helpers) if helpers else ""
-            # use spec binder count when classify_function can't detect arity (e.g. lean_env has no :=)
-            stmt_arity = len(_parse_forall_vars(theorem_stmt))
-            eff_arity = max(info["arity"], stmt_arity)
-
+            # `simp [f]` with a recursive f defined without cases rewrites f's one
+            # equation, its whole body, forever: such an f is only unfolded once at a
+            # time (unfold, fun_cases, fun_induction), never handed to simp
+            loops = info["recursive"] and not info["by_cases"]
+            names = ", ".join(info["helpers"] if loops else [func_name] + info["helpers"])
+            sn = f" [{names}]" if names else ""
+            f = func_name
+            # a statement in the gate's normal form (strategies.normalize_call): its
+            # hypotheses define some arguments, substituted back before the call unfolds
+            first += [f"intros; subst_vars; unfold {f}; simp_all{sn}",
+                      f"intros; subst_vars; unfold {f}; split <;> simp_all{sn}",
+                      f"intros; subst_vars; fun_cases {f} <;> simp_all{sn}"]
+            if loops:
+                # after one case split the arguments are often concrete, and then
+                # unfolding f again ends: the one attempt that hands f to simp
+                first.append(f"intros; subst_vars; fun_cases {f} <;> simp_all [{', '.join([f] + info['helpers'])}]")
             if info["recursive"]:
-                tactics.extend([
-                    f"unfold {func_name}; simp_all" + (f" [{helpers_only}]" if helpers_only else ""),
-                    f"intro x; unfold {func_name}; simp_all" + (f" [{helpers_only}]" if helpers_only else ""),
-                ])
-                tactics.extend([
-                    f"intro x; induction x <;> simp [{names}, *]",
-                    f"intro x; induction x <;> simp [{names}, *] <;> omega",
-                    f"intro x; induction x <;> simp_all [{names}]",
-                    f"intro x y; induction x generalizing y <;> simp [{names}, *]",
-                    f"intro x y; induction y generalizing x <;> simp [{names}, *]",
-                ])
-                if info["pattern_match"]:
-                    tactics.extend([
-                        f"intro x; fun_induction {func_name} x <;> simp [{names}, *]",
-                        f"intro x; fun_induction {func_name} x <;> simp [{names}, *] <;> omega",
-                        f"intro x y; fun_induction {func_name} x y <;> simp [{names}, *]",
-                        f"intro x; fun_cases {func_name} x <;> simp [{names}, *]",
-                    ])
-                if info["termination_by"]:
-                    tactics.extend([
-                        f"induction a, b using {func_name}.induct <;> simp [{names}, *]",
-                        f"induction a, b using {func_name}.induct <;> simp [{names}, *] <;> omega",
-                    ])
-                if info["if_else"] and not info["pattern_match"]:
-                    tactics.extend([
-                        f"intro x; unfold {func_name}; split <;> simp_all [{names}]",
-                        f"intro x y; unfold {func_name}; split <;> simp_all [{names}]",
-                    ])
-            else:
-                tactics.extend([
-                    f"simp [{names}]",
-                    f"simp [{names}]; omega",
-                ])
+                first += [f"intros; fun_induction {f} <;> simp_all{sn}",
+                          f"intros; fun_induction {f} <;> simp_all{sn} <;> omega",
+                          f"intro x; induction x <;> simp_all{sn}",
+                          f"intro x y; induction x generalizing y <;> simp_all{sn}",
+                          f"intro x y; induction y generalizing x <;> simp_all{sn}"]
+                rest += [f"intros; fun_induction {f} <;> grind{sn}"]
+            if names:
+                first += [f"simp{sn}", f"intros; simp{sn} <;> omega", f"intros; simp_all{sn}"]
+                rest += [f"grind{sn}", f"intros; grind{sn}"]
                 if mathlib_ok:
-                    tactics.append(f"simp [{names}]; aesop")
-
-            tactics.extend([
-                f"intro x; simp [{names}]",
-                "intro x; omega",
-            ])
-
-            if eff_arity >= 2:
-                tactics.extend([f"intro a b; simp [{names}, *]", "intro a b; omega"])
-            if eff_arity >= 3:
-                tactics.append(f"intro a b c; simp [{names}, *]")
-            if eff_arity >= 4:
-                tactics.append(f"intro a b c d; simp [{names}, *]")
-
-            intro_n = "intro " + " ".join(["_"] * max(eff_arity, 1))
-            tactics.extend([
-                f"grind [{names}]",
-                f"intros; grind [{names}]",
-                f"simp [{names}]",
-                f"{intro_n}; simp [{names}, *]; omega",
-                f"{intro_n}; simp [{names}, *]; ring",
-                f"{intro_n}; simp [{names}, *]",
-            ])
-
+                    rest += [f"intros; simp{sn} <;> ring", f"simp{sn}; aesop"]
         else:
-            tactics.extend([
-                "intros; simp_all", "intros; omega", "intros; tauto",
-                "intro x; simp [*]", "intro x; omega", "intro x; decide",
-                "intro x; cases x <;> simp [*]", "intro x; cases x <;> simp [*] <;> omega",
-                "intro a b; simp [*]", "intro a b; omega",
-                "intro a b c; simp [*]",
-                "simp [*]; omega", "simp_all; omega",
-                "constructor <;> simp [*]", "constructor <;> omega",
-                "by_contra h; simp_all", "by_contra h; omega",
-                "exact Nat.zero_le _", "exact Nat.succ_pos _",
-                "exact ⟨rfl, rfl⟩", "refine ⟨?_, ?_⟩ <;> simp [*]",
-            ])
+            first += ["intro x; cases x <;> simp [*]", "intro x; cases x <;> simp [*] <;> omega",
+                      "simp [*]; omega", "simp_all; omega", "constructor <;> simp [*]", "constructor <;> omega",
+                      "by_contra h; simp_all", "by_contra h; omega",
+                      "exact Nat.zero_le _", "exact Nat.succ_pos _",
+                      "exact ⟨rfl, rfl⟩", "refine ⟨?_, ?_⟩ <;> simp [*]"]
             if mathlib_ok:
-                tactics.append("intros; grind")
+                rest.append("intros; tauto")
+        terms = [("rfl", "l1:rfl"), ("Iff.rfl", "l1:Iff.rfl"), ("fun x => rfl", "l1:term:fun x=>rfl"),
+                 ("fun x y => rfl", "l1:term:fun x y=>rfl"), ("id", "l1:term:id")]
+        batches = [[(f"by {t}", f"l1:{t}") for t in first] + terms, [(f"by {t}", f"l1:{t}") for t in rest]]
 
-        entries = [(f"by {t}", f"l1:{t}") for t in tactics]
-        entries += [
-            ("rfl", "l1:rfl"),
-            ("Iff.rfl", "l1:Iff.rfl"),
-            ("fun x => rfl", "l1:term:fun x=>rfl"),
-            ("fun x y => rfl", "l1:term:fun x y=>rfl"),
-            ("id", "l1:term:id"),
-        ]
-        if names:
-            entries += [
-                (f"fun x => by simp [{names}]", "l1:term:fun x=>simp"),
-                (f"And.intro (by simp [{names}]) (by simp [{names}])", "l1:term:And.intro"),
-            ]
-
+        # a Rust unit's attempts keep its preamble's budget, Aeneas's own maxHeartbeats
+        heartbeats = 0 if _crate_of(lean_env) is not None else _lss_config.proof_cfg()["tactic_heartbeats"]
         env_stripped = lean_env.rstrip()
-        named = [(f"_lss_p{i}", f"theorem _lss_p{i} : {theorem_stmt} := {suffix}")
-                 for i, (suffix, _) in enumerate(entries)]
-        cache_key = "v:" + _cache_tag(lean_env) + imports + env_stripped + "\n" + "\n".join(t for _, t in named)
-        if self._cache:
-            hit = self._cache.get_proof(cache_key)
+        result = ProofResult(proved=False, method="", error="", mathlib_available=mathlib_ok)
+        k = 0  # entry names run on across the batches, so each names one attempt
+        for entries in batches:
+            named = [(f"_lss_p{k + i}", f"theorem _lss_p{k + i} : {theorem_stmt} := {suffix}")
+                     for i, (suffix, _) in enumerate(entries)]
+            k += len(entries)
+            cache_key = ("v:" + _cache_tag(lean_env) + imports + env_stripped + f"\nheartbeats:{heartbeats}\n"
+                         + "\n".join(t for _, t in named))
+            hit = self._cache.get_proof(cache_key) if self._cache else None
             if hit is not None:
-                return ProofResult(proved=hit["proved"], method=hit["method"],
-                                   error=hit.get("error", ""),
-                                   mathlib_available=hit.get("mathlib_available", True),
-                                   axioms=hit.get("axioms", []))
-
-        verdicts, out = check_proofs(imports + env_stripped, named, project_dir=pdir, timeout=timeout)
-        self.lean_calls += 1
-        result = ProofResult(proved=False, method="", error=out.strip()[:200],
-                             mathlib_available=mathlib_ok)
-        # entries are in priority order: the first one the checker accepts wins
-        for (name, _), (_, label) in zip(named, entries):
-            v = verdicts[name]
-            if v["ok"]:
-                result = ProofResult(proved=True, method=label, error="",
-                                     mathlib_available=mathlib_ok, axioms=v["axioms"])
+                result = ProofResult(proved=hit["proved"], method=hit["method"], error=hit.get("error", ""),
+                                     mathlib_available=hit.get("mathlib_available", True),
+                                     axioms=hit.get("axioms", []))
+            else:
+                verdicts, out = check_proofs(imports + env_stripped, named, project_dir=pdir, timeout=timeout,
+                                             heartbeats=heartbeats)
+                self.lean_calls += 1
+                result = ProofResult(proved=False, method="", error=out.strip()[:200],
+                                     mathlib_available=mathlib_ok)
+                # entries are in priority order: the first one the checker accepts wins
+                for (name, _), (_, label) in zip(named, entries):
+                    v = verdicts[name]
+                    if v["ok"]:
+                        result = ProofResult(proved=True, method=label, error="",
+                                             mathlib_available=mathlib_ok, axioms=v["axioms"])
+                        break
+                # a run cut short (timeout, memory cap) says nothing about the tactics: not cached
+                if self._cache and not any(v["stage"] in ("timeout", "memory") for v in verdicts.values()):
+                    self._cache.put_proof(cache_key, {
+                        "proved": result.proved, "method": result.method, "error": result.error,
+                        "mathlib_available": result.mathlib_available, "axioms": result.axioms,
+                    })
+            if result.proved:
                 break
-
-        # a run cut short (timeout, memory cap) says nothing about the tactics: not cached
-        if self._cache and not any(v["stage"] in ("timeout", "memory") for v in verdicts.values()):
-            self._cache.put_proof(cache_key, {
-                "proved": result.proved, "method": result.method, "error": result.error,
-                "mathlib_available": result.mathlib_available, "axioms": result.axioms,
-            })
         return result
 
     def try_proof(self, lean_env, theorem_stmt, func_name=None,
@@ -1032,7 +975,7 @@ def _find_def_in_text(text, func_name):
     boundary = re.compile(r'\n(?=def[ \t]|@\[|theorem[ \t]|namespace[ \t]|end\b|/--)')
     names = [func_name] if func_name == last else [func_name, last]
     for name in names:
-        pat = re.compile(r'(?:@\[.*?\]\s*)?def\s+' + re.escape(name) + r'\b')
+        pat = re.compile(r'(?:@\[.*?\]\s*)?def\s+' + re.escape(name) + r"(?![\w']|\.(?!\{))")
         m = pat.search(text)
         if not m:
             continue
