@@ -1,5 +1,5 @@
 """speed and cost: where each rust proof attempt runs, the time budgets, the
-mutant sample, the prompt context and the cost report. --static needs no Lean;
+prompt context and the cost report. --static needs no Lean;
 the full run uses ~/lss_lean/aeneas and ~/rust_benchmarks (FeatureSuite)."""
 import json
 import os
@@ -283,7 +283,7 @@ class _SketchLLM:
 
 
 def run_static_budgets():
-    print("=== static: one time budget per split, one hammer budget per unit's mutants ===")
+    print("=== static: one time budget per split ===")
     import time
     import lean
     import lss_config
@@ -317,61 +317,6 @@ def run_static_budgets():
     r, checker, _ = split(0)
     check("with no time left a sub-lemma still gets layer 1, and no hammer",
           checker.l1 == [lean.MIN_TRY] and checker.hammer == [] and not r.proved, f"{checker.l1} {checker.hammer}")
-
-    clock = Clock()
-    checker = _BudgetChecker(clock, hammer_proves=False)
-    with Patch((time, "monotonic", clock), (lss_config, "proof_cfg", _proof_cfg(mutant_hammer_seconds=120))):
-        engine = lean.MutationEngine(checker)
-        for i in range(5):
-            engine.certify_proof("def f := 1", {"code": "def f := 1\ndef f_mut := 2", "mutant_func_name": f"f_mut{i}"},
-                                 "f", [], project_dir="/p")
-    expected, left = [], 120.0
-    while left >= lean.MIN_TRY and len(expected) < 5:
-        expected.append(min(lss_config.server_cfg()["hammer_timeout"], left))
-        left -= expected[-1]
-    check("the unit's mutants share one hammer budget, then stop calling hammer",
-          checker.hammer == expected and sum(checker.hammer) <= 120, f"{checker.hammer} vs {expected}")
-    check("every mutant still gets its tactic proof attempt", len(checker.l1) == 5, str(checker.l1))
-
-
-CLAMP = """def clampTo (lo hi x : Nat) : Nat :=
-  if x < lo then lo
-  else if x > hi then hi
-  else x + 0"""
-
-
-def run_static_mutants():
-    print("=== static: at most one mutant per line, judged only by proof ===")
-    import lean
-
-    ms = ([{"operator": "arith_+_-", "line": 1, "k": i} for i in range(5)] +
-          [{"operator": "arith_-_+", "line": 2}, {"operator": "boundary_<_≤", "line": 2}, {"operator": "+", "line": 3}])
-    got, stats = lean._sample_per_line(ms, 30)
-    check("one mutant per line", [m["line"] for m in got] == [1, 2, 3], str(got))
-    check("on each line the least-used operator class wins", got[1]["operator"] == "boundary_<_≤", str(got[1]))
-    check("the sampling stats count lines and mutants", stats == {"generated": 8, "lines": 3, "sampled": 3, "capped": False},
-          str(stats))
-    got, stats = lean._sample_per_line([{"operator": "x", "line": i} for i in range(50)], 30)
-    check("more lines than the cap are sampled evenly, first to last",
-          len(got) == 30 and got[0]["line"] == 0 and got[-1]["line"] >= 45 and stats["capped"], str([m["line"] for m in got]))
-
-    class _Typechecks:
-        def typecheck(self, code, project_dir=None):
-            return True, []
-    engine = lean.MutationEngine(_Typechecks())
-    muts = engine.generate_mutants(CLAMP, "clampTo")
-    lines = [m["line"] for m in muts]
-    check("generated mutants sit on distinct lines of the definition",
-          bool(muts) and len(set(lines)) == len(lines) and all(0 <= x <= 3 for x in lines), str(lines))
-    check("no line goes unmutated when it has a mutant", set(lines) == {1, 2, 3}, str(lines))
-
-    check("the LLM equivalence judge is gone", not hasattr(lean.MutationEngine, "detect_equivalent_llm"))
-    try:
-        engine.filter_compilable([], llm=object())  # type: ignore[call-arg]
-        takes_llm = True
-    except TypeError:
-        takes_llm = False
-    check("filter_compilable takes no LLM", not takes_llm)
 
 
 CRATE_TEXT = """import Aeneas
@@ -506,7 +451,7 @@ def run_static_report():
     rows = ([{"kind": "llm", "func": "f1", "input_tokens": n, "output_tokens": 10, "usd": 0.01} for n in (1000, 3000)] +
             [{"kind": "prompt_context", "func": "f1", "chars": 900, "chars_whole": 40000}] +
             [{"kind": "lean", "layer": lay, "elapsed": sec, "func": "f1"} for lay, sec in
-             [("aeneas", 3.0), ("decompose", 10.0), ("mutation", 5.0), ("tactics", 1.0), ("hammer", 2.0),
+             [("aeneas", 3.0), ("decompose", 10.0), ("typecheck", 5.0), ("tactics", 1.0), ("hammer", 2.0),
               ("bounded", 1.5), ("gate", 0.5)]] +
             [{"kind": "verdict", "func": "f1", "status": "proved", "method": m, "source": src} for m, src in
              [("aeneas:h", "rust-aeneas"), ("l2:hammer (12.0s)", "rust-aeneas"), ("l2:hammer (3.0s)", "lean-native"),
@@ -520,7 +465,7 @@ def run_static_report():
     text = out.getvalue()
     lines = {ln.split()[0]: ln for ln in text.splitlines() if ln.startswith("  ") and ln.split()}
     check("every layer gets its Lean seconds, the split and the bounded check included",
-          all(k in lines for k in ("aeneas", "decompose", "mutation", "tactics", "hammer", "bounded", "gate"))
+          all(k in lines for k in ("aeneas", "decompose", "typecheck", "tactics", "hammer", "bounded", "gate"))
           and "s=10.0" in lines.get("decompose", ""), text)
     check("proofs are credited to the aeneas layer and the split",
           "proofs=2" in lines.get("aeneas", "") and "proofs=1" in lines.get("decompose", ""), text)
@@ -553,12 +498,12 @@ def run_full_routing(rust_dir, benches, checker):
     check("crate env built", state["ok"], state.get("error", "")[:300])
     if not state["ok"]:
         return
-    ok, errs = checker.typecheck(ctx + "\ndef identity_mut0 (value : Std.U32) : Result Std.U32 := ok value",
+    ok, errs = checker.typecheck(ctx + "\ndef identity_copy (value : Std.U32) : Result Std.U32 := ok value",
                                  project_dir=rust_dir)
-    check("a mutant of a crate function typechecks in the crate env", ok, str(errs)[:300])
+    check("a definition next to a crate function typechecks in the crate env", ok, str(errs)[:300])
     ok, _ = checker.typecheck(ctx + "\ndef identity_bad (value : Std.U32) : Result Std.U32 := ok true",
                               project_dir=rust_dir)
-    check("an ill-typed mutant is still rejected", not ok)
+    check("an ill-typed one is still rejected", not ok)
     pr = checker.try_proof(ctx, "∀ (value : Std.U32), identity value = ok value", func_name="identity",
                            project_dir=rust_dir)
     check("layer 1 proves a statement about a crate function, in the crate env", pr.proved, pr.error[:300])
@@ -602,7 +547,6 @@ if static:
     run_static_routing()
     run_static_hammer_closer()
     run_static_budgets()
-    run_static_mutants()
     run_static_context()
     run_static_report()
 else:

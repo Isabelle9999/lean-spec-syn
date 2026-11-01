@@ -450,7 +450,7 @@ def generate_failure_freedom(lean_code, func_name, llm, lean_checker,
             "i16": "I16", "i32": "I32", "i64": "I64", "i128": "I128",
         }
 
-        # locate function definition (same resolution order as generate_mutants)
+        # locate the function definition: in the unit's own code, then in its source
         fn_def = None
         fn_src_text = None
         for src in [lean_code, func_source]:

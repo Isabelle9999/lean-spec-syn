@@ -1,24 +1,4 @@
-import os
-import glob as _glob
-from lean import LeanChecker, MutationEngine, _parse_struct_defs
-
-_struct_defs_cache = {}
-
-def _load_struct_defs(project_dir):
-    """scan project lean files for structure defs; cached per project_dir."""
-    if project_dir in _struct_defs_cache:
-        return _struct_defs_cache[project_dir]
-    defs = {}
-    if project_dir and os.path.isdir(project_dir):
-        for path in sorted(_glob.glob(os.path.join(project_dir, "**", "*.lean"), recursive=True)):
-            if ".lake" in path.replace("\\", "/"):
-                continue
-            try:
-                defs.update(_parse_struct_defs(open(path, encoding="utf-8").read()))
-            except (OSError, UnicodeDecodeError):
-                continue
-    _struct_defs_cache[project_dir] = defs
-    return defs
+from lean import LeanChecker
 
 BENCHMARKS = [
     {
@@ -161,67 +141,6 @@ def pow' : Nat → Nat → Nat
         "ground_truth": ["= 1", "pow' _ 1", "pow' 1"],
     },
 ]
-
-
-def evaluate(specs, benchmark, lean_checker=None, project_dir=None):
-    """mutation score of the kernel-proved specs: killed over killed + survived."""
-    proved = [s for s in specs if s["status"] == "proved"]
-    kill_rate = None
-    mutation_counts = None
-    if lean_checker and proved:
-        engine = MutationEngine(lean_checker)
-        func_name = benchmark.get("func_name", "")
-        lean_code = benchmark["lean_code"]
-        test_inputs = benchmark.get("test_inputs", [])
-        func_source = benchmark.get("func_source")
-        if func_name:
-            struct_defs = _parse_struct_defs(func_source) if func_source else {}
-            struct_defs.update(_load_struct_defs(project_dir))
-            mutants = engine.generate_mutants(lean_code, func_name, func_source=func_source,
-                                              project_dir=project_dir)
-            compilable = [m for m in mutants if not m.get("diagnostic")]
-
-            # test-input pre-filter: if a mutant differs on a concrete input it is not equivalent
-            non_equiv = set()
-            if test_inputs and compilable:
-                for i, m in enumerate(compilable):
-                    if engine.certify(lean_code, m, func_name, test_inputs):
-                        non_equiv.add(i)
-
-            spec_stmts = [s["stmt"] for s in proved]
-            spec_names = [s["name"] for s in proved]
-            counts = {"STILLBORN": 0, "EQUIVALENT": 0, "KILLED": 0,
-                      "SURVIVED": 0, "INCONCLUSIVE": 0, "SUBSUMED": 0}
-            classified = []
-            for i, m in enumerate(compilable):
-                r = engine.certify_proof(lean_code, m, func_name, spec_stmts,
-                                         project_dir=project_dir,
-                                         skip_equiv=(i in non_equiv),
-                                         struct_defs=struct_defs,
-                                         spec_names=spec_names)
-                counts[r["status"]] += 1
-                classified.append(r)
-
-            # subsumption: group KILLED by (killed_by, witness), mark duplicates SUBSUMED (Item 3)
-            seen_kills = {}
-            for r in classified:
-                if r["status"] == "KILLED":
-                    key = (r.get("killed_by"), r.get("witness"))
-                    if key in seen_kills:
-                        counts["KILLED"] -= 1
-                        counts["SUBSUMED"] += 1
-                        r["status"] = "SUBSUMED"
-                    else:
-                        seen_kills[key] = True
-
-            mutation_counts = counts
-            scored = counts["KILLED"] + counts["SURVIVED"]
-            kill_rate = counts["KILLED"] / scored if scored > 0 else None
-
-    return {
-        "kill_rate": kill_rate,
-        "mutation_counts": mutation_counts,
-    }
 
 
 if __name__ == "__main__":

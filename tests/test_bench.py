@@ -41,23 +41,20 @@ def run_static_metrics():
           st([_spec("refuted"), _spec("unproved")]) == "unknown" and st([]) == "unknown")
     check("unknown functions stay in the yield denominator, skipped ones leave it",
           metrics.yield_counts(["proved_total", "proved_partial", "unknown", "unknown", "skipped"]) == (2, 4))
-    rep = metrics.generate_report("f", [_spec("proved"), _spec("unproved")], 1.0, 3, 4, kill_rate=0.5)
-    gone = ("soundness", "avg_clarity", "avg_uniqueness", "admissibility", "precision", "validated_count")
+    rep = metrics.generate_report("f", [_spec("proved"), _spec("unproved")], 1.0, 3, 4)
+    gone = ("soundness", "avg_clarity", "avg_uniqueness", "admissibility", "precision", "validated_count",
+            "mutation_score")
     check("the report has a status and no ad hoc scores",
           rep["status"] == "proved_total" and rep["proved_count"] == 1 and rep["unproved_count"] == 1
           and not any(k in rep for k in gone)
           and not any(hasattr(metrics, f) for f in ("clarity_score", "uniqueness_score",
                                                     "admissibility_check", "soundness_score")),
           str(sorted(rep)))
-    try:
-        score = benchmarks.evaluate([_spec("unproved")], {"func_name": "f", "lean_code": "def f := 1"},
-                                    lean_checker=object())
-    except Exception as e:  # an unproved spec reached the mutation engine
-        score = repr(e)
-    check("the mutation score uses only kernel-proved specs",
-          score == {"kill_rate": None, "mutation_counts": None}, str(score))
-    r = synth.run_adversarial_tier([_spec("unproved")], "def f := 1", "f", None, None, None)
-    check("an unproved spec does not reach the adversarial tier", r["attacked"] is False, str(r))
+    import lean
+    import run
+    check("the old mutation stage is gone: no refinement, mutation score or mutation engine",
+          not any(hasattr(m, f) for m, f in ((synth, "refine"), (synth, "run_adversarial_tier"), (run, "refine"),
+                                             (benchmarks, "evaluate"), (run, "evaluate"), (lean, "MutationEngine"))))
     check("post-completeness is gone", not hasattr(synth, "compute_post_completeness"))
 
 
@@ -96,15 +93,14 @@ def run_static_results():
         events.configure(1, {"t": 1})
         path = events.log_path()
         assert path is not None
-        args = argparse.Namespace(verbose=False, debug=False, quick=True, timeout=5)
+        args = argparse.Namespace(verbose=False, debug=False, timeout=5)
         bm = {"name": "b1", "lean_code": "def f (x : Nat) : Nat := x", "func_name": "f"}
 
         def fake_synth(*a, **k):
             events.emit("probe")
             return [_spec("proved"), _spec("unproved")]
 
-        saved = (run.synthesize, run.evaluate, run.check_trait_obligations)
-        run.evaluate = lambda *a, **k: {"kill_rate": None, "mutation_counts": None}
+        saved = (run.synthesize, run.check_trait_obligations)
         run.check_trait_obligations = lambda *a, **k: {"trait_found": False}
         try:
             run.synthesize = fake_synth
@@ -148,10 +144,10 @@ def run_static_results():
                 out = repr(e)
             res = [e for e in _read_events(path) if e["kind"] == "unit_result" and e["unit"] == "b4"]
             check("a function whose crate does not build is unknown at once, with the build error, before any LLM call",
-                  out == (None, None) and not asked and len(res) == 1 and res[0]["status"] == "unknown"
+                  out is None and not asked and len(res) == 1 and res[0]["status"] == "unknown"
                   and res[0]["reason"] == "crate env: :12:4: error: Unknown identifier `x`", str(res))
         finally:
-            run.synthesize, run.evaluate, run.check_trait_obligations = saved
+            run.synthesize, run.check_trait_obligations = saved
     finally:
         os.chdir(old_cwd)
 

@@ -55,8 +55,6 @@ hammer_heartbeats = 1000000
 # seconds for the Lean work of one candidate's sub-lemma split (layer 3), shared
 # evenly across its sub-lemmas: layer 1 always runs, hammer gets what is left
 split_seconds = 180
-# hammer seconds shared by the mutant proofs of one pass over a unit's mutants
-mutant_hammer_seconds = 120
 
 [bench]
 # the Aeneas-translated crates the dev and test sets come from (FeatureSuite stays
