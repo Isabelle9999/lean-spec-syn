@@ -1366,7 +1366,12 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                         if not line.strip().startswith("import") and not line.strip().startswith("open")
                     )
                     if preamble_clean.strip():
-                        ok_pre, errs_pre = lean_checker.typecheck(lean_code.rstrip() + "\n" + preamble_clean.strip(), project_dir=project_dir)
+                        # the LLM's helper definitions only state the spec, never run: a
+                        # helper that calls a function Lean cannot compile (an opaque
+                        # crate function) is marked noncomputable, as it was inside the
+                        # crate's own noncomputable section
+                        preamble_clean = "noncomputable section\n" + preamble_clean.strip() + "\nend"
+                        ok_pre, errs_pre = lean_checker.typecheck(lean_code.rstrip() + "\n" + preamble_clean, project_dir=project_dir)
                         if not ok_pre:
                             if verbose:
                                 print(f"  [pre] {spec['name']}: preamble typecheck FAIL: {errs_pre[0][:80] if errs_pre else 'unknown'}")

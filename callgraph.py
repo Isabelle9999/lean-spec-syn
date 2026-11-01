@@ -2,6 +2,7 @@ import os
 import glob
 import json
 import hashlib
+import re
 
 import networkx as nx
 
@@ -81,14 +82,58 @@ def _topo_order_code_files(code_dir, crate):
     return ordered, texts
 
 
+_SCOPE_OPEN = re.compile(r"(?:@\[[^\]]*\]\s*)?(?:(?:public|private)\s+)?(?:noncomputable\s+)?section\b\s*([^\s-]*)"
+                         r"|namespace\s+(\S+)|mutual\b")
+
+
+def _open_scopes(text):
+    """the `end` lines that close the scopes `text` leaves open, innermost first.
+    a scope is a `namespace X`, a `[noncomputable] section [X]` or a `mutual`
+    block, each opened and closed by a command at the start of a line, outside a
+    comment or string. a dotted name opens one scope per component, and
+    `end A.B` closes as many, as Lean counts them."""
+    stack, depth = [], 0
+    for line in text.splitlines():
+        starts_outside, code, i, in_str = depth == 0, [], 0, False
+        while i < len(line):  # the line's text outside comments and strings
+            if in_str:
+                in_str = line[i] != '"' or line[i - 1] == "\\"
+                i += 1
+            elif line.startswith("/-", i):
+                depth, i = depth + 1, i + 2
+            elif depth:
+                depth, i = (depth - 1, i + 2) if line.startswith("-/", i) else (depth, i + 1)
+            elif line.startswith("--", i):
+                break
+            else:
+                in_str = line[i] == '"'
+                code.append(line[i])
+                i += 1
+        if not starts_outside:
+            continue
+        cmd = "".join(code)
+        m = _SCOPE_OPEN.match(cmd)
+        if m:
+            name = m.group(1) or m.group(2)
+            stack += [f"end {c}" for c in name.split(".")] if name else ["end"]
+        elif (e := re.match(r"end\b\s*([^\s-]*)", cmd)) and stack:
+            del stack[len(stack) - min(len(stack), len(e.group(1).split(".")) if e.group(1) else 1):]
+    return stack[::-1]
+
+
 def _concat_code_files(ordered, texts):
     """import Aeneas, then each file's body with its own import lines and Aeneas's
     `#assert` unit tests stripped: a test runs code, it defines nothing a spec
-    needs, and Aeneas can place one before the function it calls."""
+    needs, and Aeneas can place one before the function it calls. a Lean file's
+    end closes the scopes it left open; joined, the next file would be read inside
+    them (Aeneas opens a `noncomputable section` it never closes, which made every
+    definition after the crate noncomputable), so each file's open scopes are
+    closed where the file ends."""
     parts = ["import Aeneas"]
     for p in ordered:
-        parts.append("\n".join(l for l in texts[p].splitlines()
-                               if not l.strip().startswith(("import ", "#assert"))))
+        body = "\n".join(l for l in texts[p].splitlines()
+                         if not l.strip().startswith(("import ", "#assert")))
+        parts.append("\n".join([body] + _open_scopes(body)))
     return "\n".join(parts)
 
 

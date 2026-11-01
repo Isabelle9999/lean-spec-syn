@@ -54,6 +54,26 @@ def run_static():
                                                                 "#assert (test1 == ok ())\ndef g := 1\n"})
     check("Aeneas's #assert unit tests are dropped from the crate text, every definition kept",
           "#assert" not in text and "def test1" in text and "def g := 1" in text, text)
+    # the header Aeneas writes (Translate.ml: `noncomputable section` at the top of
+    # the file, then the namespace), a body that closes only its namespace
+    aeneas_file = ("import Aeneas\nset_option maxRecDepth 2048\n\n/- You can remove the following line by "
+                   "using the CLI option `-all-computable`: -/\nnoncomputable section\n\nnamespace c\n"
+                   "/-- doc\nend of a doc line\nsection inside a comment -/\ndef f (x : Nat) : Nat :=\n"
+                   "  match x with\n  | _ => x\nmutual\ndef e : Nat → Bool\n  | _ => true\nend\n-- end\nend c\n")
+    text = callgraph._concat_code_files(["A.lean", "B.lean"], {"A.lean": aeneas_file, "B.lean": "def g := 1\n"})
+    a_end = text.index("def g := 1")
+    check("a file's open `noncomputable section` is closed where the file ends, before the next file",
+          text[:a_end].rstrip().endswith("end c\nend") and text.count("\nend\n") == 2, text)
+    check("scopes the file closes itself, or that only a comment opens, are not closed again",
+          callgraph._open_scopes(aeneas_file.replace("noncomputable section\n", "")) == [], text)
+    check("open scopes close innermost first",
+          callgraph._open_scopes("noncomputable section\nnamespace a\nsection s\nmutual\n") ==
+          ["end", "end s", "end a", "end"])
+    check("a comment or string mark inside a line comment or a string opens no comment",
+          callgraph._open_scopes("-- a/-b\nnoncomputable section\ndef s := \"/- x\"\nsection") == ["end", "end"])
+    check("a dotted name is one scope per component, as Lean counts them",
+          callgraph._open_scopes("namespace A\nnamespace B\nend A.B") == []
+          and callgraph._open_scopes("namespace A.B") == ["end B", "end A"])
     text, units, manifest_info = _hand_units()
     g = callgraph.CallGraph(text, units, manifest_info=manifest_info)
 

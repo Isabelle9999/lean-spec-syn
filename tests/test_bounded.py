@@ -442,6 +442,30 @@ def run_static_synth():
           and rej[0].get("stmt") == "∀ (o : Option U32), f o ⦃ r => r = o ⦄", str(rej))
 
 
+def run_static_preamble():
+    print("=== static: the LLM's helper definitions ===")
+    import synth
+    seen = []
+
+    class Checker:
+        def typecheck(self, code, project_dir=None):
+            seen.append(code)
+            return True, []
+    old_gate = synth._gate.check_candidate
+    synth._gate.check_candidate = lambda *a, **k: (_ for _ in ()).throw(StopIteration)
+    try:
+        synth.validate([{"name": "s", "stmt": "S", "preamble": "def helper (x : U32) : Prop := ext x = x"}],
+                       "import Aeneas\nimport C.Code.Funs\n", [], Checker(), func_name="f", project_dir="/p",
+                       source="rust-aeneas")
+    except StopIteration:
+        pass
+    finally:
+        synth._gate.check_candidate = old_gate
+    check("helper definitions sit in their own noncomputable section, closed after them",
+          bool(seen) and seen[0].endswith("noncomputable section\ndef helper (x : U32) : Prop := ext x = x\nend"),
+          str(seen)[-200:])
+
+
 def run_full():
     print("=== full: bounded checking on FeatureSuite ===")
     import lean
@@ -512,6 +536,9 @@ set_option linter.dupNamespace false
 set_option linter.hashCommand false
 set_option linter.unusedVariables false
 
+/- You can remove the following line by using the CLI option `-all-computable`: -/
+noncomputable section
+
 namespace LssPlanted
 
 /-- [lss_planted::List] -/
@@ -549,6 +576,9 @@ open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false
 set_option linter.unusedVariables false
+
+/- You can remove the following line by using the CLI option `-all-computable`: -/
+noncomputable section
 
 namespace LssPlanted
 
@@ -692,6 +722,7 @@ run_static_commands()
 run_static_check()
 run_static_run()
 run_static_synth()
+run_static_preamble()
 if not static:
     run_full()
 print()
