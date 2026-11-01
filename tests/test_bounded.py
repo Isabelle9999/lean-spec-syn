@@ -217,6 +217,8 @@ def run_static_check():
     check("a refutation the kernel does not check is evaluation-only", v["status"] == "refuted" and v["kernel"] is False)
     v = _check(FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.integerOverflow"}))
     check("a spec whose call fails is refuted", v["status"] == "refuted" and v["outcome"] == "fail", str(v))
+    check("its feedback says the triple claims success and asks for the precondition that gives it",
+          "says the call succeeds, so state as a hypothesis" in v.get("feedback", ""), v.get("feedback"))
     v = _check(FakeLean(lambda r: {"outcome": "div", "value": ""}))
     check("divergence refutes a ⦃ ⦄ spec", v["status"] == "refuted", str(v))
     v = _check(FakeLean(lambda r: {"outcome": "div", "value": ""}), stmt="div S")

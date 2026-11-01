@@ -413,6 +413,10 @@ def run_static_context():
     llm.generate_specs("import Aeneas\nimport C.Code.Funs\n", [], func_name="f", func_source="def f (x : Std.U32) : Result Std.U32 := ok x")
     check("the spec prompt shows the unit's context, not just the import lines",
           bool(sent) and "def f (x : Std.U32)" in sent[0], (sent or [""])[0][:200])
+    check("the prompt says, as Aeneas defines it, that ⦃ ⦄ claims the call succeeds and asks for its precondition",
+          bool(sent) and "succeeds (it neither fails nor runs forever)" in sent[0]
+          and "state as\nhypotheses what the inputs need for it to succeed" in sent[0]
+          and "if `f args` succeeds" not in sent[0], (sent or [""])[0][-1500:])
 
 
 def run_static_report():
