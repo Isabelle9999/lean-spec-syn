@@ -117,19 +117,8 @@ class LLMClient:
                 err = str(e)
         return None
 
-    def generate_specs(self, lean_code, type_templates, example_store=None, func_name=None, postcond_defs=None, func_source=None):
+    def generate_specs(self, lean_code, type_templates, func_name=None, postcond_defs=None, func_source=None):
         self._method_ctx = "generate_specs"
-        ex_ctx = ""
-        if example_store and func_name:
-            ex = example_store.check_examples(func_name)
-            pos = ex.get("positive", [])
-            neg = ex.get("negative", [])
-            if pos:
-                lines = [f"  input: {e['input']} -> output: {e['output']}" for e in pos]
-                ex_ctx += "known correct behaviors (your specs must accept all of these):\n" + "\n".join(lines) + "\n\n"
-            if neg:
-                lines = [f"  input: {e['in']} -> wrong output: {e['out']}" for e in neg]
-                ex_ctx += "known wrong behaviors (a strong spec should reject these):\n" + "\n".join(lines) + "\n\n"
         fn = func_name or _func_name(lean_code)
         sig_ctx = ""
         type_hints = ""
@@ -183,7 +172,6 @@ class LLMClient:
         prompt = (
             f"lean 4 function:\n{func_source or lean_code}\n\n"
             f"type hints: {', '.join(type_templates)}\n\n"
-            + ex_ctx
             + sig_ctx
             + type_hints
         )
@@ -1336,7 +1324,7 @@ def _llm_repair(llm, lean_code, spec, prev_proofs=None, verbose=False, debug_dir
             return
     spec["status"] = "unproved"
 
-def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_store=None, func_name=None, verbose=False, debug_dir=None, project_dir=None, func_source=None, source=None):
+def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=None, verbose=False, debug_dir=None, project_dir=None, func_source=None, source=None):
     func = func_name or _func_name(lean_code)
 
     processed_stmts = set()
@@ -1379,19 +1367,6 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, example_stor
                     else:
                         preamble = ""
                 eff = lean_code.rstrip() + "\n" + preamble if preamble else lean_code
-
-                # gate 0: flag if spec is consistent with any stored negative example
-                if example_store:
-                    ex = example_store.check_examples(func)
-                    for neg in ex.get("negative", []):
-                        const = re.sub(r':=.*', lambda m: ':= ' + neg["out"], lean_code, count=1, flags=re.DOTALL)
-                        const_eff = const.rstrip() + "\n" + preamble if preamble else const
-                        r = lean_checker.try_proof(const_eff, spec["stmt"], project_dir=project_dir)
-                        if r.proved:
-                            spec["gate0_flag"] = True
-                            break
-                if verbose:
-                    print(f"  [g0] {spec['name']}: example store check {'flagged' if spec.get('gate0_flag') else 'ok'}")
 
                 # gate 1: well-formedness gate (shape, vocabulary, decidability -
                 # replaces the old bare typecheck; a candidate that passes it is
@@ -1744,7 +1719,7 @@ def _normalize_stmt(stmt):
     return s
 
 
-def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_store,
+def synthesize(lean_code, test_inputs, templates, llm, lean_checker,
                use_obligations=False, func_name=None, verbose=False, debug_dir=None, postcond_defs=None, project_dir=None, func_source=None, source=None):
     fn = func_name or _func_name(lean_code)
     with events.context(func=fn, stage="generate"):
@@ -1782,7 +1757,7 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
                         print(f"  [gen] behavior-first produced {len(behavior_specs)} candidates (hard function)")
             if verbose:
                 print("  [gen] running strategy: direct")
-            specs = llm.generate_specs(lean_code, templates, example_store=example_store, func_name=func_name, postcond_defs=postcond_defs, func_source=func_source)
+            specs = llm.generate_specs(lean_code, templates, func_name=func_name, postcond_defs=postcond_defs, func_source=func_source)
             if behavior_specs:
                 specs.extend(behavior_specs)
             if verbose:
@@ -1843,7 +1818,7 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
                     specs.extend(ff_specs)
 
         specs = validate(specs, lean_code, test_inputs, lean_checker,
-                         llm=llm, example_store=example_store, func_name=func_name, verbose=verbose,
+                         llm=llm, func_name=func_name, verbose=verbose,
                          debug_dir=debug_dir, project_dir=project_dir, func_source=func_source, source=source)
 
         # round 2: SpecGen-style mutation-guided repair (not raw error messages)
@@ -1925,7 +1900,7 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
 
             if repaired:
                 repaired_validated = validate(repaired, lean_code, test_inputs, lean_checker,
-                    llm=llm, example_store=example_store, func_name=func_name,
+                    llm=llm, func_name=func_name,
                     verbose=verbose, debug_dir=debug_dir, project_dir=project_dir,
                     func_source=func_source, source=source)
                 new_proved = [s for s in repaired_validated if s["status"] == "proved"]
@@ -1947,7 +1922,7 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
                 if verbose:
                     print(f"  [gen] round 3 produced {len(round3)} safe specs")
                 round3_validated = validate(round3, lean_code, test_inputs, lean_checker,
-                                            llm=llm, example_store=example_store, func_name=func_name,
+                                            llm=llm, func_name=func_name,
                                             verbose=verbose, debug_dir=debug_dir, project_dir=project_dir,
                                             source=source)
                 new_proved = [s for s in round3_validated if s["status"] == "proved"]
@@ -1955,20 +1930,10 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker, example_sto
                 if verbose:
                     print(f"  [gen] round 3: {len(new_proved)} proved")
 
-        # merge gwp: gate 0 and gate 3 only (proofs already kernel-checked)
+        # merge gwp: gate 3 only (proofs already kernel-checked)
         if gwp and fn:
             wrong = _make_wrong(lean_code, fn) or _replace_body(lean_code)
             for s in gwp:
-                if example_store:
-                    ex_data = example_store.check_examples(fn)
-                    flagged = False
-                    for neg in ex_data.get("negative", []):
-                        const = re.sub(r':=.*', lambda m: ':= ' + neg["out"], lean_code, count=1, flags=re.DOTALL)
-                        if lean_checker.try_proof(const, s["stmt"]).proved:
-                            flagged = True
-                            break
-                    if flagged:
-                        continue
                 if lean_checker.try_proof(wrong, s["stmt"]).proved:
                     continue
                 existing = next((x for x in specs if x["stmt"] == s["stmt"]), None)

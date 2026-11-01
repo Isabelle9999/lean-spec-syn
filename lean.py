@@ -1114,34 +1114,6 @@ def _diverse_tuples(per_arg, cap):
     return result[:cap]
 
 
-class ExampleStore:
-    def __init__(self):
-        os.makedirs(".lss", exist_ok=True)
-        self._path = ".lss/examples.json"
-        if os.path.exists(self._path):
-            with open(self._path) as f:
-                self._data = json.load(f)
-        else:
-            self._data = {}
-
-    def _save(self):
-        with open(self._path, "w") as f:
-            json.dump(self._data, f)
-
-    def add_negative(self, func, input_val, wrong_output, provenance="mutation"):
-        self._data.setdefault(func, {"positive": [], "negative": []})
-        self._data[func]["negative"].append({"in": input_val, "out": wrong_output, "source": provenance})
-        self._save()
-
-    def add_positive(self, func, input_val, correct_output):
-        self._data.setdefault(func, {"positive": [], "negative": []})
-        self._data[func]["positive"].append({"input": input_val, "output": correct_output})
-        self._save()
-
-    def check_examples(self, func):
-        return self._data.get(func, {"positive": [], "negative": []})
-
-
 class Cache:
     CACHE_VERSION = 3  # 3: proof results come from LSS_PROOF verdicts
 

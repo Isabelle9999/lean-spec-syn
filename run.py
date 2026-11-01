@@ -9,7 +9,7 @@ import shutil
 import threading
 import lss_config as _lss_config
 
-from lean import LeanChecker, ExampleStore, Cache, get_lean_calls, crate_env_error
+from lean import LeanChecker, Cache, get_lean_calls, crate_env_error
 import lean_server as _lean_server
 from synth import LLMClient, synthesize, _func_name, get_llm_calls
 import events
@@ -76,7 +76,7 @@ def _with_timeout(fn, timeout):
     return result[0], False
 
 
-def run_bench(bm, args, llm, checker, store, project_dir=None, func_source=None):
+def run_bench(bm, args, llm, checker, project_dir=None, func_source=None):
     """one function. every LLM and Lean call it makes is logged with unit=<bench name>, and it ends with
     one unit_result event: the status, the spec counts and the wall seconds, also
     after a timeout or a crash (status unknown, with the reason)."""
@@ -90,7 +90,7 @@ def run_bench(bm, args, llm, checker, store, project_dir=None, func_source=None)
                         seconds=time.time() - t0)
             return None
         try:
-            report = _run_bench(bm, args, llm, checker, store, project_dir, func_source)
+            report = _run_bench(bm, args, llm, checker, project_dir, func_source)
         except Exception as e:
             events.emit("unit_result", status="unknown", reason=f"crash: {type(e).__name__}",
                         seconds=time.time() - t0)
@@ -103,7 +103,7 @@ def run_bench(bm, args, llm, checker, store, project_dir=None, func_source=None)
     return report
 
 
-def _run_bench(bm, args, llm, checker, store, project_dir=None, func_source=None):
+def _run_bench(bm, args, llm, checker, project_dir=None, func_source=None):
     fn = bm.get("func_name") or _func_name(bm["lean_code"])
     ti = bm.get("test_inputs", [])
     tpl = bm.get("templates", [])
@@ -125,7 +125,7 @@ def _run_bench(bm, args, llm, checker, store, project_dir=None, func_source=None
     def _synth():
         postcond_defs = bm.get("postcond_defs", {})
         lean_code = bm["lean_code"] + bm.get("lean_preamble", "")
-        return synthesize(lean_code, ti, tpl, llm, checker, store, func_name=fn, verbose=vb, debug_dir=debug_dir, postcond_defs=postcond_defs, project_dir=project_dir, func_source=func_source, source=bm.get("source"))
+        return synthesize(lean_code, ti, tpl, llm, checker, func_name=fn, verbose=vb, debug_dir=debug_dir, postcond_defs=postcond_defs, project_dir=project_dir, func_source=func_source, source=bm.get("source"))
 
     timeout = getattr(args, "timeout", 600)
     specs, timed_out = _with_timeout(_synth, timeout)
@@ -307,7 +307,6 @@ def main():
     cache = Cache(os.environ.get("LSS_CACHE_PATH", ".lss/cache.json"))  # the harness gives each tag its own
     llm = LLMClient()
     checker = LeanChecker(cache=cache, project_dir=lean_project_dir)
-    store = ExampleStore()
 
     if args.rust_project:
         from loader import load_rust_project
@@ -360,7 +359,7 @@ def main():
                 continue
         n_reverified += 1
         try:
-            report = run_bench(bm, args, llm, checker, store, project_dir=run_dir, func_source=bm.get("func_source"))
+            report = run_bench(bm, args, llm, checker, project_dir=run_dir, func_source=bm.get("func_source"))
             statuses.append(report["status"] if report is not None else "unknown")
             if report is not None:
                 reports.append(report)

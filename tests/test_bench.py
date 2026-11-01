@@ -52,6 +52,10 @@ def run_static_metrics():
           str(sorted(rep)))
     import lean
     import run
+    check("no example store: wrong outputs an earlier run stored never reach a prompt or a check",
+          not hasattr(lean, "ExampleStore") and "example_store" not in synth.LLMClient.generate_specs.__code__.co_varnames
+          and "example_store" not in synth.validate.__code__.co_varnames
+          and "example_store" not in synth.synthesize.__code__.co_varnames)
     check("the old mutation stage is gone: no refinement, mutation score or mutation engine",
           not any(hasattr(m, f) for m, f in ((synth, "refine"), (synth, "run_adversarial_tier"), (run, "refine"),
                                              (benchmarks, "evaluate"), (run, "evaluate"), (lean, "MutationEngine"))))
@@ -104,7 +108,7 @@ def run_static_results():
         run.check_trait_obligations = lambda *a, **k: {"trait_found": False}
         try:
             run.synthesize = fake_synth
-            run.run_bench(bm, args, None, None, None)
+            run.run_bench(bm, args, None, None)
             evs = _read_events(path)
             probe = [e for e in evs if e["kind"] == "probe"]
             res = [e for e in evs if e["kind"] == "unit_result"]
@@ -117,7 +121,7 @@ def run_static_results():
 
             run.synthesize = lambda *a, **k: time.sleep(3)
             run.run_bench(dict(bm, name="b2"), argparse.Namespace(**{**vars(args), "timeout": 1}),
-                          None, None, None)
+                          None, None)
             res = [e for e in _read_events(path) if e["kind"] == "unit_result" and e["unit"] == "b2"]
             check("a timeout still ends with one unit_result, status unknown",
                   len(res) == 1 and res[0]["status"] == "unknown" and res[0]["reason"] == "timeout", str(res))
@@ -127,7 +131,7 @@ def run_static_results():
             run.synthesize = boom
             raised = False
             try:
-                run.run_bench(dict(bm, name="b3"), args, None, None, None)
+                run.run_bench(dict(bm, name="b3"), args, None, None)
             except ValueError:
                 raised = True
             res = [e for e in _read_events(path) if e["kind"] == "unit_result" and e["unit"] == "b3"]
@@ -138,7 +142,7 @@ def run_static_results():
             asked = []
             run.synthesize = lambda *a, **k: asked.append(1) or []
             try:
-                out = run.run_bench(dict(bm, name="b4", source="rust-aeneas"), args, None, _Builds({"/s/bad"}), None,
+                out = run.run_bench(dict(bm, name="b4", source="rust-aeneas"), args, None, _Builds({"/s/bad"}),
                                     project_dir="/s/bad")
             except Exception as e:  # an attempt that went ahead, and failed on the fake checker
                 out = repr(e)
