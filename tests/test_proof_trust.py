@@ -334,8 +334,8 @@ def run_static_verdicts():
 # every function that may set status "proved", and how many times; each one takes
 # it from an LSS_PROOF verdict (a ProofResult from lean.py, synth._try_lean_proof
 # or lean.check_proof). a new site must be checked the same way before it is added.
-PROVED_SITES = {"validate": 4, "_llm_repair": 3, "_try_proof_sketch": 2, "synthesize": 2,
-                "generate_with_proof": 1}
+PROVED_SITES = {"validate": 4, "_llm_repair": 3, "_try_proof_sketch": 2, "synthesize": 1,
+                "generate_with_proof": 1, "_admit_with_proof": 1}
 
 
 def _proved_sites():

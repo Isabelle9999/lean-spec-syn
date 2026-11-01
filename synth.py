@@ -1721,6 +1721,38 @@ def _normalize_stmt(stmt):
     return s
 
 
+def _admit_with_proof(gwp, specs, lean_code, fn, lean_checker, project_dir, source, verbose=False):
+    """add the statements the LLM proved itself to specs: each passes the same
+    well-formedness gate as every other candidate (one theorem about the function,
+    in the function's own vocabulary), then gate 3; its kernel-checked proof is kept."""
+    wrong = _make_wrong(lean_code, fn) or _replace_body(lean_code)
+    for s in gwp:
+        with events.context(stage="validate", candidate_id=s["name"]):
+            verdicts = _gate.check_candidate(lean_checker, f"theorem {s['name']} : {s['stmt']} := sorry",
+                                             fn, lean_code, project_dir, source)
+            if _gate.failing_check(verdicts) == "env":  # a setup error, as in validate: never a verdict
+                raise RuntimeError("well-formedness gate environment unavailable: "
+                                   + next((v["detail"] for v in verdicts if not v.get("ok")), ""))
+            if not _gate.is_well_formed(verdicts, source):
+                events.emit("verdict", status="rejected", method="", fail_gate="g1", stmt=s["stmt"],
+                            check=_gate.failing_check(verdicts),
+                            detail=next((v["detail"] for v in verdicts if not v.get("ok")), "")[:300])
+                if verbose:
+                    print(f"  [gwp] {s['name']}: wf gate FAIL: {_gate.failing_check(verdicts)}")
+                continue
+            if lean_checker.try_proof(wrong, s["stmt"]).proved:
+                continue
+            events.emit("verdict", status="proved", method=s["method"], stmt=s["stmt"])
+        existing = next((x for x in specs if x["stmt"] == s["stmt"]), None)
+        if existing:  # the same statement, failed or unproved elsewhere: proved now, by this proof
+            for k in ("fail_gate", "refuted_by", "bounded", "wf_fail_check"):
+                existing.pop(k, None)
+            existing.update({k: v for k, v in s.items() if k not in ("name", "status")})
+            existing["status"] = "proved"
+        else:
+            specs.append(s)
+
+
 def synthesize(lean_code, test_inputs, templates, llm, lean_checker,
                use_obligations=False, func_name=None, verbose=False, debug_dir=None, postcond_defs=None, project_dir=None, func_source=None, source=None):
     fn = func_name or _func_name(lean_code)
@@ -1932,17 +1964,8 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker,
                 if verbose:
                     print(f"  [gen] round 3: {len(new_proved)} proved")
 
-        # merge gwp: gate 3 only (proofs already kernel-checked)
         if gwp and fn:
-            wrong = _make_wrong(lean_code, fn) or _replace_body(lean_code)
-            for s in gwp:
-                if lean_checker.try_proof(wrong, s["stmt"]).proved:
-                    continue
-                existing = next((x for x in specs if x["stmt"] == s["stmt"]), None)
-                if existing:
-                    existing.update({"status": "proved", "method": s["method"]})
-                else:
-                    specs.append(s)
+            _admit_with_proof(gwp, specs, lean_code, fn, lean_checker, project_dir, source, verbose)
 
         # dedup all specs after gwp merge using normalized comparison
         seen_final = set()

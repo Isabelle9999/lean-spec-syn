@@ -468,6 +468,40 @@ def run_static_preamble():
           str(seen)[-200:])
 
 
+def run_static_with_proof():
+    print("=== static: a statement the LLM proved itself ===")
+    import synth
+    import lean
+    emitted = []
+
+    class Checker:
+        def try_proof(self, code, stmt, **k):
+            return lean.ProofResult(proved=False, method="", error="")
+    old_gate, old_emit = synth._gate.check_candidate, synth.events.emit
+    asked = []
+    synth._gate.check_candidate = lambda checker, text, *a, **k: asked.append(a) or (
+        [{"check": "conclusion_shape", "ok": False, "detail": "the conclusion does not call `f`"}] if "BAD" in text
+        else [{"check": c, "ok": True, "detail": ""} for c in synth._gate.checks_for(None)])
+    synth.events.emit = lambda kind, **f: emitted.append((kind, f))
+    try:
+        specs = [{"name": "u", "stmt": "SAME", "status": "rejected", "fail_gate": "pbt"}]
+        synth._admit_with_proof([{"name": "g", "stmt": "GOOD", "status": "proved", "method": "llm-gen-with-proof"},
+                                 {"name": "b", "stmt": "BAD", "status": "proved", "method": "llm-gen-with-proof"},
+                                 {"name": "s", "stmt": "SAME", "status": "proved", "method": "llm-gen-with-proof",
+                                  "proof": "by rfl"}],
+                                specs, "def f (n : Nat) : Nat := n", "f", Checker(), "/p", "lean-native")
+    finally:
+        synth._gate.check_candidate, synth.events.emit = old_gate, old_emit
+    check("a statement proved by the LLM's own proof still passes the gate before it counts",
+          [x["stmt"] for x in specs] == ["SAME", "GOOD"] and set(asked) == {("f", "def f (n : Nat) : Nat := n", "/p", "lean-native")},
+          f"{specs} {asked}")
+    check("a statement already there takes the proof, and loses its old failure",
+          specs[0].get("proof") == "by rfl" and specs[0]["status"] == "proved" and "fail_gate" not in specs[0], str(specs[0]))
+    got = {f.get("stmt"): f.get("status") for k, f in emitted if k == "verdict"}
+    check("every statement gets a verdict event with its statement",
+          got == {"GOOD": "proved", "BAD": "rejected", "SAME": "proved"}, str(emitted))
+
+
 def run_full():
     print("=== full: bounded checking on FeatureSuite ===")
     import lean
@@ -725,6 +759,7 @@ run_static_check()
 run_static_run()
 run_static_synth()
 run_static_preamble()
+run_static_with_proof()
 if not static:
     run_full()
 print()
