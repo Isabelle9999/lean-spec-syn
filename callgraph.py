@@ -2,6 +2,7 @@ import os
 import glob
 import json
 import hashlib
+import re
 
 import networkx as nx
 
@@ -21,10 +22,6 @@ def _driver_text():
         return f.read()
 
 
-def _aeneas_dir():
-    return _lss_config.project_dir("aeneas")
-
-
 def _names_literal(names):
     if names is None:
         return "none"
@@ -32,10 +29,10 @@ def _names_literal(names):
 
 
 @with_context(layer="unitgraph")
-def _run_unit_graph(code_text, names):
-    """send code_text through the pinned aeneas project's server; parse the LSS_UNITS line."""
+def _run_unit_graph(code_text, names, project="aeneas"):
+    """send code_text through a pinned project's server; parse the LSS_UNITS line."""
     full = code_text + "\n" + _driver_text() + f"\n#eval LssUnitGraph.dumpUnits {_names_literal(names)}\n"
-    r = _lean_server.get_server(_aeneas_dir()).check(full)
+    r = _lean_server.get_server(_lss_config.project_dir(project)).check(full)
     for line in (r.stderr or "").splitlines():
         if "LSS_UNITS " in line:
             return json.loads(line.split("LSS_UNITS ", 1)[1])
@@ -81,14 +78,58 @@ def _topo_order_code_files(code_dir, crate):
     return ordered, texts
 
 
+_SCOPE_OPEN = re.compile(r"(?:@\[[^\]]*\]\s*)?(?:(?:public|private)\s+)?(?:noncomputable\s+)?section\b\s*([^\s-]*)"
+                         r"|namespace\s+(\S+)|mutual\b")
+
+
+def _open_scopes(text):
+    """the `end` lines that close the scopes `text` leaves open, innermost first.
+    a scope is a `namespace X`, a `[noncomputable] section [X]` or a `mutual`
+    block, each opened and closed by a command at the start of a line, outside a
+    comment or string. a dotted name opens one scope per component, and
+    `end A.B` closes as many, as Lean counts them."""
+    stack, depth = [], 0
+    for line in text.splitlines():
+        starts_outside, code, i, in_str = depth == 0, [], 0, False
+        while i < len(line):  # the line's text outside comments and strings
+            if in_str:
+                in_str = line[i] != '"' or line[i - 1] == "\\"
+                i += 1
+            elif line.startswith("/-", i):
+                depth, i = depth + 1, i + 2
+            elif depth:
+                depth, i = (depth - 1, i + 2) if line.startswith("-/", i) else (depth, i + 1)
+            elif line.startswith("--", i):
+                break
+            else:
+                in_str = line[i] == '"'
+                code.append(line[i])
+                i += 1
+        if not starts_outside:
+            continue
+        cmd = "".join(code)
+        m = _SCOPE_OPEN.match(cmd)
+        if m:
+            name = m.group(1) or m.group(2)
+            stack += [f"end {c}" for c in name.split(".")] if name else ["end"]
+        elif (e := re.match(r"end\b\s*([^\s-]*)", cmd)) and stack:
+            del stack[len(stack) - min(len(stack), len(e.group(1).split(".")) if e.group(1) else 1):]
+    return stack[::-1]
+
+
 def _concat_code_files(ordered, texts):
     """import Aeneas, then each file's body with its own import lines and Aeneas's
     `#assert` unit tests stripped: a test runs code, it defines nothing a spec
-    needs, and Aeneas can place one before the function it calls."""
+    needs, and Aeneas can place one before the function it calls. a Lean file's
+    end closes the scopes it left open; joined, the next file would be read inside
+    them (Aeneas opens a `noncomputable section` it never closes, which made every
+    definition after the crate noncomputable), so each file's open scopes are
+    closed where the file ends."""
     parts = ["import Aeneas"]
     for p in ordered:
-        parts.append("\n".join(l for l in texts[p].splitlines()
-                               if not l.strip().startswith(("import ", "#assert"))))
+        body = "\n".join(l for l in texts[p].splitlines()
+                         if not l.strip().startswith(("import ", "#assert")))
+        parts.append("\n".join([body] + _open_scopes(body)))
     return "\n".join(parts)
 
 
@@ -281,16 +322,16 @@ def for_project(project_path):
 
 
 def build_call_graph(source_text):
-    """call graph for inline/Lean-native code: names = every definition in source_text.
-    the driver itself needs Lean/Lean.Meta, so import Aeneas is always prepended
-    (harmless if source_text already imports something)."""
-    text = "import Aeneas\n" + source_text
+    """call graph for inline/Lean-native code: names = every definition in source_text,
+    elaborated where every Lean-native text runs, the lean-native project under
+    import Mathlib (the driver itself needs only Lean.Meta)."""
+    text = "import Mathlib\n" + source_text
     key = hashlib.sha256(text.encode("utf-8")).hexdigest()
     cached = _SOURCE_CACHE.get(key)
     if cached is not None:
         return cached
 
-    result = _run_unit_graph(text, None)
+    result = _run_unit_graph(text, None, project="lean-native")
     g = CallGraph(text, result["units"])
     g.lean_version = result.get("lean_version")
     _SOURCE_CACHE[key] = g

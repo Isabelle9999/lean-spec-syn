@@ -40,10 +40,10 @@ def default_project_dir():
 
 
 def hammer_project_dir():
-    for p in _cfg()["projects"].values():
-        if p.get("has_hammer"):
-            return os.path.expanduser(os.environ.get(p["env_var"], p["dir"]))
-    return None
+    """where hammer runs on a text that is not a Rust crate's (a crate's runs in its
+    own env): the default project, when it has hammer."""
+    p = _cfg()["projects"][default_project()]
+    return os.path.expanduser(os.environ.get(p["env_var"], p["dir"])) if p.get("has_hammer") else None
 
 
 def all_projects():
@@ -69,7 +69,7 @@ def server_cfg():
 def proof_cfg():
     defaults = {"aeneas_layer": True, "aeneas_heartbeats": 200000,
                 "premise_selector": "local", "rust_hammer": False,
-                "hammer_heartbeats": 1000000, "split_seconds": 180, "mutant_hammer_seconds": 120}
+                "hammer_heartbeats": 1000000, "split_seconds": 180, "tactic_heartbeats": 200000}
     p = _cfg().get("proof", {})
     return {k: p.get(k, v) for k, v in defaults.items()}
 

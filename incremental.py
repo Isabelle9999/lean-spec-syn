@@ -15,6 +15,22 @@ def lean_version():
         return "unknown"
 
 
+def code_version(settings="", repo=None):
+    """what made a run's specs: the synthesizer's own commit and the run's settings
+    (lss.toml with any overrides, the Lean project), or None when the synthesizer's
+    files differ from its commit (a run then has no fingerprint to compare, and
+    every function runs again)."""
+    import subprocess
+    repo = repo or os.path.dirname(os.path.abspath(__file__))
+    try:
+        sha = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=repo).stdout.strip()
+        dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], capture_output=True,
+                               text=True, cwd=repo).stdout.strip()
+    except OSError:
+        return None
+    return f"{sha}:{_hash(settings)}" if sha and not dirty else None
+
+
 def _hash(text):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
@@ -36,12 +52,18 @@ def save_hashes(data, path=_HASHES_FILE):
 
 
 def bench_hash(bm):
-    return _hash(bm.get("lean_code", ""))
+    """a function's own text: its Lean code, and for a Rust unit (whose Lean code only
+    imports its crate) its name and its crate's code."""
+    return _hash("\0".join([bm.get("lean_code", ""), bm.get("lean_name", ""), bm.get("func_source") or ""]))
 
 
-def compute_current_hashes(benches, lean_ver):
+def compute_current_hashes(benches, lean_ver, code=None):
+    """a function's fingerprint: its own text, under this Lean version, this
+    synthesizer commit and these settings (specs made otherwise are never carried
+    forward)."""
     return {
         "lean_version": lean_ver,
+        "code": code,
         "benches": {bm["name"]: bench_hash(bm) for bm in benches},
     }
 
@@ -51,10 +73,19 @@ def affected_benches(prev, curr):
         return set(curr["benches"])
     if prev.get("lean_version") != curr.get("lean_version"):
         return set(curr["benches"])
+    if curr.get("code") is None or prev.get("code") != curr.get("code"):
+        return set(curr["benches"])
     prev_b = prev.get("benches", {})
     changed = {name for name, h in curr["benches"].items() if prev_b.get(name) != h}
     changed |= {name for name in prev_b if name not in curr["benches"]}
     return changed
+
+
+def kept_hashes(curr, finished):
+    """the fingerprints to save after a run: only those of functions that finished
+    (a result, or carried forward), so one that crashed, timed out or could not
+    start runs again next time."""
+    return {**curr, "benches": {n: h for n, h in curr["benches"].items() if n in finished}}
 
 
 def load_cached_specs(bm_name, cache_dir=_CACHE_DIR):

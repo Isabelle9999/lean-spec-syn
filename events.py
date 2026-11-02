@@ -49,7 +49,7 @@ def with_context(**fields):
 def layer(name):
     """decorator: Lean time spent inside the call counts toward layer `name`,
     unless an enclosing call already set one: a sub-lemma's tactic and hammer
-    attempts count toward the split, a mutant's toward mutation."""
+    attempts count toward the split."""
     def decorator(fn):
         def wrapper(*args, **kwargs):
             if "layer" in _ctx.get():

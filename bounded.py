@@ -555,7 +555,9 @@ def check_spec(checker, stmt, unit, project_dir, seed=0):
         return {"status": "refuted", "kernel": kernel, "witness": row, "outcome": res["outcome"],
                 "value": res.get("value", ""), "instantiation": ", ".join(types),
                 "feedback": (f"On input ({shown}){at} the function {got}, and the statement is false there "
-                             f"(checked by running the function{', and by a kernel proof' if kernel else ''}).")}
+                             f"(checked by running the function{', and by a kernel proof' if kernel else ''})."
+                             + (" `f args ⦃ … ⦄` says the call succeeds, so state as a hypothesis what the inputs "
+                                "need for it to succeed." if res["outcome"] in ("fail", "div") else ""))}
     fit = [i for i, r in enumerate(outs) if r["outcome"] == "holds"]
     discard = sum(1 for r in outs if r["outcome"] == "discard")
     warning = None

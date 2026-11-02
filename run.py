@@ -5,18 +5,17 @@ import contextvars
 import json
 import re
 import time
-import shutil
 import threading
 import lss_config as _lss_config
 
-from lean import LeanChecker, ExampleStore, Cache, get_lean_calls, crate_env_error
+from lean import LeanChecker, Cache, get_lean_calls, crate_env_error
 import lean_server as _lean_server
-from synth import LLMClient, synthesize, refine, _func_name, get_llm_calls
+from synth import LLMClient, synthesize, _func_name, get_llm_calls
 import events
-from benchmarks import BENCHMARKS, evaluate
+from benchmarks import BENCHMARKS
 from metrics import functional_correctness, spec_coverage, generate_report, save_report, summary_table, yield_counts
 from incremental import (
-    lean_version, load_hashes, save_hashes,
+    lean_version, code_version, load_hashes, save_hashes, kept_hashes,
     compute_current_hashes, affected_benches,
     load_cached_specs, save_cached_specs,
 )
@@ -76,21 +75,22 @@ def _with_timeout(fn, timeout):
     return result[0], False
 
 
-def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, func_source=None):
+def run_bench(bm, args, llm, checker, project_dir=None, func_source=None):
     """one function. every LLM and Lean call it makes is logged with unit=<bench name>, and it ends with
     one unit_result event: the status, the spec counts and the wall seconds, also
     after a timeout or a crash (status unknown, with the reason)."""
     t0 = time.time()
+    print(f"\n--- {bm['name']} ---")  # at the start, so a long attempt never looks like a hang
     with events.context(unit=bm["name"]):
         env_error = crate_env_error(checker, project_dir) if bm.get("source") == "rust-aeneas" else None
         if env_error:
             # no environment means no check can run: stop before any LLM call
-            print(f"\n--- {bm['name']} ---\n  not attempted: the crate's Lean code does not build: {env_error}")
+            print(f"  not attempted: the crate's Lean code does not build: {env_error}")
             events.emit("unit_result", status="unknown", reason=f"crate env: {env_error}"[:160],
                         seconds=time.time() - t0)
-            return None, None
+            return None
         try:
-            score, report = _run_bench(bm, args, llm, checker, store, baseline, project_dir, func_source)
+            report = _run_bench(bm, args, llm, checker, project_dir, func_source)
         except Exception as e:
             events.emit("unit_result", status="unknown", reason=f"crash: {type(e).__name__}",
                         seconds=time.time() - t0)
@@ -100,10 +100,10 @@ def run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, 
         else:
             events.emit("unit_result", status=report["status"], seconds=time.time() - t0,
                         **{k: report[k + "_count"] for k in ("generated", "proved", "refuted", "unproved")})
-    return score, report
+    return report
 
 
-def _run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None, func_source=None):
+def _run_bench(bm, args, llm, checker, project_dir=None, func_source=None):
     fn = bm.get("func_name") or _func_name(bm["lean_code"])
     ti = bm.get("test_inputs", [])
     tpl = bm.get("templates", [])
@@ -111,7 +111,6 @@ def _run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None,
         # prompts get the unit, its types and its callees' specs, not the whole crate
         func_source = checker.unit_context(project_dir, bm.get("lean_name") or fn)
         events.emit("prompt_context", func=fn, chars=len(func_source), chars_whole=len(bm.get("func_source") or ""))
-    bm_eval = {**bm, "func_name": fn, "func_source": func_source}
 
     t0 = time.time()
     get_lean_calls()  # reset counter
@@ -126,21 +125,13 @@ def _run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None,
     def _synth():
         postcond_defs = bm.get("postcond_defs", {})
         lean_code = bm["lean_code"] + bm.get("lean_preamble", "")
-        s = synthesize(lean_code, ti, tpl, llm, checker, store, func_name=fn, verbose=vb, debug_dir=debug_dir, postcond_defs=postcond_defs, project_dir=project_dir, func_source=func_source, source=bm.get("source"))
-        if baseline == "no-mutation":
-            return s
-        if not args.quick:
-            max_tier = 1 if baseline == "no-adversarial" else 3
-            s = refine(s, bm["lean_code"], fn, ti, checker, llm, store, max_tier=max_tier, verbose=vb, project_dir=project_dir, func_source=func_source, source=bm.get("source"))
-        return s
+        return synthesize(lean_code, ti, tpl, llm, checker, func_name=fn, verbose=vb, debug_dir=debug_dir, postcond_defs=postcond_defs, project_dir=project_dir, func_source=func_source, source=bm.get("source"))
 
     timeout = getattr(args, "timeout", 600)
     specs, timed_out = _with_timeout(_synth, timeout)
     if timed_out:
-        label = bm["name"] + (f" ({baseline})" if baseline != "none" else "")
-        print(f"\n--- {label} ---")
         print(f"  timeout after {timeout}s")
-        return None, None
+        return None
 
     divergent = detect_divergent(bm.get("lean_code", ""))
     if divergent and specs:
@@ -151,8 +142,6 @@ def _run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None,
 
     elapsed = time.time() - t0
 
-    eval_checker = None if baseline == "no-mutation" or args.quick else checker
-    score = evaluate(specs, bm_eval, lean_checker=eval_checker, project_dir=project_dir)
     lean_calls_count = get_lean_calls()
     llm_calls_count = get_llm_calls()
 
@@ -168,8 +157,7 @@ def _run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None,
         fc = {"score": None}
         sc = {"score": None}
 
-    report = generate_report(bm["name"], specs, elapsed, llm_calls_count, lean_calls_count,
-                             kill_rate=score["kill_rate"])
+    report = generate_report(bm["name"], specs, elapsed, llm_calls_count, lean_calls_count)
     report["functional_correctness"] = fc
     report["spec_coverage"] = sc
     os.makedirs(".lss/reports", exist_ok=True)
@@ -177,8 +165,6 @@ def _run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None,
 
     proved = [s for s in specs if s["status"] == "proved"]
     rejected = report["rejected_count"]
-    label = bm["name"] + (f" ({baseline})" if baseline != "none" else "")
-    print(f"\n--- {label} ---")
     print(f"  status:     {report['status']}")
     print(f"  generated:  {len(specs)}")
     print(f"  proved:     {len(proved)} (kernel-checked; only these count)")
@@ -193,13 +179,6 @@ def _run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None,
     if refuted:
         kern = sum(1 for s in refuted if s.get("refuted_by") == "kernel")
         print(f"  refuted:    {len(refuted)} ({kern} by a kernel-checked witness)")
-    mc = score.get("mutation_counts")
-    if mc:
-        total_m = sum(mc.values())
-        scored_m = mc["KILLED"] + mc["SURVIVED"]
-        print(f"  mutants:    {total_m} total, {mc['KILLED']} killed, {mc['SURVIVED']} survived, "
-              f"{mc['EQUIVALENT']} equiv, {mc['INCONCLUSIVE']} inconclusive, {mc['STILLBORN']} stillborn"
-              + (f" (score {mc['KILLED']}/{scored_m})" if scored_m else " (score unavailable)"))
     if fc["score"] is not None:
         fc_skip = fc.get("skipped_comparisons", 0)
         sc_skip = sc.get("skipped_comparisons", 0)
@@ -260,30 +239,7 @@ def _run_bench(bm, args, llm, checker, store, baseline="none", project_dir=None,
     else:
         print(f"  trait detection ({_fn}): no traits found")
 
-    return score, report
-
-
-def _ablation_table(name, variants):
-    keys = ["proved_count", "mutation_score"]
-    full = next(r for n, _, r in variants if n == "none")
-    w, col = 12, 22
-    hdr = f"{'baseline':<{col}}" + "".join(f"{k[:w]:>{w}}" for k in keys)
-    print(f"\nablation: {name}")
-    print(hdr)
-    print("-" * len(hdr))
-    for bl, _, r in variants:
-        vals = [f"{r[k]:.3f}" if r.get(k) is not None else "-" for k in keys]
-        print(f"{bl:<{col}}" + "".join(f"{v:>{w}}" for v in vals))
-    print()
-    for bl, _, r in variants:
-        if bl == "none":
-            continue
-        label = f"delta({bl})"
-        deltas = []
-        for k in keys:
-            v, fv = r.get(k), full.get(k)
-            deltas.append(f"{v - fv:+.3f}" if v is not None and fv is not None else "-")
-        print(f"{label:<{col}}" + "".join(f"{d:>{w}}" for d in deltas))
+    return report
 
 
 def _write_pins_header():
@@ -313,33 +269,35 @@ def _write_pins_header():
                     print(f"    {pkg['name']}={pkg.get('rev', '?')}")
 
 
+def _lean_project(args):
+    """the Lean project a run checks in: --lean-project, else the aeneas project for a
+    Rust crate (its texts then run in the crate's env) and lean-native for Lean code."""
+    return os.path.abspath(args.lean_project or _lss_config.project_dir("aeneas" if args.rust_project else "lean-native"))
+
+
 def main():
     _start_log()
     _t_main_start = time.time()
     p = argparse.ArgumentParser()
-    p.add_argument("--quick", action="store_true")
     p.add_argument("--verbose", action="store_true")
     p.add_argument("--debug", action="store_true")
     p.add_argument("--bench", nargs="+", default=None, help="one or more benchmark names")
-    p.add_argument("--baseline", choices=["none", "no-mutation", "no-adversarial"],
-                   default="none")
-    p.add_argument("--ablation", action="store_true")
     p.add_argument("--verina", action="store_true")
     p.add_argument("--clever", action="store_true")
     p.add_argument("--verina-path", default=r"C:\Users\User\projects\verina")
     p.add_argument("--clever-path", default=r"C:\Users\User\projects\clever")
     p.add_argument("--limit", type=int)
     p.add_argument("--timeout", type=int, default=1800)
-    p.add_argument("--lean-project", type=str,
-                   default=_lss_config.project_dir("aeneas"),
-                   help="Lean project dir for synthesis and checking")
+    p.add_argument("--lean-project", type=str, default=None,
+                   help="Lean project dir for synthesis and checking (default: the aeneas project "
+                        "for --rust-project, else lean-native)")
     p.add_argument("--rust-project", type=str, default=None,
                    help="Path to Aeneas-translated Rust project")
     p.add_argument("--force-full", action="store_true",
                    help="force full re-run, ignore incremental cache")
     args = p.parse_args()
 
-    lean_project_dir = os.path.abspath(args.lean_project)
+    lean_project_dir = _lean_project(args)
     rust_project_dir = os.path.abspath(args.rust_project) if args.rust_project else lean_project_dir
 
     _write_pins_header()
@@ -353,7 +311,6 @@ def main():
     cache = Cache(os.environ.get("LSS_CACHE_PATH", ".lss/cache.json"))  # the harness gives each tag its own
     llm = LLMClient()
     checker = LeanChecker(cache=cache, project_dir=lean_project_dir)
-    store = ExampleStore()
 
     if args.rust_project:
         from loader import load_rust_project
@@ -390,48 +347,38 @@ def main():
 
     lean_ver = lean_version()
     prev_hashes = None if args.force_full else load_hashes()
-    curr_hashes = compute_current_hashes(benches, lean_ver)
+    settings = json.dumps({"toml": _lss_config.config(), "lean_project": lean_project_dir}, sort_keys=True)
+    curr_hashes = compute_current_hashes(benches, lean_ver, code_version(settings))
     need_rerun = affected_benches(prev_hashes, curr_hashes)
     n_reverified = 0
     n_carried = 0
+    carried = set()
 
     reports = []
     statuses = []  # every function attempted; a timeout or a crash is unknown
-    if args.ablation:
-        baselines = ["none", "no-mutation", "no-adversarial"]
-        for bm in benches:
-            variants = []
-            for bl in baselines:
-                score, report = run_bench(bm, args, llm, checker, store, bl, project_dir=run_dir, func_source=bm.get("func_source"))
-                if score is not None:
-                    variants.append((bl, score, report))
-            if variants:
-                _ablation_table(bm["name"], variants)
-                full = next((r for n, _, r in variants if n == "none"), variants[0][2])
-                reports.append(full)
-    else:
-        for bm in benches:
-            if bm["name"] not in need_rerun:
-                cached = load_cached_specs(bm["name"])
-                if cached is not None:
-                    print(f"\n--- {bm['name']} (carried forward, {len(cached)} specs) ---")
-                    n_carried += 1
-                    continue
-            n_reverified += 1
-            try:
-                _, report = run_bench(bm, args, llm, checker, store, args.baseline, project_dir=run_dir, func_source=bm.get("func_source"))
-                statuses.append(report["status"] if report is not None else "unknown")
-                if report is not None:
-                    reports.append(report)
-            except Exception as e:
-                statuses.append("unknown")
-                print(f"  CRASH on {bm['name']}: {e}")
-                import traceback
-                traceback.print_exc()
+    for bm in benches:
+        if bm["name"] not in need_rerun:
+            cached = load_cached_specs(bm["name"])
+            if cached is not None:
+                print(f"\n--- {bm['name']} (carried forward, {len(cached)} specs) ---")
+                n_carried += 1
+                carried.add(bm["name"])
                 continue
+        n_reverified += 1
+        try:
+            report = run_bench(bm, args, llm, checker, project_dir=run_dir, func_source=bm.get("func_source"))
+            statuses.append(report["status"] if report is not None else "unknown")
+            if report is not None:
+                reports.append(report)
+        except Exception as e:
+            statuses.append("unknown")
+            print(f"  CRASH on {bm['name']}: {e}")
+            import traceback
+            traceback.print_exc()
+            continue
 
     print(f"\nincremental: {n_reverified} re-verified, {n_carried} carried forward")
-    save_hashes(curr_hashes)
+    save_hashes(kept_hashes(curr_hashes, {r["name"] for r in reports} | carried))
 
     if len(reports) > 1:
         print("\n" + summary_table(reports))
@@ -457,29 +404,6 @@ def main():
         from tools import cost_report
         print("\ncost report")
         cost_report.report(events.log_path())
-
-    if reports:
-        best_path = ".lss/runs/best.txt"
-        total_proved = sum(r["proved_count"] for r in reports)
-        prev_best = 0
-        prev_run = "none"
-        if os.path.exists(best_path):
-            with open(best_path) as f:
-                for line in f:
-                    if line.startswith("proved:"):
-                        try:
-                            prev_best = int(line.split(":")[1].strip())
-                        except ValueError:
-                            pass
-                    elif line.startswith("run:"):
-                        prev_run = line.split(":", 1)[1].strip()
-        if total_proved >= prev_best:
-            with open(best_path, "w") as f:
-                f.write(f"proved: {total_proved}\nrun: run_{_run_id}\n")
-            shutil.copy(_log_path, ".lss/runs/best_run.txt")
-            print(f"new best: {total_proved} kernel-proved (previous: {prev_best} from {prev_run})")
-        else:
-            print(f"below best ({total_proved} vs {prev_best} from {prev_run})")
 
 
 if __name__ == "__main__":

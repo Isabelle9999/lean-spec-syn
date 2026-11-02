@@ -1,10 +1,11 @@
 # both projects use ported forks at v4.31.0 and share package pins for offline seeding
 # LeanHammer's premise selection calls the server at leanpremise.net
+# a Rust crate's texts run in its env, built in the aeneas project; every other
+# text (a Lean function, hammer on it, its unit graph) runs in the default project
 
 [projects.aeneas]
 dir = "~/lss_lean/aeneas"
 lean_version = "v4.31.0"
-default = true
 env_var = "LSS_AENEAS_DIR"
 # hammer via Isabelle9999 ported forks at v4.31.0; both projects share pins for offline seeding
 # use hammer { disableGrind := true } — grind kernel error in Lean 4.31.0
@@ -13,6 +14,7 @@ has_hammer = true
 [projects."lean-native"]
 dir = "~/lss_lean/lean-native"
 lean_version = "v4.31.0"
+default = true
 has_hammer = true
 env_var = "LSS_LEAN_NATIVE_DIR"
 
@@ -55,8 +57,10 @@ hammer_heartbeats = 1000000
 # seconds for the Lean work of one candidate's sub-lemma split (layer 3), shared
 # evenly across its sub-lemmas: layer 1 always runs, hammer gets what is left
 split_seconds = 180
-# hammer seconds shared by the mutant proofs of one pass over a unit's mutants
-mutant_hammer_seconds = 120
+# heartbeats for each attempt of the tactic portfolio (layer 1): Lean's own default
+# maxHeartbeats, set on every attempt so a failing tactic stops inside Lean and the
+# rest of its batch still gets a verdict
+tactic_heartbeats = 200000
 
 [bench]
 # the Aeneas-translated crates the dev and test sets come from (FeatureSuite stays

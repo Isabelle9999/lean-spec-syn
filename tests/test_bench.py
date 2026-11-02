@@ -41,23 +41,24 @@ def run_static_metrics():
           st([_spec("refuted"), _spec("unproved")]) == "unknown" and st([]) == "unknown")
     check("unknown functions stay in the yield denominator, skipped ones leave it",
           metrics.yield_counts(["proved_total", "proved_partial", "unknown", "unknown", "skipped"]) == (2, 4))
-    rep = metrics.generate_report("f", [_spec("proved"), _spec("unproved")], 1.0, 3, 4, kill_rate=0.5)
-    gone = ("soundness", "avg_clarity", "avg_uniqueness", "admissibility", "precision", "validated_count")
+    rep = metrics.generate_report("f", [_spec("proved"), _spec("unproved")], 1.0, 3, 4)
+    gone = ("soundness", "avg_clarity", "avg_uniqueness", "admissibility", "precision", "validated_count",
+            "mutation_score")
     check("the report has a status and no ad hoc scores",
           rep["status"] == "proved_total" and rep["proved_count"] == 1 and rep["unproved_count"] == 1
           and not any(k in rep for k in gone)
           and not any(hasattr(metrics, f) for f in ("clarity_score", "uniqueness_score",
                                                     "admissibility_check", "soundness_score")),
           str(sorted(rep)))
-    try:
-        score = benchmarks.evaluate([_spec("unproved")], {"func_name": "f", "lean_code": "def f := 1"},
-                                    lean_checker=object())
-    except Exception as e:  # an unproved spec reached the mutation engine
-        score = repr(e)
-    check("the mutation score uses only kernel-proved specs",
-          score == {"kill_rate": None, "mutation_counts": None}, str(score))
-    r = synth.run_adversarial_tier([_spec("unproved")], "def f := 1", "f", None, None, None)
-    check("an unproved spec does not reach the adversarial tier", r["attacked"] is False, str(r))
+    import lean
+    import run
+    check("no example store: wrong outputs an earlier run stored never reach a prompt or a check",
+          not hasattr(lean, "ExampleStore") and "example_store" not in synth.LLMClient.generate_specs.__code__.co_varnames
+          and "example_store" not in synth.validate.__code__.co_varnames
+          and "example_store" not in synth.synthesize.__code__.co_varnames)
+    check("the old mutation stage is gone: no refinement, mutation score or mutation engine",
+          not any(hasattr(m, f) for m, f in ((synth, "refine"), (synth, "run_adversarial_tier"), (run, "refine"),
+                                             (benchmarks, "evaluate"), (run, "evaluate"), (lean, "MutationEngine"))))
     check("post-completeness is gone", not hasattr(synth, "compute_post_completeness"))
 
 
@@ -96,19 +97,18 @@ def run_static_results():
         events.configure(1, {"t": 1})
         path = events.log_path()
         assert path is not None
-        args = argparse.Namespace(verbose=False, debug=False, quick=True, timeout=5)
+        args = argparse.Namespace(verbose=False, debug=False, timeout=5)
         bm = {"name": "b1", "lean_code": "def f (x : Nat) : Nat := x", "func_name": "f"}
 
         def fake_synth(*a, **k):
             events.emit("probe")
             return [_spec("proved"), _spec("unproved")]
 
-        saved = (run.synthesize, run.evaluate, run.check_trait_obligations)
-        run.evaluate = lambda *a, **k: {"kill_rate": None, "mutation_counts": None}
+        saved = (run.synthesize, run.check_trait_obligations)
         run.check_trait_obligations = lambda *a, **k: {"trait_found": False}
         try:
             run.synthesize = fake_synth
-            run.run_bench(bm, args, None, None, None)
+            run.run_bench(bm, args, None, None)
             evs = _read_events(path)
             probe = [e for e in evs if e["kind"] == "probe"]
             res = [e for e in evs if e["kind"] == "unit_result"]
@@ -120,8 +120,14 @@ def run_static_results():
                   and res[0]["seconds"] >= 0, str(res))
 
             run.synthesize = lambda *a, **k: time.sleep(3)
-            run.run_bench(dict(bm, name="b2"), argparse.Namespace(**{**vars(args), "timeout": 1}),
-                          None, None, None)
+            import contextlib
+            import io
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                run.run_bench(dict(bm, name="b2"), argparse.Namespace(**{**vars(args), "timeout": 1}),
+                              None, None)
+            check("a function's name is printed when it starts, not only when it ends",
+                  buf.getvalue().lstrip().startswith("--- b2 ---") and "timeout after 1s" in buf.getvalue(), buf.getvalue())
             res = [e for e in _read_events(path) if e["kind"] == "unit_result" and e["unit"] == "b2"]
             check("a timeout still ends with one unit_result, status unknown",
                   len(res) == 1 and res[0]["status"] == "unknown" and res[0]["reason"] == "timeout", str(res))
@@ -131,7 +137,7 @@ def run_static_results():
             run.synthesize = boom
             raised = False
             try:
-                run.run_bench(dict(bm, name="b3"), args, None, None, None)
+                run.run_bench(dict(bm, name="b3"), args, None, None)
             except ValueError:
                 raised = True
             res = [e for e in _read_events(path) if e["kind"] == "unit_result" and e["unit"] == "b3"]
@@ -142,19 +148,56 @@ def run_static_results():
             asked = []
             run.synthesize = lambda *a, **k: asked.append(1) or []
             try:
-                out = run.run_bench(dict(bm, name="b4", source="rust-aeneas"), args, None, _Builds({"/s/bad"}), None,
+                out = run.run_bench(dict(bm, name="b4", source="rust-aeneas"), args, None, _Builds({"/s/bad"}),
                                     project_dir="/s/bad")
             except Exception as e:  # an attempt that went ahead, and failed on the fake checker
                 out = repr(e)
             res = [e for e in _read_events(path) if e["kind"] == "unit_result" and e["unit"] == "b4"]
             check("a function whose crate does not build is unknown at once, with the build error, before any LLM call",
-                  out == (None, None) and not asked and len(res) == 1 and res[0]["status"] == "unknown"
+                  out is None and not asked and len(res) == 1 and res[0]["status"] == "unknown"
                   and res[0]["reason"] == "crate env: :12:4: error: Unknown identifier `x`", str(res))
         finally:
-            run.synthesize, run.evaluate, run.check_trait_obligations = saved
+            run.synthesize, run.check_trait_obligations = saved
     finally:
         os.chdir(old_cwd)
 
+    import incremental
+    curr = incremental.compute_current_hashes([{"name": "a", "lean_code": "x"}, {"name": "b", "lean_code": "y"}],
+                                              "v4.31.0", "c1")
+    check("a function that crashed or timed out keeps no fingerprint, so it runs again",
+          incremental.kept_hashes(curr, {"a"})["benches"] == {"a": curr["benches"]["a"]})
+    check("specs made by another synthesizer commit, or by uncommitted code, are never carried forward",
+          incremental.affected_benches(curr, curr) == set()
+          and incremental.affected_benches(curr, {**curr, "code": "c2"}) == {"a", "b"}
+          and incremental.affected_benches(curr, {**curr, "code": None}) == {"a", "b"})
+    import subprocess
+    import tempfile
+    with tempfile.TemporaryDirectory() as g:
+        def sh(*a):
+            subprocess.run(["git", "-C", g, "-c", "user.name=t", "-c", "user.email=t@t", *a], capture_output=True, check=True)
+        sh("init", "-q")
+        with open(os.path.join(g, "f.py"), "w") as f:
+            f.write("x = 1\n")
+        sh("add", "f.py")
+        sh("commit", "-qm", "c")
+        clean, other = incremental.code_version("s1", g), incremental.code_version("s2", g)
+        with open(os.path.join(g, "f.py"), "a") as f:
+            f.write("y = 2\n")
+        dirty = incremental.code_version("s1", g)
+    check("the code version is the commit and the run's settings, and none with uncommitted changes",
+          clean is not None and other is not None and clean != other and dirty is None, f"{clean} {other} {dirty}")
+    rust = {"name": "rust_f", "lean_code": "import Aeneas\nimport C.Code.Funs\n", "lean_name": "C.f"}
+    check("a Rust unit's fingerprint covers its crate's code, not only its import lines",
+          incremental.bench_hash({**rust, "func_source": "def f := 1"}) != incremental.bench_hash({**rust, "func_source": "def f := 2"})
+          and incremental.bench_hash(rust) != incremental.bench_hash({**rust, "lean_name": "C.g"}))
+    import lean
+    native, aeneas = (os.path.abspath(lss_config.project_dir(n)) for n in ("lean-native", "aeneas"))
+    check("a Lean run checks in lean-native, its hammer too, and a Rust run in the aeneas project",
+          run._lean_project(argparse.Namespace(lean_project=None, rust_project=None)) == native
+          and os.path.abspath(lean._PROJECT_DIR) == native
+          and os.path.abspath(lss_config.hammer_project_dir() or "") == native
+          and run._lean_project(argparse.Namespace(lean_project=None, rust_project="/c")) == aeneas,
+          f"{lean._PROJECT_DIR} {lss_config.hammer_project_dir()}")
     base = json.dumps(lss_config.config(), sort_keys=True)
     os.environ["LSS_OVERRIDES"] = json.dumps({"proof": {"rust_hammer": True}})
     lss_config._CFG = None

@@ -25,8 +25,6 @@ flowchart TD
     P --> K{Proof found and<br/>checked by the kernel?}
     K -- no --> U[Unproved: never reported]
     K -- yes --> S[Proved specification]
-    S --> F[Refinement: mutants and<br/>other implementations]
-    F -- stronger candidates, and the<br/>wrong behaviours it found --> G
     S --> C[Rust: modularity check,<br/>callees replaced by their specs]
 ```
 
@@ -43,12 +41,6 @@ flowchart TD
   proof.** Proof search runs Aeneas's `step*`, a tactic portfolio, LeanHammer
   and lemma decomposition, and the finished proof may use no axioms beyond
   `propext`, `Classical.choice` and `Quot.sound`.
-- **Refine: wrong programs that the specifications fail to rule out show where
-  they are too weak.** Mutants of the function and other implementations that
-  satisfy every proved specification are classified by proof; what survives is
-  recorded as a wrong behaviour and shown to the LLM in later prompts, and a
-  stronger statement replaces a proved one only when it implies it, is not
-  implied by it, and is itself proved.
 
 ## Quick start
 
@@ -79,7 +71,7 @@ function to `.lss/reports/` and an event log to `.lss/runs/`.
 
 | Path | Purpose |
 |---|---|
-| `run.py`, `synth.py`, `strategies.py` | generation, the checks in order, proof search and refinement |
+| `run.py`, `synth.py`, `strategies.py` | generation, the checks in order and proof search |
 | `gate.py`, `bounded.py`, `lean.py`, `lean/` | the checks and every call into Lean |
 | `tools/bench.py`, `bench/split.json` | the fixed dev/test split, runs and comparisons |
 | `tests/`, `scripts/check.sh` | tests with known answers, and the merge check |

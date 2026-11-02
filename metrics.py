@@ -419,7 +419,7 @@ def spec_coverage(generated_specs, ground_truth_specs, lean_checker,
     }
 
 
-def generate_report(benchmark_name, specs, timing, llm_calls, lean_calls, kill_rate=None):
+def generate_report(benchmark_name, specs, timing, llm_calls, lean_calls):
     return {
         "name": benchmark_name,
         "status": unit_status(specs),
@@ -428,7 +428,6 @@ def generate_report(benchmark_name, specs, timing, llm_calls, lean_calls, kill_r
         "refuted_count": sum(1 for s in specs if s["status"] == "refuted"),
         "unproved_count": sum(1 for s in specs if s["status"] == "unproved"),
         "rejected_count": sum(1 for s in specs if s["status"] == "rejected"),
-        "mutation_score": kill_rate,
         "llm_calls": llm_calls,
         "lean_calls": lean_calls,
         "elapsed_seconds": timing,
@@ -448,12 +447,11 @@ def save_report(report, path):
 def summary_table(reports):
     if not reports:
         return ""
-    header = (f"{'benchmark':<28} {'status':<15} {'proved':>7} {'mut':>5}"
+    header = (f"{'benchmark':<28} {'status':<15} {'proved':>7}"
               f" {'llm':>5} {'lean':>5} {'sec':>7}")
     rows = [header, "-" * len(header)]
     for r in reports:
-        mut = f"{r['mutation_score']:.2f}" if r["mutation_score"] is not None else "-"
         rows.append(f"{r['name']:<28} {r['status']:<15} "
-                    f"{r['proved_count']:>3}/{r['generated_count']:<3} {mut:>5} "
+                    f"{r['proved_count']:>3}/{r['generated_count']:<3} "
                     f"{r['llm_calls']:>5} {r['lean_calls']:>5} {r['elapsed_seconds']:>7.1f}")
     return "\n".join(rows)

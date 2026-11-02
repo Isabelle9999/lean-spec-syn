@@ -253,8 +253,38 @@ def run_static_verdicts():
                                                           func_name="f", project_dir="/nonexistent"))
     check("tactic portfolio: the first accepted entry wins", pr.proved and pr.method == "l1:decide", str(pr))
     check("tactic portfolio: every entry goes through lss_check_proof",
-          fake.sent[-1].count("lss_check_proof ") >= 30 and "private theorem" not in fake.sent[-1],
-          str(fake.sent[-1].count("lss_check_proof ")))
+          fake.sent[-1].count("lss_check_proof ") == fake.sent[-1].count("theorem _lss_p") >= 20
+          and "private theorem" not in fake.sent[-1], str(fake.sent[-1].count("lss_check_proof ")))
+    check("tactic portfolio: the function-aware batch proved it, so the automation batch is never sent",
+          len(fake.sent) == 1, str(len(fake.sent)))
+
+    # gcd' recurses with no cases: one equation, its whole body, which simp would unfold forever
+    gcd = ("def gcd' (a b : Nat) : Nat :=\n  if h : a = 0 then b else gcd' (b % a) a\n"
+           "termination_by a\ndecreasing_by\n  apply Nat.mod_lt\n  omega")
+    fake = _FakeServer()
+    _with_fake(fake, lambda: checker.try_proof_batch(gcd, "∀ (a b : Nat), a = 0 → gcd' a b = b",
+                                                     func_name="gcd'", project_dir="/nonexistent"))
+    sent = "\n".join(fake.sent)
+    check("tactic portfolio: when the first batch proves nothing, the automation batch is sent next",
+          len(fake.sent) == 2 and "exact?" not in fake.sent[0] and "exact?" in fake.sent[1], str(len(fake.sent)))
+    handed = re.findall(r"(?:simp|simp_all|grind) \[[^\]]*gcd'", sent)
+    check("tactic portfolio: a recursive function without cases goes to simp only after one case split",
+          len(handed) == 1 and "fun_cases gcd' <;> simp_all [gcd']" in sent, str(handed))
+    check("tactic portfolio: a statement in normal form is substituted back before the call unfolds, "
+          "and a recursive one is tried by its own induction principle",
+          "intros; subst_vars; unfold gcd'; split <;> simp_all" in sent and "intros; fun_induction gcd' <;> simp_all" in sent)
+    cl = lean.classify_function
+    check("a recursion by `|` cases or one top-level match has an equation per case; one whose body is an "
+          "`if`, even with a match inside, has a single equation",
+          cl("def p : List Nat → Nat\n  | [] => 0\n  | x :: xs =>\n    let y := p xs\n    y + x", "p")["by_cases"]
+          and cl("def q (l : List Nat) : Nat :=\n  match l with\n  | [] => 0\n  | _ :: t => q t", "q")["by_cases"]
+          and not cl("def g (n : Nat) : Nat :=\n  if n = 0 then 0 else match n with\n  | k+1 => g k", "g")["by_cases"]
+          and cl("def g (n : Nat) : Nat :=\n  if n = 0 then 0 else match n with\n  | k+1 => g k", "g")["recursive"])
+    import lss_config
+    hb = lss_config.proof_cfg()["tactic_heartbeats"]
+    calls = re.findall(r"lss_check_proof .*? heartbeats:(\d+)", sent)
+    check("tactic portfolio: every attempt runs under its own heartbeat budget",
+          calls and all(int(h) == hb for h in calls), str(set(calls)))
 
     # hammer: an accepted verdict proves, an axiom rejection does not
     import lss_config
@@ -304,8 +334,8 @@ def run_static_verdicts():
 # every function that may set status "proved", and how many times; each one takes
 # it from an LSS_PROOF verdict (a ProofResult from lean.py, synth._try_lean_proof
 # or lean.check_proof). a new site must be checked the same way before it is added.
-PROVED_SITES = {"validate": 4, "_llm_repair": 3, "_try_proof_sketch": 2, "synthesize": 2,
-                "generate_with_proof": 1}
+PROVED_SITES = {"validate": 4, "_llm_repair": 3, "_try_proof_sketch": 2, "synthesize": 1,
+                "generate_with_proof": 1, "_admit_with_proof": 1}
 
 
 def _proved_sites():
@@ -468,6 +498,12 @@ def run_full():
         check("native track: a Mathlib proof passes after import Mathlib", v is not None and v.get("ok") is True, str(v))
         pr = lean.LeanChecker().try_proof_batch("", "∀ n : Nat, n + 0 = n", project_dir=native)
         check("native track: the tactic portfolio proves through verdicts", pr.proved, pr.error[:200])
+        import benchmarks
+        gcd = next(b for b in benchmarks.BENCHMARKS if b["name"] == "gcd")
+        for stmt in ["∀ (a b : Nat), a = 0 → gcd' a b = b", "∀ (a b : Nat), b = 0 → gcd' a b = a",
+                     "∀ (a b : Nat), b = a → gcd' a b = a"]:
+            pr = lean.LeanChecker().try_proof_batch(gcd["lean_code"], stmt, func_name="gcd'", project_dir=native)
+            check(f"native track: the portfolio proves {stmt} about a well-founded recursion", pr.proved, pr.error[:200])
 
     run_full_modularity()
     lean_server.shutdown_all()

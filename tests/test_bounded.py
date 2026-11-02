@@ -217,6 +217,8 @@ def run_static_check():
     check("a refutation the kernel does not check is evaluation-only", v["status"] == "refuted" and v["kernel"] is False)
     v = _check(FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.integerOverflow"}))
     check("a spec whose call fails is refuted", v["status"] == "refuted" and v["outcome"] == "fail", str(v))
+    check("its feedback says the triple claims success and asks for the precondition that gives it",
+          "says the call succeeds, so state as a hypothesis" in v.get("feedback", ""), v.get("feedback"))
     v = _check(FakeLean(lambda r: {"outcome": "div", "value": ""}))
     check("divergence refutes a ⦃ ⦄ spec", v["status"] == "refuted", str(v))
     v = _check(FakeLean(lambda r: {"outcome": "div", "value": ""}), stmt="div S")
@@ -395,16 +397,26 @@ def run_static_synth():
                       "feedback": "On input (5#u32) the function returned \"5\", and the statement is false there"},
                 "FIXED": {"status": "timeout", "detail": "timeout"},
                 "V": {"status": "vacuous", "feedback": "says nothing"}}
-    old_gate, old_b = synth._gate.check_candidate, synth._bounded.check_spec
+    old_gate, old_b, old_emit = synth._gate.check_candidate, synth._bounded.check_spec, synth.events.emit
     synth._gate.check_candidate = lambda *a, **k: [{"check": c, "ok": True, "detail": ""} for c in gate.checks_for("rust-aeneas")]
     synth._bounded.check_spec = lambda checker, stmt, unit, project_dir: dict(verdicts[stmt])
+    emitted = []
+    synth.events.emit = lambda kind, **f: emitted.append((kind, f))
     try:
         checker, llm = Checker(), LLM()
         specs = [{"name": "s", "stmt": "S"}, {"name": "v", "stmt": "V"}]
         synth.validate(specs, "def f (x : U32) : Result U32 := ok x", [], checker, llm=llm, func_name="f",
                        project_dir="/p", source="rust-aeneas")
     finally:
-        synth._gate.check_candidate, synth._bounded.check_spec = old_gate, old_b
+        synth._gate.check_candidate, synth._bounded.check_spec, synth.events.emit = old_gate, old_b, old_emit
+    vs = [f for k, f in emitted if k == "verdict"]
+    check("every verdict event carries the statement it was decided on, proved ones too",
+          {(f["status"], f.get("stmt")) for f in vs} == {("refuted", "S"), ("rejected", "V"), ("proved", "FIXED")},
+          str(vs))
+    ref = next((f for f in vs if f["status"] == "refuted"), {})
+    check("a refutation's event carries its witness, outcome and the feedback the repair got",
+          ref.get("witness") == [5] and ref.get("outcome") == "violates" and "On input (5#u32)" in ref.get("feedback", ""),
+          str(ref))
     s = specs[0]
     check("a refuted spec gets status refuted, by kernel", s["status"] == "refuted" and s["refuted_by"] == "kernel", str(s))
     check("a vacuous spec is rejected", specs[1]["status"] == "rejected" and specs[1]["fail_gate"] == "vacuous",
@@ -440,6 +452,64 @@ def run_static_synth():
     check("a gate rejection's event names the failing check, its detail and the statement as repaired",
           len(rej) == 1 and rej[0].get("check") == "conclusion_shape" and "not a bound variable" in rej[0].get("detail", "")
           and rej[0].get("stmt") == "∀ (o : Option U32), f o ⦃ r => r = o ⦄", str(rej))
+
+
+def run_static_preamble():
+    print("=== static: the LLM's helper definitions ===")
+    import synth
+    seen = []
+
+    class Checker:
+        def typecheck(self, code, project_dir=None):
+            seen.append(code)
+            return True, []
+    old_gate = synth._gate.check_candidate
+    synth._gate.check_candidate = lambda *a, **k: (_ for _ in ()).throw(StopIteration)
+    try:
+        synth.validate([{"name": "s", "stmt": "S", "preamble": "def helper (x : U32) : Prop := ext x = x"}],
+                       "import Aeneas\nimport C.Code.Funs\n", [], Checker(), func_name="f", project_dir="/p",
+                       source="rust-aeneas")
+    except StopIteration:
+        pass
+    finally:
+        synth._gate.check_candidate = old_gate
+    check("helper definitions sit in their own noncomputable section, closed after them",
+          bool(seen) and seen[0].endswith("noncomputable section\ndef helper (x : U32) : Prop := ext x = x\nend"),
+          str(seen)[-200:])
+
+
+def run_static_with_proof():
+    print("=== static: a statement the LLM proved itself ===")
+    import synth
+    import lean
+    emitted = []
+
+    class Checker:
+        def try_proof(self, code, stmt, **k):
+            return lean.ProofResult(proved=False, method="", error="")
+    old_gate, old_emit = synth._gate.check_candidate, synth.events.emit
+    asked = []
+    synth._gate.check_candidate = lambda checker, text, *a, **k: asked.append(a) or (
+        [{"check": "conclusion_shape", "ok": False, "detail": "the conclusion does not call `f`"}] if "BAD" in text
+        else [{"check": c, "ok": True, "detail": ""} for c in synth._gate.checks_for(None)])
+    synth.events.emit = lambda kind, **f: emitted.append((kind, f))
+    try:
+        specs = [{"name": "u", "stmt": "SAME", "status": "rejected", "fail_gate": "pbt"}]
+        synth._admit_with_proof([{"name": "g", "stmt": "GOOD", "status": "proved", "method": "llm-gen-with-proof"},
+                                 {"name": "b", "stmt": "BAD", "status": "proved", "method": "llm-gen-with-proof"},
+                                 {"name": "s", "stmt": "SAME", "status": "proved", "method": "llm-gen-with-proof",
+                                  "proof": "by rfl"}],
+                                specs, "def f (n : Nat) : Nat := n", "f", Checker(), "/p", "lean-native")
+    finally:
+        synth._gate.check_candidate, synth.events.emit = old_gate, old_emit
+    check("a statement proved by the LLM's own proof still passes the gate before it counts",
+          [x["stmt"] for x in specs] == ["SAME", "GOOD"] and set(asked) == {("f", "def f (n : Nat) : Nat := n", "/p", "lean-native")},
+          f"{specs} {asked}")
+    check("a statement already there takes the proof, and loses its old failure",
+          specs[0].get("proof") == "by rfl" and specs[0]["status"] == "proved" and "fail_gate" not in specs[0], str(specs[0]))
+    got = {f.get("stmt"): f.get("status") for k, f in emitted if k == "verdict"}
+    check("every statement gets a verdict event with its statement",
+          got == {"GOOD": "proved", "BAD": "rejected", "SAME": "proved"}, str(emitted))
 
 
 def run_full():
@@ -512,6 +582,9 @@ set_option linter.dupNamespace false
 set_option linter.hashCommand false
 set_option linter.unusedVariables false
 
+/- You can remove the following line by using the CLI option `-all-computable`: -/
+noncomputable section
+
 namespace LssPlanted
 
 /-- [lss_planted::List] -/
@@ -549,6 +622,9 @@ open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false
 set_option linter.unusedVariables false
+
+/- You can remove the following line by using the CLI option `-all-computable`: -/
+noncomputable section
 
 namespace LssPlanted
 
@@ -692,6 +768,8 @@ run_static_commands()
 run_static_check()
 run_static_run()
 run_static_synth()
+run_static_preamble()
+run_static_with_proof()
 if not static:
     run_full()
 print()
