@@ -30,6 +30,7 @@ tools/translation_check.py's type IR. the commands run in the check's own env
 (_Lean), which holds the gate's Decidable instances and DecidableEq for the
 crate's own types; proofs never run in it.
 """
+import itertools
 import json
 import os
 import random
@@ -226,15 +227,32 @@ def perturb(T, v, self_T=None):
 
 
 def shrink(T, v, self_T=None):
-    """simpler values than v. for an int: 0, 1, the powers of two below it, and
-    the steps n - n/2^k toward it (QuickCheck's shrinkIntegral), so the
-    smallest failing candidate is found in a few rounds, not one halving each.
-    a recursive value shrinks to its own subtrees."""
+    """simpler values than v, never v itself. for an int: 0, 1, the powers of two
+    below it, and the steps n - n/2^k toward it (QuickCheck's shrinkIntegral), so
+    the smallest failing candidate is found in a few rounds, not one halving each.
+    a recursive value shrinks to its own subtrees first, then one argument at a
+    time; a struct one field at a time; a list each element in turn (QuickCheck's
+    shrinkList: drop an element, or shrink one)."""
     kind = T[0]
     if kind == "self":
         return shrink(self_T, v, self_T)
     if _named(T):
         self_T = T
+    key = json.dumps(v, sort_keys=True)
+    return [c for c in _shrink(kind, T, v, self_T) if json.dumps(c, sort_keys=True) != key]
+
+
+def _interleave(lists):
+    """every list's first item, then every list's second, ...: each position's simplest
+    candidate comes before any position's second, so a cap on how many are tried never
+    leaves a position (a field deep inside a list) with none."""
+    return [x for rank in itertools.zip_longest(*lists, fillvalue=_NONE) for x in rank if x is not _NONE]
+
+
+_NONE = object()
+
+
+def _shrink(kind, T, v, self_T):
     if kind == "int":
         n = int(v)
         a = abs(n)
@@ -244,20 +262,35 @@ def shrink(T, v, self_T=None):
     if kind == "bool":
         return [False] if v else []
     if kind in ("slice", "vec"):
-        out = [v[:i] + v[i + 1:] for i in range(len(v))]
-        for i, x in enumerate(v):
-            out += [v[:i] + [s] + v[i + 1:] for s in shrink(T[1], x, self_T)[:1]]
-        return out
+        return [v[:i] + v[i + 1:] for i in range(len(v))] + _interleave(
+            [[v[:i] + [s] + v[i + 1:] for s in shrink(T[1], x, self_T)] for i, x in enumerate(v)])
     if kind in ("tuple", "array"):
         ts = T[1] if kind == "tuple" else [T[1]] * len(v)
-        return [v[:i] + [s] + v[i + 1:] for i, t in enumerate(ts) for s in shrink(t, v[i], self_T)[:1]]
+        return _interleave([[v[:i] + [s] + v[i + 1:] for s in shrink(t, v[i], self_T)] for i, t in enumerate(ts)])
     if kind == "option":
         return [None] if v is not None else []
+    if kind == "struct":
+        return _interleave([[{**v, fn: s} for s in shrink(ft, v[fn], self_T)] for fn, ft in T[2]])
     if kind == "list_enum":
-        return [v["args"][1]] if v["tag"] == T[3] else []
+        nil_v, cons_v, elem_T = T[2], T[3], T[4]
+        items, x = [], v
+        while x["tag"] == cons_v:
+            items.append(x["args"][0])
+            x = x["args"][1]
+
+        def chain(xs):
+            out = {"tag": nil_v, "args": []}
+            for e in reversed(xs):
+                out = {"tag": cons_v, "args": [e, out]}
+            return out
+        return ([chain(items[1:])] if items else []) + [chain(items[:i] + items[i + 1:]) for i in range(1, len(items))] \
+            + _interleave([[chain(items[:i] + [s] + items[i + 1:]) for s in shrink(elem_T, e)] for i, e in enumerate(items)])
     if kind == "enum":
         args = dict(T[2])[v["tag"]]
-        return [c for a, x in zip(args, v["args"]) for c in _children(a, x, self_T)]
+        subtrees = [c for a, x in zip(args, v["args"]) for c in _children(a, x, self_T)]
+        return subtrees + _interleave([[{"tag": v["tag"], "args": v["args"][:i] + [s] + v["args"][i + 1:]}
+                                        for s in shrink(a, v["args"][i], self_T)]
+                                       for i, a in enumerate(args) if not _self_refs(a)])
     return []
 
 
@@ -527,7 +560,7 @@ def check_spec(checker, stmt, unit, project_dir, seed=0):
     if bad:
         row, res = rows[bad[0]], outs[bad[0]]
         for _ in range(SHRINK_ROUNDS):
-            cands = [row[:j] + [x] + row[j + 1:] for j, t in enumerate(args) for x in shrink(t, row[j])]
+            cands = _interleave([[row[:j] + [x] + row[j + 1:] for x in shrink(t, row[j])] for j, t in enumerate(args)])
             cands = cands[:2 * tc.MAX_BATCH]
             if not cands:
                 break

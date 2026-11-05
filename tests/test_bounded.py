@@ -49,6 +49,10 @@ def run_static_values():
     check("shrinking an int offers 0, the powers of two and steps toward it, all smaller",
           sh[0] == 0 and {1, 2, 64, 50, 75, 99} <= set(sh) and max(sh) < 100, str(sh))
     check("shrinking a list drops elements first", bounded.shrink(VEC, [3, 4])[:2] == [[4], [3]])
+    sh = bounded.shrink(PAIR, {"first": 5, "second": 1 << 20})
+    check("a struct shrinks one field at a time",
+          sh[:2] == [{"first": 0, "second": 1 << 20}, {"first": 5, "second": 0}]
+          and all((c["first"] != 5) + (c["second"] != 1 << 20) == 1 for c in sh), str(sh)[:300])
 
 
 NODE = ("enum", "C.Node", [("mk", [U32, ("option", ("self",)), ("option", ("self",))])], "C.Node Aeneas.Std.U32")
@@ -85,7 +89,22 @@ def run_static_recursive():
     check("a tree literal names its constructor in full",
           tc.lean_literal(NODE, v) == "(C.Node.mk 3#u32 none (some (C.Node.mk 4#u32 none none)))",
           tc.lean_literal(NODE, v))
-    check("a tree shrinks to its subtrees", bounded.shrink(NODE, v) == [v["args"][2]], str(bounded.shrink(NODE, v)))
+    sh = bounded.shrink(NODE, v)
+    check("a tree shrinks to its subtrees", sh[:1] == [v["args"][2]], str(sh))
+    check("an enum shrinks the arguments that are not subtrees",
+          {"tag": "mk", "args": [0, None, v["args"][2]]} in sh[1:], str(sh))
+    lst = {"tag": "Cons", "args": [7, {"tag": "Cons", "args": [300, {"tag": "Nil", "args": []}]}]}
+    sh = bounded.shrink(LIST, lst)
+    check("a crate list shrinks its elements as well as its tail",
+          sh[0] == lst["args"][1] and {"tag": "Cons", "args": [7, {"tag": "Cons", "args": [0, {"tag": "Nil", "args": []}]}]}
+          in sh and {"tag": "Cons", "args": [7, {"tag": "Nil", "args": []}]} in sh, str(sh))
+    deep = {"tag": "mk", "args": [3_000_000_000, None, {"tag": "mk", "args": [7, None, None]}]}
+    sh = bounded.shrink(("vec", NODE), [deep, deep])[:2 * tc.MAX_BATCH]
+    check("a large field deep inside a list is shrunk within the candidates a round tries",
+          [{"tag": "mk", "args": [0, None, deep["args"][2]]}, deep] in sh, str(sh)[:300])
+    check("no shrink candidate equals the value it came from",
+          all(_key(c) != _key(x) for T, x in [(NODE, v), (LIST, lst), (PAIR, {"first": 0, "second": 9}), (VEC, [0, 0])]
+              for c in bounded.shrink(T, x)))
     ps = bounded.perturb(NODE, v)
     check("perturbing a tree changes its value", bool(ps) and all(_key(p) != _key(v) for p in ps), str(ps))
     defs = []
