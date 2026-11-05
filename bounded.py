@@ -514,9 +514,9 @@ NOT_EVALUATED = "not evaluated:"
 
 
 def _shown(T, value):
-    """an encoded output as the Lean literal the statement would use."""
+    """an encoded output as the statement would write it."""
     try:
-        return tc.lean_literal(T, json.loads(value))
+        return tc.lean_literal(T, json.loads(value), short=True)
     except (tc.Unsupported, ValueError, KeyError, TypeError):
         return value
 
@@ -579,7 +579,7 @@ def check_spec(checker, stmt, unit, project_dir, seed=0):
             out, _ = lean.run(_lean.proof_check_call(text, nm, hb))
             kernel = bool((_lean.parse_proof_verdicts(out).get(nm) or {}).get("ok")) if out else False
         names = [f.get("name") or f"x{i}" for i, f in enumerate(plan["free"])]
-        shown = ", ".join(f"{n} := {tc.lean_literal(t, v)}" for n, t, v in zip(names, args, row))
+        shown = ", ".join(f"{n} := {tc.lean_literal(t, v, short=True)}" for n, t, v in zip(names, args, row))
         types = [f"{b['name']} := {b['v']}" for b in binders if b.get("k") in ("type", "inst") and b.get("name")]
         at = f" at {', '.join(types)}" if types else ""
         got = (f"returned {_shown(ret, res['value'])}" if res["outcome"] == "violates" and ret is not None

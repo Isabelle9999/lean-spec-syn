@@ -39,6 +39,9 @@ def run_static_values():
     check("signed edges include min and -1", {-128, -1, 127} <= set(bounded.edge_values(I8)))
     check("every sampled value renders as a Lean literal",
           all(tc.lean_literal(t, v) for r in rows for t, v in zip([U32, VEC], r)))
+    check("the short literal of every sampled value names no proof",
+          all("by " not in tc.lean_literal(t, v, short=True) for r in bounded.sample_rows([("int", "Std.Usize"), VEC, PAIR])
+              for t, v in zip([("int", "Std.Usize"), VEC, PAIR], r)))
     for T, v in [(U32, 5), (U32, "7"), (VEC, [1, 2]), (VEC, []), (PAIR, {"first": 1, "second": 2}),
                  (("bool",), True), (("option", U32), None), (("tuple", [U32, ("bool",)]), [3, False])]:
         ps = bounded.perturb(T, v)
@@ -227,6 +230,21 @@ def run_static_check():
           v.get("kernel") is True and "5#u32" in fake.sent[-1], fake.sent[-1][-200:] if fake.sent else "")
     check("the feedback names the input by its binder and the output as a literal",
           "(x := 5#u32)" in v.get("feedback", "") and "returned 5#u32" in v.get("feedback", ""), v.get("feedback"))
+    usize = _plan(free=[{"name": "n", "type": "Aeneas.Std.Usize", "ir": ["int", "Std.Usize"]},
+                        {"name": "v", "type": "alloc.vec.Vec Aeneas.Std.U32", "ir": ["vec", ["int", "Std.U32"]]}])
+    fake = FakeLean(lambda r: {"outcome": "violates", "value": '"1"'} if r[0] == 3 and r[1] == [2]
+                    else _ok(1), plan=usize)
+    old_rows = bounded.sample_rows
+    bounded.sample_rows = lambda args, seed=0: [[3, [2]]]
+    try:
+        v = _check(fake)
+    finally:
+        bounded.sample_rows = old_rows
+    check("feedback writes a Usize as n#usize, never Usize.ofNatCore",
+          "n := 3#usize" in v.get("feedback", "") and "ofNatCore" not in v.get("feedback", ""), v.get("feedback"))
+    check("feedback writes a Vec as a list literal", "v := [2#u32]" in v.get("feedback", ""), v.get("feedback"))
+    check("the kernel refutation still writes the full Usize literal",
+          bool(fake.sent) and "Usize.ofNatCore 3" in fake.sent[-1], fake.sent[-1][-300:] if fake.sent else "")
     gen = _plan(binders=[{"k": "type", "v": "Aeneas.Std.U32", "name": "T"}, {"k": "arg", "i": 0}])
     v = _check(FakeLean(lambda r: {"outcome": "violates", "value": '"1"'}, plan=gen))
     check("a generic spec's refutation says at which instantiation",
