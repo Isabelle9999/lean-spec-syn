@@ -256,6 +256,15 @@ def run_static_check():
     check("a spec whose call fails is refuted", v["status"] == "refuted" and v["outcome"] == "fail", str(v))
     check("its feedback says the triple claims success and asks for the precondition that gives it",
           "says the call succeeds, so state as a hypothesis" in v.get("feedback", ""), v.get("feedback"))
+    undecided = {**_plan(), "post_decidable": False, "post_why": "not Decidable: ∀ t, P t"}
+    v = _check(FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.panic"} if int(r[0]) == 0
+                        else {"outcome": "unknown", "value": ""}, plan=undecided))
+    check("with an undecided postcondition, a failing call still refutes the statement",
+          v["status"] == "refuted" and v["outcome"] == "fail" and v["witness"] == [0], str(v))
+    v = _check(FakeLean(lambda r: {"outcome": "unknown", "value": ""}, post_outcome=lambda row, o: "holds",
+                        plan=undecided))
+    check("an undecided postcondition never passes and is never called vacuous",
+          v["status"] == "not_evaluated" and "not Decidable" in v["detail"], str(v))
     v = _check(FakeLean(lambda r: {"outcome": "div", "value": ""}))
     check("divergence refutes a ⦃ ⦄ spec", v["status"] == "refuted", str(v))
     v = _check(FakeLean(lambda r: {"outcome": "div", "value": ""}), stmt="div S")
@@ -789,7 +798,12 @@ def run_planted(checker):
               v["status"] == "not_evaluated" and "no instance of LssPlanted.Hash" in v.get("detail", ""), str(v))
         v = b("∀ {T : Type} (l : LssPlanted.List T) (i : Std.U32), nth_back l i ⦃ r => ∀ t, ∃ tl, r.2 t = LssPlanted.List.Cons t tl ⦄",
               "nth_back")
-        check("a statement about a backward function's every input is not evaluated: it goes to the provers",
+        check("a statement about a backward function's every input is refuted when its call fails",
+              v["status"] == "refuted" and v.get("outcome") == "fail", str(v))
+        check("that refutation is kernel-checked without deciding the postcondition", v.get("kernel") is True, str(v))
+        v = b("∀ {T : Type} (x : T) (tl : LssPlanted.List T), nth_back (LssPlanted.List.Cons x tl) 0#u32 "
+              "⦃ r => ∀ t, ∃ tl', r.2 t = LssPlanted.List.Cons t tl' ⦄", "nth_back")
+        check("a statement about a backward function's every input whose call never fails is not evaluated",
               v["status"] == "not_evaluated" and "Decidable" in v.get("detail", ""), str(v))
         v = b("∀ {T : Type} (v : T), singleton v ⦃ r => r = some (LssPlanted.Node.mk v none none) ⦄", "singleton")
         check("equality on a tree is decided: the true spec passes", v["status"] == "pass", str(v))

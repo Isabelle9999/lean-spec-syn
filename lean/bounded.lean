@@ -313,14 +313,21 @@ def lssRowValues (sh : LssShape) (lits : Array String) : TermElabM (Array Expr �
   return (src, dst)
 
 open Lean Elab Term Meta in
-/-- `(call, α, fun r => decide (P r))` at these values. -/
-def lssPostAt (sh : LssShape) (src dst : Array Expr) : TermElabM (Expr × Expr × Expr) := do
+/-- `(call, α, fun r => decide (P r), decided)` at these values. a postcondition
+that is not Decidable (a statement about a backward function's every input) gives
+`fun _ => true` and `decided = false`: the call still runs, so a failing call
+still refutes the statement, which claims success whatever P says. -/
+def lssPostAt (sh : LssShape) (src dst : Array Expr) : TermElabM (Expr × Expr × Expr × Bool) := do
   let m := sh.prog.replaceFVars src dst
   let p := sh.post.replaceFVars src dst
   if m.hasFVar || p.hasFVar then throwError "the call or postcondition depends on a hypothesis"
   let α := (← whnf (← inferType m)).appArg!
-  let pb ← withLocalDeclD `r α fun r => do mkLambdaFVars #[r] (← lssMkDecide (p.beta #[r]))
-  return (m, α, pb)
+  let (pb, decided) ← withLocalDeclD `r α fun r => do
+    try
+      pure ((← mkLambdaFVars #[r] (← lssMkDecide (p.beta #[r]))), true)
+    catch _ =>
+      pure ((← mkLambdaFVars #[r] (mkConst ``Bool.true)), false)
+  return (m, α, pb, decided)
 
 open Lean Meta in
 /-- the type IR python's samplers, literals and encoders use
@@ -516,10 +523,14 @@ elab "lss_eval_plan " tag:ident " crate:" crateId:ident " stmt:" s:str : command
         let ty ← inferType sh.ys[i]!
         try discard <| lssMkDecide ty
         catch e => throwError "not evaluated: hypothesis `{ty}`: {e.toMessageData}"
+    -- a postcondition that is not Decidable does not stop the check: the call is
+    -- still run, and a failing call refutes the statement (python decides the rest)
     let α := (← whnf (← inferType sh.prog)).appArg!
-    withLocalDeclD `r α fun r => do
-      try discard <| lssMkDecide (sh.post.beta #[r])
-      catch e => throwError "not evaluated: postcondition: {e.toMessageData}"
+    let postWhy : Option String ← withLocalDeclD `r α fun r => do
+      try
+        discard <| lssMkDecide (sh.post.beta #[r])
+        pure none
+      catch e => pure (some (← e.toMessageData.toString))
     let ir (ty : Expr) : TermElabM Json := do
       try lssTypeIR crateId.getId #[] ty
       catch e => pure (Json.mkObj [("unsupported", Json.str (← e.toMessageData.toString))])
@@ -532,7 +543,8 @@ elab "lss_eval_plan " tag:ident " crate:" crateId:ident " stmt:" s:str : command
     let ret ← ir α
     return [("kind", Json.str (if sh.isDspec then "dspec" else "spec")),
             ("binders", Json.arr (lssBinderRoles sh mono)), ("free", Json.arr free), ("ret", ret),
-            ("insts", Json.arr (insts.map (Json.str ∘ toString)))]
+            ("insts", Json.arr (insts.map (Json.str ∘ toString))),
+            ("post_decidable", Json.bool postWhy.isNone), ("post_why", Json.str (postWhy.getD ""))]
 
 open Lean Elab Command Term Meta in
 elab "lss_eval_spec " tag:ident " crate:" crateId:ident " stmt:" s:str " enc:" enc:str
@@ -554,12 +566,14 @@ elab "lss_eval_spec " tag:ident " crate:" crateId:ident " stmt:" s:str " enc:" e
         if discard then
           pure (Json.mkObj [("outcome", "discard")])
         else
-          let (m, α, pb) ← lssPostAt sh src dst
+          let (m, α, pb, decided) ← lssPostAt sh src dst
           let encFn ← lssElabString enc.getString (some (← mkArrow α (mkConst ``String)))
           let txt ← lssEvalString (← mkAppM ``lssOutcome #[m, pb, encFn])
           let (o, v) := match txt.splitOn "\t" with
             | o :: rest => (o, "\t".intercalate rest)
             | [] => ("error", "")
+          -- a success under an undecided postcondition says nothing either way
+          let o := if !decided && o == "holds" then "unknown" else o
           pure (Json.mkObj [("outcome", Json.str o), ("value", Json.str v)])
       catch e => pure (Json.mkObj [("outcome", "error"), ("detail", Json.str (← e.toMessageData.toString))])
       out := out.push row
@@ -570,7 +584,8 @@ elab "lss_eval_post " tag:ident " crate:" crateId:ident " stmt:" s:str " row:" r
     " outs:" outs:lssStrList : command =>
   lssWithStatement tag crateId s.getString fun sh _ _ => do
     let (src, dst) ← lssRowValues sh (lssStrings row)
-    let (_, α, pb) ← lssPostAt sh src dst
+    let (_, α, pb, decided) ← lssPostAt sh src dst
+    unless decided do throwError "not evaluated: postcondition: not Decidable"
     let mut out := #[]
     for o in lssStrings outs do
       let r ← try

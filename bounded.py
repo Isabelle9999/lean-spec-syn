@@ -548,6 +548,10 @@ def check_spec(checker, stmt, unit, project_dir, seed=0):
     except tc.Unsupported:
         ret = None  # outcomes still evaluate; no values, perturbations or kernel refutation
     binders, insts = plan["binders"], plan.get("insts", [])
+    # a postcondition Lean cannot decide (a statement about a backward function's every
+    # input) still lets the call run: a failing call refutes the statement, which claims
+    # success whatever the postcondition says; a succeeding one decides nothing
+    decided = plan.get("post_decidable", True)
     rows = sample_rows(args, seed=seed)
     ev, why = lean.eval(stmt, args, ret, rows)
     if ev is None:
@@ -591,6 +595,8 @@ def check_spec(checker, stmt, unit, project_dir, seed=0):
                              f"(checked by running the function{', and by a kernel proof' if kernel else ''})."
                              + (" `f args ⦃ … ⦄` says the call succeeds, so state as a hypothesis what the inputs "
                                 "need for it to succeed." if res["outcome"] in ("fail", "div") else ""))}
+    if not decided:
+        return {"status": "not_evaluated", "detail": f"postcondition: {plan.get('post_why', '')}"[:300]}
     fit = [i for i, r in enumerate(outs) if r["outcome"] == "holds"]
     discard = sum(1 for r in outs if r["outcome"] == "discard")
     warning = None
