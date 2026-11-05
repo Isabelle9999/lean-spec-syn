@@ -594,7 +594,10 @@ def check_spec(checker, stmt, unit, project_dir, seed=0):
                 "feedback": (f"On input ({shown}){at} the function {got}, and the statement is false there "
                              f"(checked by running the function{', and by a kernel proof' if kernel else ''})."
                              + (" `f args ⦃ … ⦄` says the call succeeds, so state as a hypothesis what the inputs "
-                                "need for it to succeed." if res["outcome"] in ("fail", "div") else ""))}
+                                "need for it to succeed. If this input is one the function is never meant to get (a "
+                                "value whose fields break what its type is for, such as a table with no slots), state "
+                                "the condition that excludes it, on the input's fields, as a hypothesis."
+                                if res["outcome"] in ("fail", "div") else ""))}
     if not decided:
         return {"status": "not_evaluated", "detail": f"postcondition: {plan.get('post_why', '')}"[:300]}
     fit = [i for i, r in enumerate(outs) if r["outcome"] == "holds"]

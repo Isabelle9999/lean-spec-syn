@@ -256,6 +256,9 @@ def run_static_check():
     check("a spec whose call fails is refuted", v["status"] == "refuted" and v["outcome"] == "fail", str(v))
     check("its feedback says the triple claims success and asks for the precondition that gives it",
           "says the call succeeds, so state as a hypothesis" in v.get("feedback", ""), v.get("feedback"))
+    check("a failing call's feedback asks for the hypothesis that excludes an invalid input",
+          "never meant to get" in v.get("feedback", "") and "on the input's fields, as a hypothesis" in v.get("feedback", ""),
+          v.get("feedback"))
     undecided = {**_plan(), "post_decidable": False, "post_why": "not Decidable: ∀ t, P t"}
     v = _check(FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.panic"} if int(r[0]) == 0
                         else {"outcome": "unknown", "value": ""}, plan=undecided))
