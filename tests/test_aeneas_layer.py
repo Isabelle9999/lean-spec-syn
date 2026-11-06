@@ -577,11 +577,50 @@ def run_static_helpers():
         lean_server.get_server, callgraph.for_project = old
 
 
+TO_LIST = ("@[simp] def lss_hp_toList_0000beef {T : Type} : NoNestedBorrows.List T → _root_.List T\n"
+           "  | .Cons x tl => x :: lss_hp_toList_0000beef tl\n  | .Nil => []")
+NTH_SPEC = ("∀ {T : Type} (l : NoNestedBorrows.List T) (i : Std.U32), i.val < (lss_hp_toList_0000beef l).length → "
+            "list_nth_mut l i ⦃ r => (lss_hp_toList_0000beef l)[i.val]? = some r.1 ∧ "
+            "∀ x', lss_hp_toList_0000beef (r.2 x') = (lss_hp_toList_0000beef l).set i.val x' ⦄")
+REV_SPEC = ("∀ {T : Type} (li lo : NoNestedBorrows.List T), list_rev_aux li lo ⦃ r => "
+            "lss_hp_toList_0000beef r = (lss_hp_toList_0000beef li).reverse ++ lss_hp_toList_0000beef lo ⦄")
+REV_FALSE = ("∀ {T : Type} (li lo : NoNestedBorrows.List T), list_rev_aux li lo ⦃ r => "
+             "lss_hp_toList_0000beef r = lss_hp_toList_0000beef li ⦄")
+ZERO_PAST_END = ("∀ (x : alloc.vec.Vec Std.U32) (i : Std.Usize), alloc.vec.Vec.len x ≤ i.val → "
+                 "zero_loop x i ⦃ r => r = x ⦄")
+
+
+def run_full_suite():
+    """recursive data and loops, on the suite's own crates (read-only)."""
+    print("=== full: recursive data and loops ===")
+    import lean
+    import lean_server
+    suite = os.path.expanduser("~/rust_suite")
+    checker = lean.LeanChecker()
+    nnb, tut = os.path.join(suite, "NoNestedBorrows"), os.path.join(suite, "Tutorial")
+    if not (os.path.isdir(nnb) and os.path.isdir(tut)):
+        check(f"{nnb} and {tut} exist", False, "not a directory")
+        return
+    ok, errs = checker.ensure_helpers(nnb, TO_LIST)
+    check("the helper is defined in the crate's env", ok, str(errs)[:300])
+    pr = checker.try_aeneas(NTH_SPEC, "list_nth_mut", nnb, candidate_id="suite_nth")
+    check("a spec through a helper on a recursive list function is proved", pr.proved, pr.error[:300])
+    pr = checker.try_aeneas(REV_SPEC, "list_rev_aux", nnb, candidate_id="suite_rev")
+    check("an accumulator recursion is proved through the induction step* does itself", pr.proved, pr.error[:300])
+    pr = checker.try_aeneas(REV_FALSE, "list_rev_aux", nnb, candidate_id="suite_rev_false")
+    check("a false spec through a helper is not proved", not pr.proved, pr.method)
+    pr = checker.try_aeneas(ZERO_PAST_END, "zero_loop", tut, candidate_id="suite_zero_end")
+    check("a loop's exit-case spec is proved by opening loop once", pr.proved and pr.method == "aeneas:e",
+          f"{pr.method} {pr.error[:300]}")
+    lean_server.shutdown_all()
+
+
 if static:
     run_static_helpers()  # first: run_static replaces gate.check_candidate for the rest of the file
     run_static()
 else:
     run_full()
+    run_full_suite()
 
 if fails:
     print(f"\n{len(fails)} FAILURE(S): {fails}")

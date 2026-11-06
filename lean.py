@@ -208,6 +208,11 @@ def classify_function(lean_env, func_name):
 
 
 HAMMER = "hammer { disableGrind := true }"
+# the closers after step*, in Aeneas's tutorial order (tests/lean/Tutorial/Solutions.lean:
+# `step*; simp; simp_lists [*]`, or `step*; agrind`); agrind and grind close the list
+# goals a shifted index leaves (`(x :: l)[i] = y` from `l[i - 1]? = some y`)
+AENEAS_CLOSE = ("all_goals (try simp)\n  all_goals (try simp_lists [*])\n  "
+                "all_goals first | (simp_all; done) | (simp_all <;> scalar_tac; done) | (agrind; done) | grind")
 # the least time worth giving one proof attempt under a shared time budget
 MIN_TRY = 5
 
@@ -755,6 +760,8 @@ class LeanChecker:
         if not state["ok"]:
             return ProofResult(proved=False, method="", error=state["error"])
 
+        g = _callgraph.for_project(rust_project_dir)
+        unit = func_name if func_name in g.names else f"{g.crate}.{func_name}"
         # subst_vars: a statement in the gate's normal form (strategies.normalize_call)
         # defines an argument by a hypothesis `lss_a0 = List.Cons x tl`; substituted
         # back, the call is on the constructor again and `unfold` reaches its case
@@ -763,35 +770,44 @@ class LeanChecker:
             ("a", f"{start}\n  step*"),
             ("b", f"{start}\n  "
                   "step* <;> first | scalar_tac | simp_scalar | (simp_all <;> simp_lists [*]) | grind"),
-            ("c", f"{start}\n  step*\n  lss_log_goals\n  all_goals sorry"),
+            # Aeneas's tutorial order (tests/lean/Tutorial/Solutions.lean): step* does the
+            # recursion through the theorem being proved, and what is left closes with simp
+            # (a helper is a simp lemma), then simp_lists [*], then the closers
+            ("p", f"{start}\n  step*\n  {AENEAS_CLOSE}"),
         ]
+        if f"{unit}.body" in g.names:
+            # a loop (Aeneas's `loop` combinator, never recursive itself) opened once: what
+            # holds when the loop stops at once (Std/Primitives.lean's `loop` equation)
+            attempts.append(("e", f"{start}\n  rw [Aeneas.Std.loop]\n  unfold {func_name}.body\n  step*\n  {AENEAS_CLOSE}"))
+        proofs = attempts
+        attempts = attempts + [("c", f"{start}\n  step*\n  lss_log_goals\n  all_goals sorry")]
 
-        # a and b are proof attempts, each checked by lss_check_proof; c only logs
+        # every attempt but c is a proof, each checked by lss_check_proof; c only logs
         # the goals step* leaves open (closed by sorry, never a verdict)
         full = "\n".join(proof_check_call(f"theorem _aeneas_{label} : {candidate_stmt} := by\n  {tactic}",
                                            f"_aeneas_{label}", heartbeats)
-                         for label, tactic in attempts[:2])
-        label_c, tactic_c = attempts[2]
+                         for label, tactic in proofs)
+        label_c, tactic_c = attempts[-1]
         full += (f"\nset_option maxHeartbeats {heartbeats} in\n"
                  f"theorem _aeneas_{label_c} : {candidate_stmt} := by\n  {tactic_c}")
 
-        r = server.check(full, timeout=90, env=state["env"])
+        r = server.check(full, timeout=90 + 30 * (len(proofs) - 2), env=state["env"])
         self.lean_calls += 1
         combined = (r.stdout or "") + (r.stderr or "")
 
+        goals = []
         for m in re.finditer(r"LSS_GOALS (\{[^\n]*\})", combined):
             try:
                 goal = json.loads(m.group(1))
             except json.JSONDecodeError:
                 continue
+            goals.append(goal)
             events.emit("open_goal", unit=func_name, candidate_id=candidate_id,
                         head=goal.get("head", "?"))
 
         verdicts = parse_proof_verdicts(combined)
 
-        g = _callgraph.for_project(rust_project_dir)
-        unit = func_name if func_name in g.names else f"{g.crate}.{func_name}"
-        for label, tactic in attempts[:2]:
+        for label, tactic in proofs:
             v = verdicts.get(f"_aeneas_{label}")
             if v and v.get("ok"):
                 return self._aeneas_proved(rust_project_dir, g, unit, candidate_stmt, label, tactic, v)
@@ -810,7 +826,9 @@ class LeanChecker:
             state = self._aeneas_env_for(rust_project_dir)  # a hammer timeout restarts the server
 
         blamed = self._blame(g, state, unit, candidate_stmt, attempts[1][1])
-        return ProofResult(proved=False, method="", error=combined.strip()[:200], blamed_callees=blamed)
+        # what step* left, not the last closer's complaint about it
+        error = ("open goal: " + goals[0].get("text", "")[:300]) if goals else combined.strip()[:200]
+        return ProofResult(proved=False, method="", error=error, blamed_callees=blamed)
 
     def _aeneas_proved(self, project_dir, g, unit, stmt, label, tactic, verdict):
         """a winning aeneas-layer attempt: check modularity, admit it, report it."""
@@ -880,7 +898,8 @@ class LeanChecker:
         body the proof needs. recursive units are not checked (None)."""
         if g.recursive(unit):
             return None, []
-        callees = [(c, state["active"].get(c)) for c in g.callees_outside_scc(unit)]
+        # a loop's body is part of its loop (loader.py: never a unit of its own), not a callee
+        callees = [(c, state["active"].get(c)) for c in g.callees_outside_scc(unit) if c != f"{unit}.body"]
         if not callees:
             return True, []
         if self._modular_check(state, unit, stmt, tactic, callees, [])["ok"]:
@@ -895,8 +914,8 @@ class LeanChecker:
         through. recursive units are not checked."""
         if g.recursive(unit):
             return []
-        blamed = [c for c in g.callees_outside_scc(unit)
-                  if self._modular_check(state, unit, stmt, tactic, [], [c])["ok"]]
+        blamed = [c for c in g.callees_outside_scc(unit) if c != f"{unit}.body"
+                  and self._modular_check(state, unit, stmt, tactic, [], [c])["ok"]]
         for c in blamed:
             events.emit("blame", unit=unit, callee=c)
         return blamed

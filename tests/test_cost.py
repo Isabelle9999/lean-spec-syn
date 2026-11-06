@@ -244,6 +244,62 @@ def run_static_hammer_closer():
           not pr.proved and not any(lean.HAMMER in x["code"] for x in sent), str(sent)[:200])
 
 
+def run_static_attempts():
+    print("=== static: the aeneas layer's attempts ===")
+    import lean
+    import lean_server
+    import lss_config
+    import callgraph
+
+    class LoopGraph(_UnitGraph):
+        names = {"C.f", "C.f.body"}
+
+        def callees_outside_scc(self, unit):
+            return ["C.f.body"] if unit == "C.f" else []
+
+    def run(reply, graph):
+        checker = lean.LeanChecker()
+        state = {"ok": True, "env": 3, "admitted": [], "active": {}, "restarts": 0}
+        setattr(checker, "_aeneas_env_for", lambda project_dir: state)
+        fake = FakeServer(reply)
+        with Patch((lean_server, "get_server", lambda *a, **k: fake), (callgraph, "for_project", lambda p: graph),
+                   (lss_config, "proof_cfg", _proof_cfg(rust_hammer=False))):
+            pr = checker.try_aeneas("stmt", "f", "/crate")
+        return pr, fake.sent
+
+    def p_wins(code):
+        if "name:lss_admitted_0 " in code:
+            return _verdict_line("lss_admitted_0", True)
+        return _verdict_line("_aeneas_a", False, "elab") + _verdict_line("_aeneas_p", True)
+    pr, sent = run(p_wins, _UnitGraph())
+    code = (sent[0]["code"] if sent else "").replace("\\n", "\n")  # the theorems are escaped in a string
+    p_part = code.split("name:_aeneas_p", 1)[0].rsplit("theorem _aeneas_p", 1)[-1]
+    check("after step* the prover closes goals in Aeneas's tutorial order",
+          "step*\n  all_goals (try simp)\n  all_goals (try simp_lists [*])\n  all_goals first | (simp_all; done)" in p_part
+          and "(agrind; done) | grind" in p_part, p_part[:400])
+    check("a proof in that order is proved as aeneas:p and admitted with its own tactic",
+          pr.proved and pr.method == "aeneas:p" and "simp_lists [*]" in pr.proof_text, str(pr)[:200])
+    check("a unit with no loop body is never tried by opening loop", "_aeneas_e" not in code, code[:200])
+    pr, sent = run(lambda code: _verdict_line("_aeneas_a", False, "elab"), LoopGraph())
+    code = (sent[0]["code"] if sent else "").replace("\\n", "\n")
+    e_part = code.split("name:_aeneas_e", 1)[0].rsplit("theorem _aeneas_e", 1)[-1]
+    check("a loop unit is also tried by opening loop once, then its body",
+          "unfold f\n  rw [Aeneas.Std.loop]\n  unfold f.body\n  step*" in e_part, e_part[:300])
+    def e_wins(code):
+        if "name:lss_admitted_0 " in code:
+            return _verdict_line("lss_admitted_0", True)
+        return _verdict_line("_aeneas_e", True)
+    pr, sent = run(e_wins, LoopGraph())
+    check("a loop's body is part of its loop, never a callee its proof is checked without",
+          pr.proved and pr.modular is True and not pr.needs_callee_body and not any("lss_modular" in x["code"] for x in sent),
+          f"{pr} {[x['code'][:60] for x in sent]}"[:400])
+    goal = '{"head":"Aeneas.Std.WP.spec","text":"⊢ (x :: l)[i] = y"}'
+    pr, _ = run(lambda code: f"warning: LSS_GOALS {goal}\n" + "error: grind failed\n"
+                + _verdict_line("_aeneas_a", False, "elab"), _UnitGraph())
+    check("a failed proof reports the goal left, not the last closer's error",
+          not pr.proved and pr.error.startswith("open goal: ⊢ (x :: l)[i] = y") and "grind" not in pr.error, pr.error)
+
+
 class Clock:
     def __init__(self):
         self.t = 0.0
@@ -557,6 +613,7 @@ def run_full_context(rust_dir, benches, checker):
 if static:
     run_static_routing()
     run_static_hammer_closer()
+    run_static_attempts()
     run_static_budgets()
     run_static_context()
     run_static_report()
