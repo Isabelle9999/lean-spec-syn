@@ -830,6 +830,49 @@ class LeanChecker:
         error = ("open goal: " + goals[0].get("text", "")[:300]) if goals else combined.strip()[:200]
         return ProofResult(proved=False, method="", error=error, blamed_callees=blamed)
 
+    @events.layer("aeneas")
+    def try_loop(self, candidate_stmt, func_name, rust_project_dir, measure, invariant, candidate_id=None):
+        """a loop unit's spec by Aeneas's loop pattern (documentation/proof-strategies.md
+        Pattern B, Std/WP.lean `loop.spec_decr_nat`): `measure` (a Nat that drops on
+        every iteration) and `invariant` (what holds at every iteration) are terms in
+        the loop's state `s` and the statement's own variables; the body's goals close
+        with step* and the closers. a ⦄div spec follows from the ⦃ ⦄ one (WP.spec_dspec)."""
+        g = _callgraph.for_project(rust_project_dir)
+        unit = func_name if func_name in g.names else f"{g.crate}.{func_name}"
+        sigma = loop_state_type(g.def_text(unit) or "")
+        if sigma is None or f"{unit}.body" not in g.names:
+            return ProofResult(proved=False, method="", error="not a loop whose state this can name")
+        state = self._aeneas_env_for(rust_project_dir)
+        if not state["ok"]:
+            return ProofResult(proved=False, method="", error=state["error"])
+
+        def term(t, codomain):
+            """the LLM's function of the state, typed at it: `fun s => e` (or a bare `e` in
+            `s`) as the probe ran it, `(fun (s : σ) => e)`; any other shape
+            (`fun (x, i) => e`) by ascription."""
+            t = t.strip()
+            m = re.match(r"^(?:fun|λ)\s+s\s*=>", t)
+            if m or not re.match(r"^(?:fun|λ)\b", t):
+                return f"(fun (s : {sigma}) => {t[m.end():].strip() if m else t})"
+            return f"(({t}) : {sigma} → {codomain})"
+        names = stmt_binder_names(candidate_stmt)  # `_` keeps an anonymous binder's place
+        intro = (f"intro {' '.join(names)}\n  " if names else "") + "intros\n  "
+        dspec = "apply Aeneas.Std.WP.spec_dspec\n  " if re.search(r"⦄\s*div", candidate_stmt) else ""
+        tactic = (f"{intro}{dspec}unfold {func_name}\n  "
+                  f"apply Aeneas.Std.loop.spec_decr_nat {term(measure, 'Nat')} {term(invariant, 'Prop')}\n  "
+                  f"· intro s hs\n    try simp only\n    unfold {func_name}.body\n    step*\n    "
+                  + AENEAS_CLOSE.replace("\n  ", "\n    ") + "\n  · first | rfl | simp | simp_all")
+        heartbeats = _lss_config.proof_cfg()["aeneas_heartbeats"]
+        server = _lean_server.get_server(_lss_config.project_dir("aeneas"))
+        r = server.check(proof_check_call(f"theorem _aeneas_loop : {candidate_stmt} := by\n  {tactic}", "_aeneas_loop",
+                                          heartbeats), timeout=120, env=state["env"])
+        self.lean_calls += 1
+        out = (r.stdout or "") + (r.stderr or "")
+        v = parse_proof_verdicts(out).get("_aeneas_loop")
+        if v and v.get("ok"):
+            return self._aeneas_proved(rust_project_dir, g, unit, candidate_stmt, "loop", tactic, v)
+        return ProofResult(proved=False, method="", error=((v or {}).get("detail") or out.strip())[:300])
+
     def _aeneas_proved(self, project_dir, g, unit, stmt, label, tactic, verdict):
         """a winning aeneas-layer attempt: check modularity, admit it, report it."""
         state = self._aeneas_env_for(project_dir)
@@ -934,6 +977,98 @@ class LeanChecker:
             cx = m.group(1).strip() if m else "found"
             return PBTResult(passed=False, counterexample=cx, message="counterexample found")
         return PBTResult(passed=False, counterexample="", message=combined.strip()[:200])
+
+
+_OPEN, _CLOSE = "({[⦃", ")}]⦄"
+
+
+def _group_end(text, i):
+    """the index after the bracket group that starts at text[i]."""
+    depth = 0
+    for j in range(i, len(text)):
+        if text[j] in _OPEN:
+            depth += 1
+        elif text[j] in _CLOSE:
+            depth -= 1
+            if depth == 0:
+                return j + 1
+    raise ValueError("unbalanced brackets")
+
+
+def binder_groups(text):
+    """(names, type) of each binder group at the start of `text` (`(a b : T) {U : Type}
+    [inst : C]`; an anonymous instance `[C]` binds `_`), and the rest of the text."""
+    out, i = [], 0
+    while True:
+        while i < len(text) and text[i].isspace():
+            i += 1
+        if i >= len(text) or text[i] not in _OPEN:
+            return out, text[i:]
+        j = _group_end(text, i)
+        inner = text[i + 1:j - 1]
+        depth, colon = 0, -1
+        for k, c in enumerate(inner):
+            depth += (c in _OPEN) - (c in _CLOSE)
+            if c == ":" and depth == 0 and not inner.startswith(":=", k):
+                colon = k
+                break
+        out.append((inner[:colon].split() or ["_"], inner[colon + 1:].strip()) if colon >= 0 else (["_"], inner.strip()))
+        i = j
+
+
+def stmt_binder_names(stmt):
+    """the names a statement's leading ∀ binders bind, in order, over every `∀ ... ,`."""
+    names, rest = [], stmt.strip()
+    while rest.startswith("∀") or rest.startswith("forall"):
+        rest = rest[1:] if rest.startswith("∀") else rest[len("forall"):]
+        groups, rest = binder_groups(rest)
+        if not groups:  # `∀ x y, ...` or `∀ x y : T, ...` without brackets
+            m = re.match(r"\s*([^,(]+),", rest)
+            if not m:
+                break
+            names += m.group(1).split(":", 1)[0].split()
+            rest = rest[m.end():].strip()
+            continue
+        names += [n for ns, _ in groups for n in ns]
+        rest = rest.lstrip()
+        if not rest.startswith(","):
+            break
+        rest = rest[1:].strip()
+    return names
+
+
+def loop_state_type(def_text):
+    """the Lean type of a loop function's state, the tuple Aeneas passes to `loop`
+    (`def f (a : A) (b : B) : Result R := loop (fun x => f.body x.1 x.2) (a, b)` gives
+    `A × B`), or None when the state is not a tuple of the function's own binders."""
+    m = re.search(r"\bdef\s+\S+", def_text or "")
+    if not m:
+        return None
+    try:
+        groups, _ = binder_groups(def_text[m.end():])
+        types = {n: t for ns, t in groups for n in ns}
+        k = re.search(r"\bloop\s*\(", def_text)
+        if not k:
+            return None
+        after = def_text[_group_end(def_text, k.end() - 1):].lstrip()
+        if after.startswith("("):
+            state = after[1:_group_end(after, 0) - 1]
+        else:
+            state = re.match(r"[^\s)]+", after).group(0)  # type: ignore[union-attr]
+    except (ValueError, AttributeError):
+        return None
+    parts, depth, cur = [], 0, ""
+    for c in state:
+        depth += (c in _OPEN) - (c in _CLOSE)
+        if c == "," and depth == 0:
+            parts.append(cur.strip())
+            cur = ""
+        else:
+            cur += c
+    parts.append(cur.strip())
+    if not all(p in types for p in parts):
+        return None
+    return " × ".join(f"({types[p]})" for p in parts)
 
 
 def _parse_forall_types(stmt):

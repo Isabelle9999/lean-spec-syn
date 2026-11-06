@@ -612,6 +612,17 @@ def run_full_suite():
     pr = checker.try_aeneas(ZERO_PAST_END, "zero_loop", tut, candidate_id="suite_zero_end")
     check("a loop's exit-case spec is proved by opening loop once", pr.proved and pr.method == "aeneas:e",
           f"{pr.method} {pr.error[:300]}")
+    zero = "∀ (x : alloc.vec.Vec Std.U32) (i : Std.Usize), zero_loop x i ⦃ r => r.length = x.length ⦄"
+    measure, inv = "fun s => s.1.length - s.2.val", "fun s => s.1.length = x.length"
+    pr = checker.try_loop(zero, "zero_loop", tut, measure, inv, candidate_id="suite_zero_len")
+    check("a loop spec is proved from a measure and an invariant", pr.proved and pr.method == "aeneas:loop",
+          pr.error[:300])
+    pr = checker.try_loop(zero.replace("⦄", "⦄div"), "zero_loop", tut, measure, inv, candidate_id="suite_zero_div")
+    check("a loop's ⦄div spec is proved from the same measure and invariant", pr.proved, pr.error[:300])
+    before = len(checker._aeneas_env[tut]["admitted"])
+    pr = checker.try_loop(zero, "zero_loop", tut, measure, "fun s => s.1.length = 0", candidate_id="suite_zero_bad")
+    check("a wrong invariant is not proved and nothing is admitted",
+          not pr.proved and len(checker._aeneas_env[tut]["admitted"]) == before, pr.method)
     lean_server.shutdown_all()
 
 
