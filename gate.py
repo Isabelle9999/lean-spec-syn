@@ -63,13 +63,14 @@ def _parse_verdicts(text):
 
 
 @events.layer("gate")
-def check_candidate(lean_checker, candidate_text, func_name, lean_code, project_dir, source):
+def check_candidate(lean_checker, candidate_text, func_name, lean_code, project_dir, source, helpers=""):
     """run the well-formedness gate on `candidate_text` (a full, self-contained
     `theorem <name> (binders) (hyps) : <stmt> := sorry` declaration -- not just a
     statement string). returns a list of {gate, check, ok, detail} verdicts, in
     CHECK_ORDER, stopping at the first ok=false (same short-circuit the Lean side
     itself applies). a candidate is well-formed iff all its track's checks ran and
-    passed (checks_for).
+    passed (checks_for). `helpers` (a Rust spec's own definitions, synth.rust_helpers)
+    are elaborated after the crate is opened, before the candidate.
     """
     rust = is_rust(source)
     esc = _lean._escape_lean_str(candidate_text)
@@ -91,7 +92,8 @@ def check_candidate(lean_checker, candidate_text, func_name, lean_code, project_
         allow_div = g.can_diverge(qualified_func) or g.recursive(qualified_func)
         # the gate's own commands are elaborated before `open <crate>` (lean._aeneas_build_env)
         env = state["env0"]
-        gate_src = _wf_gate_text() + "\n" + _wf_gate_aeneas_text() + f"\nopen {state['crate']}\n"
+        gate_src = (_wf_gate_text() + "\n" + _wf_gate_aeneas_text() + f"\nopen {state['crate']}\n"
+                    + (helpers.strip() + "\n" if helpers else ""))
         track_tok = "rust"
     else:
         native_dir = _lss_config.project_dir("lean-native")

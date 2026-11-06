@@ -500,7 +500,7 @@ def run_static_synth():
                 "V": {"status": "vacuous", "feedback": "says nothing"}}
     old_gate, old_b, old_emit = synth._gate.check_candidate, synth._bounded.check_spec, synth.events.emit
     synth._gate.check_candidate = lambda *a, **k: [{"check": c, "ok": True, "detail": ""} for c in gate.checks_for("rust-aeneas")]
-    synth._bounded.check_spec = lambda checker, stmt, unit, project_dir: dict(verdicts[stmt])
+    synth._bounded.check_spec = lambda checker, stmt, unit, project_dir, **k: dict(verdicts[stmt])
     emitted = []
     synth.events.emit = lambda kind, **f: emitted.append((kind, f))
     try:
@@ -610,6 +610,20 @@ def run_static_preamble():
           seen == [helpers], str(seen)[-300:])
     check("a Rust spec carries its helpers and the renamed statement",
           spec.get("helpers") == helpers and spec["stmt"] == renamed, str(spec))
+
+    class Reuse(Checker):
+        def known_helpers(self, project_dir, text):
+            return helpers if name and name.group(1) in text else ""
+    synth._gate.check_candidate = lambda *a, **k: (_ for _ in ()).throw(StopIteration)
+    try:
+        spec = {"name": "s", "stmt": renamed}
+        synth.validate([spec], "import Aeneas\n", [], Reuse(), func_name="f", project_dir="/p", source="rust-aeneas")
+    except StopIteration:
+        pass
+    finally:
+        synth._gate.check_candidate = old_gate
+    check("a Rust spec that reuses a callee's helper, with no preamble, carries that helper",
+          spec.get("helpers") == helpers, str(spec))
 
     class Bad(Checker):
         def ensure_helpers(self, project_dir, text):

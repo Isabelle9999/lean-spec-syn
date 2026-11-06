@@ -697,6 +697,20 @@ class LeanChecker:
         state["helpers"].update(new)
         return True, []
 
+    def known_helpers(self, project_dir, text):
+        """the helpers already in the crate's env (ensure_helpers) that `text` uses,
+        with the helpers they use, in the order they were defined: a statement that
+        reuses a helper a callee's proved spec shows needs it in every layer."""
+        known = (self._aeneas_env.get(project_dir) or {}).get("helpers", {})
+        used, todo = set(), [text]
+        while todo:
+            t = todo.pop()
+            for h, body in known.items():
+                if h not in used and re.search(rf"(?<![\w.']){re.escape(h)}(?![\w'])", t):
+                    used.add(h)
+                    todo.append(body)
+        return "\n\n".join(body for h, body in known.items() if h in used)
+
     def _aeneas_admit(self, project_dir, state, name, stmt, tactic, unit):
         """extend the crate's env once with the winning proof, @[step]-registered.
         only on success: a failing admit (lower cap, flaky tactic, ...) keeps the
@@ -816,12 +830,17 @@ class LeanChecker:
         g = _callgraph.for_project(project_dir)
         name = unit if unit in g.names else f"{g.crate}.{unit}"
         proved = {}
-        for _, stmt, _, u in (self._aeneas_env.get(project_dir) or {"admitted": []})["admitted"]:
+        state = self._aeneas_env.get(project_dir) or {"admitted": [], "helpers": {}}
+        for _, stmt, _, u in state["admitted"]:
             proved.setdefault(u, []).append(stmt)
+        helpers = state.get("helpers", {})
         parts = []
         for c in g.callees_outside_scc(name):
             if proved.get(c):
-                parts.append(f"-- proved specs of {c}:\n" + "\n".join(f"--   {st}" for st in proved[c]))
+                # a proved spec that states its property through a helper shows the helper
+                used = [h for h in helpers if any(re.search(rf"\b{re.escape(h)}\b", st) for st in proved[c])]
+                parts.append("".join(helpers[h] + "\n" for h in used)
+                             + f"-- proved specs of {c}:\n" + "\n".join(f"--   {st}" for st in proved[c]))
             else:
                 parts.append(g.def_text(c) or "")
         i = g.scc_of(name)

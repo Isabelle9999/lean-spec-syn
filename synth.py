@@ -1406,6 +1406,15 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                             spec["helpers"], spec["stmt"] = helpers, stmt_h
                         elif verbose:
                             print(f"  [pre] {spec['name']}: helper typecheck FAIL: {errs_pre[0][:80] if errs_pre else 'unknown'}")
+                if _gate.is_rust(source) and hasattr(lean_checker, "known_helpers"):
+                    # helpers a callee's proved spec defined and this statement reuses (its
+                    # prompt shows them): the gate and the bounded check start from the crate
+                    # env as built, so they get them as text too
+                    reused = lean_checker.known_helpers(project_dir, spec["stmt"] + "\n" + spec.get("helpers", ""))
+                    own = spec.get("helpers", "")
+                    extra = "\n\n".join(b for b in reused.split("\n\n") if b and b not in own)
+                    if extra:
+                        spec["helpers"] = extra + ("\n\n" + own if own else "")
                 if preamble:
                     preamble_clean = "\n".join(
                         line for line in preamble.split("\n")
@@ -1433,7 +1442,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                 # replaces the old bare typecheck; a candidate that passes it is
                 # already known to typecheck, since the gate elaborates it for real)
                 candidate_text = f"theorem {spec['name']} : {spec['stmt']} := sorry"
-                verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source)
+                verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source,
+                                                  helpers=spec.get("helpers", ""))
                 ok = _gate.is_well_formed(verdicts, source)
                 if _gate.failing_check(verdicts) == "env":
                     # the crate/base environment never came up -- a setup error,
@@ -1468,7 +1478,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                             spec["stmt"] = (normalize_call(fm[0][1], func) if _gate.is_rust(source)
                                             else fm[0][1])
                             candidate_text = f"theorem {spec['name']} : {spec['stmt']} := sorry"
-                            verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source)
+                            verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source,
+                                                  helpers=spec.get("helpers", ""))
                             if _gate.is_well_formed(verdicts, source):
                                 ok = True
                                 if verbose:
@@ -1496,7 +1507,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                 # one rejected, and either gets one repair from the counterexample; a
                 # narrow precondition only warns, and a timeout goes on to the provers.
                 if _gate.is_rust(source) and func:
-                    b = _bounded.check_spec(lean_checker, spec["stmt"], func, project_dir)
+                    b = _bounded.check_spec(lean_checker, spec["stmt"], func, project_dir, helpers=spec.get("helpers", ""))
                     spec["bounded"] = b
                     events.emit("bounded", status=b["status"], warning=b.get("warning"),
                                 detail=(b.get("detail") or "")[:300], kernel=b.get("kernel"))
@@ -1514,7 +1525,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                             fm = theorems(fixed)
                             if fm:
                                 specs.append({"name": spec["name"] + "_r", "stmt": fm[0][1],
-                                              "preamble": spec.get("preamble", ""), "_b_repaired": True})
+                                              "preamble": spec.get("preamble", ""), "helpers": spec.get("helpers", ""),
+                                              "_b_repaired": True})
                         spec["status"] = "refuted" if b["status"] == "refuted" else "rejected"
                         spec["fail_gate"] = b["status"]
                         if b["status"] == "refuted":

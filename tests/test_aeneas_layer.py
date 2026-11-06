@@ -493,7 +493,92 @@ theorem top_proved : forall (p : records.Pair),
     check("no lean process left after shutdown", server._worker is None)
 
 
+class _FakeServer:
+    """lean_server's server, recording every text: each check succeeds with a new env."""
+
+    def __init__(self):
+        self.sent = []
+
+    def check(self, code, timeout=None, env=None, prelude=""):
+        import lean_server
+        self.sent.append((code, env))
+        return lean_server.CheckResult(stdout="", stderr="", rc=0, via="repl", new_env=len(self.sent) + 100)
+
+    def stats(self):
+        return {"restarts": 0}
+
+
+class _FakeGraph:
+    crate = "C"
+    names = {"C.f", "C.g"}
+    crate_text = ""
+    sccs = [{"C.f"}, {"C.g"}]
+
+    def can_diverge(self, n):
+        return False
+
+    def recursive(self, n):
+        return False
+
+    def callees_outside_scc(self, n):
+        return ["C.g"] if n == "C.f" else []
+
+    def scc_of(self, n):
+        return 0 if n == "C.f" else 1
+
+    def def_text(self, n):
+        return f"def {n} : Nat := 0"
+
+
+def run_static_helpers():
+    print("=== static: a spec's helpers in every layer ===")
+    import lean
+    import lean_server
+    import gate
+    import callgraph
+    import bounded
+    server = _FakeServer()
+    old = (lean_server.get_server, callgraph.for_project)
+    lean_server.get_server = lambda *a, **k: server  # type: ignore[assignment]
+    callgraph.for_project = lambda p: _FakeGraph()  # type: ignore[assignment]
+    helper = "@[simp] def lss_hp_toList_0123abcd (l : C.List) : List Nat := []"
+    try:
+        checker = lean.LeanChecker.__new__(lean.LeanChecker)
+        checker.lean_calls = 0
+        state = {"ok": True, "env": 7, "env0": 5, "crate": "C", "admitted": [], "active": {}, "helpers": {},
+                 "restarts": 0, "error": ""}
+        checker._aeneas_env = {"/p": state}
+        ok, _ = checker.ensure_helpers("/p", helper)
+        ok2, _ = checker.ensure_helpers("/p", helper)
+        check("a spec's helper is defined once in the crate's env, and a later spec finds it there",
+              ok and ok2 and [c for c, _ in server.sent] == [helper] and state["env"] == 101
+              and list(state["helpers"]) == ["lss_hp_toList_0123abcd"], str(server.sent))
+        server.sent.clear()
+        gate.check_candidate(checker, "theorem t : S := sorry", "f", "", "/p", "rust-aeneas", helpers=helper)
+        text = server.sent[0][0] if server.sent else ""
+        check("the gate elaborates a spec's helpers after opening the crate, before the candidate",
+              "open C\n" + helper + "\n" in text and text.index(helper) < text.rindex("lss_wf_gate \""), text[-300:])
+        server.sent.clear()
+        bl = bounded._Lean(checker, "/p", helper)
+        bl.crate = "C"
+        bl._env = lambda srv: (9, "")  # type: ignore[method-assign]
+        bl.run("lss_eval_plan t crate:C stmt:\"S\"")
+        check("the bounded check runs with a spec's helpers, after opening the crate",
+              bool(server.sent) and server.sent[0][0].startswith("open C\n" + helper + "\n"), str(server.sent)[:300])
+        state["admitted"].append(("lss_admitted_0", "∀ l, g l ⦃ r => r = (lss_hp_toList_0123abcd l).length ⦄",
+                                  "step*", "C.g"))
+        ctx = checker.unit_context("/p", "f")
+        check("a caller's prompt shows the helper a callee's proved spec uses",
+              helper in ctx and ctx.index(helper) < ctx.index("-- proved specs of C.g"), ctx[:400])
+        check("a statement that reuses a helper already in the env gets its definition for every layer",
+              checker.known_helpers("/p", "∀ l, f l ⦃ r => r = lss_hp_toList_0123abcd l ⦄") == helper
+              and checker.known_helpers("/p", "∀ l, f l ⦃ r => True ⦄") == "", "")
+    finally:
+        lean_server.get_server, callgraph.for_project = old
+
+
 if static:
+    run_static_helpers()  # first: run_static replaces gate.check_candidate for the rest of the file
     run_static()
 else:
     run_full()

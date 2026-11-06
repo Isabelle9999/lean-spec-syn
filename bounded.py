@@ -497,8 +497,9 @@ class _Lean:
     (wf_gate.lean, wf_gate_aeneas.lean), lean/bounded.lean, and DecidableEq for
     the crate's types. proofs never run in it."""
 
-    def __init__(self, checker, project_dir):
+    def __init__(self, checker, project_dir, helpers=""):
         self.checker, self.project_dir, self.n = checker, project_dir, 0
+        self.helpers = helpers.strip() + "\n" if helpers else ""
         self.prefix = _gate._wf_gate_text() + "\n" + _gate._wf_gate_aeneas_text() + "\n"
         self.crate = None
 
@@ -530,7 +531,7 @@ class _Lean:
         env, why = self._env(server)
         if env is None:
             return None, why
-        r = server.check(f"open {self.crate}\n" + text, timeout=EVAL_TIMEOUT, env=env)
+        r = server.check(f"open {self.crate}\n" + self.helpers + text, timeout=EVAL_TIMEOUT, env=env)
         self.checker.lean_calls += 1
         if r.timed_out:
             return None, "timeout"
@@ -586,12 +587,13 @@ def _shown(T, value):
 
 
 @events.layer("bounded")
-def check_spec(checker, stmt, unit, project_dir, seed=0):
+def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     """the bounded verdict for one candidate (see the module docstring).
     status: pass, refuted, vacuous, not_evaluated, timeout or skipped; warning:
     None, narrow or no_witness; a refutation carries the shrunk witness, whether
-    the kernel checked it, and the feedback text a repair prompt uses."""
-    lean = _Lean(checker, project_dir)
+    the kernel checked it, and the feedback text a repair prompt uses. `helpers` (a
+    Rust spec's own definitions) are defined before each command."""
+    lean = _Lean(checker, project_dir, helpers) if helpers else _Lean(checker, project_dir)
     try:
         plan, why = lean.plan(stmt)
     except OSError as e:  # no translated crate at project_dir: nothing to run
