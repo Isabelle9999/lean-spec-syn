@@ -140,7 +140,9 @@ is rejected before anything elaborates. each definition elaborates with
 debug.skipKernelTC false and Elab.async false (as lssProofOpts sets them; autoImplicit
 stays as the crate has it), so the kernel checks it, may depend only on the standard
 axioms, and is then made a simp lemma, as Aeneas's tutorial tags its toList. every rejection is an
-error, so a statement that uses a rejected helper never elaborates. -/
+error and leaves the environment as it was before the command, every helper of the
+text undefined, so a statement that uses a rejected helper never elaborates. only
+errors are kept from the helpers' own messages. -/
 elab "lss_define_helpers " src:str : command => do
   let (cmds, parseLog) ← lssParseText src.getString
   if let some err ← lssFirstError parseLog then
@@ -156,19 +158,27 @@ elab "lss_define_helpers " src:str : command => do
     unless id.isAtomic && (toString id).startsWith "lss_hp_" do
       throwError "LSS_HELPERS: a helper's name is `lss_hp_<name>_<hash>`, got `{id}`"
     names := names.push ((← getCurrNamespace) ++ id)
+  let env0 ← getEnv
   let before := (← get).messages
   modify fun s => { s with messages := {} }
   withScope (fun sc => { sc with opts := (sc.opts.setBool `debug.skipKernelTC false).setBool `Elab.async false }) do
     for cmd in cmds do
       elabCommand cmd
   let log := (← get).messages
-  modify fun s => { s with messages := before ++ log }
+  -- only the errors go back into the log: a warning a helper's body logs could
+  -- otherwise pass for a verdict (LSS_WF, LSS_PROOF) of the command after it
+  let errs := log.toList.foldl (fun l m => if m.severity matches .error then l.add m else l) ({} : MessageLog)
+  modify fun s => { s with messages := before ++ errs }
   if (← lssFirstError log).isSome then
+    setEnv env0
     return
   for n in names do
     unless (← getEnv).contains n do
+      setEnv env0
       throwError "LSS_HELPERS: no definition `{n}` was added"
     let bad := (← collectAxioms n).filterMap (fun a => (lssAxiomProblem a).map (fun why => s!"{a} ({why})"))
     if bad.size > 0 then
+      setEnv env0
       throwError "LSS_HELPERS: `{n}` depends on axioms that are not allowed: {bad.toList}"
+  for n in names do
     elabCommand (← `(attribute [simp] $(mkIdent n):ident))

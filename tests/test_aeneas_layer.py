@@ -551,7 +551,8 @@ def run_static_helpers():
     check("lss_define_helpers takes definitions only, with no modifier, named lss_hp_, kernel-checked, on the "
           "standard axioms, then tagged simp",
           all(x in body for x in ["``Parser.Command.definition", "cmd[0].getArgs.all (·.isNone)", '"lss_hp_"',
-                                  "`debug.skipKernelTC false", "lssAxiomProblem", "attribute [simp]"]), body[:200])
+                                  "`debug.skipKernelTC false", "lssAxiomProblem", "attribute [simp]", "setEnv env0",
+                                  "m.severity matches .error"]), body[:200])
     server = _FakeServer()
     old = (lean_server.get_server, callgraph.for_project)
     lean_server.get_server = lambda *a, **k: server  # type: ignore[assignment]
@@ -723,6 +724,7 @@ def run_full_suite():
     print("=== full: recursive data and loops ===")
     import lean
     import lean_server
+    import lss_config
     suite = os.path.expanduser("~/rust_suite")
     checker = lean.LeanChecker()
     nnb, tut = os.path.join(suite, "NoNestedBorrows"), os.path.join(suite, "Tutorial")
@@ -737,17 +739,31 @@ def run_full_suite():
         ("an axiom indented inside a helper's block",
          "@[simp] def lss_hp_bad_00000002 : Nat := 0\n  axiom lss_bad_ax : False"),
         ("a helper defined by sorry", "@[simp] def lss_hp_bad_00000003 : Nat := sorry"),
-        ("a helper whose name is not a helper's", "@[simp] def length' : Nat := 0"),
+        ("a helper whose name is not a helper's", "@[simp] def my_length_00000004 : Nat := 0"),
         # named and unmodified like a helper, so only the definitions-only rule rejects it
         ("a theorem among a spec's helpers",
          "@[simp] def lss_hp_bad_00000005 : Nat := 0\n  theorem lss_hp_bad_00000006 : 1 = 1 := rfl"),
+        # a definition named like a helper whose only fault is its modifier
+        ("an unsafe definition among a spec's helpers",
+         "@[simp] def lss_hp_bad_00000007 : Nat := 0\n  unsafe def lss_hp_bad_00000008 : Nat := 0"),
+        ("a partial definition among a spec's helpers",
+         "@[simp] def lss_hp_bad_00000009 : Nat := 0\n  partial def lss_hp_bad_00000010 (n : Nat) : Nat := lss_hp_bad_00000010 n"),
+        ("a definition with an attribute of its own among a spec's helpers",
+         "@[simp] def lss_hp_bad_00000011 : Nat := 0\n  @[implemented_by lss_hp_bad_00000011] def lss_hp_bad_00000012 : Nat := 1"),
     ]
+    server = lean_server.get_server(lss_config.project_dir("aeneas"))
     for label, text in smuggled:
         ok, errs = checker.ensure_helpers(nnb, text)
         known = checker._aeneas_env[nnb]["helpers"]
         names = re.findall(r"(?:def|theorem) (\S+)", text)
-        check(f"{label} is rejected and nothing of it is kept", not ok and not any(n in known for n in names),
-              f"{ok} {str(errs)[:200]} {list(known)}")
+        # in Lean itself: the command, then a check of its first definition, in the crate's env
+        r = server.check(lean.helpers_command(text) + f"#check @{names[0]}\n", timeout=120,
+                         env=checker._aeneas_env[nnb]["env"])
+        # the pinned Lean writes "Unknown identifier `x`" (older ones "unknown identifier 'x'")
+        undefined = any(("unknown identifier" in e.lower() or "unknown constant" in e.lower()) and names[0] in e
+                        for e in lean._errors((r.stdout or "") + (r.stderr or "")))
+        check(f"{label} is rejected and nothing of it is kept", not ok and not any(n in known for n in names)
+              and undefined, f"{ok} {str(errs)[:200]} {list(known)} undefined={undefined}")
     pr = checker.try_aeneas(NTH_SPEC, "list_nth_mut", nnb, candidate_id="suite_nth_after_rejects")
     check("the crate's env still proves through the accepted helper after the rejections", pr.proved, pr.error[:300])
     pr = checker.try_aeneas(NTH_SPEC, "list_nth_mut", nnb, candidate_id="suite_nth")
