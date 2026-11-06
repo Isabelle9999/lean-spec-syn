@@ -603,6 +603,14 @@ def run_static_loop_request():
     class Graph(_FakeGraph):
         names = {"C.f", "C.f.body", "C.g"}
 
+        def def_text(self, n):
+            return ("def C.f (x : Nat) (i : Nat) : Result Nat :=\n  loop (fun x => C.f.body x.1 x.2) (x, i)"
+                    if n == "C.f" else f"def {n} : Nat := 0")
+
+    class Untupled(Graph):
+        def def_text(self, n):
+            return "def C.f (x : Nat) : Result Nat :=\n  loop C.f.body x" if n == "C.f" else f"def {n} : Nat := 0"
+
     class Checker(_StubChecker):
         def __init__(self, loop_proves=True):
             super().__init__()
@@ -644,6 +652,9 @@ def run_static_loop_request():
     check("the request shows the loop and its body", bool(loop_prompts) and "def C.f.body" in loop_prompts[0])
     spec, checker, llm = run(good, _FakeGraph())
     check("a unit with no loop body never gets that request",
+          not [p for p in llm.prompts if "loop.spec_decr_nat" in p] and not checker.loops, str(llm.prompts)[:200])
+    spec, checker, llm = run(good, Untupled())
+    check("a loop whose state is not a tuple of the function's binders costs no request (no proof could follow)",
           not [p for p in llm.prompts if "loop.spec_decr_nat" in p] and not checker.loops, str(llm.prompts)[:200])
     spec, checker, _ = run('I think {a} then: {"measure": "fun s => s.2.val", "invariant": "fun s => True"}', Graph())
     check("the proposal is the first JSON object in the answer, whatever prose comes before it",

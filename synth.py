@@ -6,6 +6,7 @@ import hashlib
 import itertools
 import anthropic
 from lean import _errors, run_in_project, ProofResult, TACTICS, check_proof, MIN_TRY
+import lean as _lean_mod
 from strategies import generate_from_examples, generate_from_negatives, generate_with_proof, theorems, normalize_call
 import events
 import pricing
@@ -1356,6 +1357,8 @@ def _loop_proof(spec, func, project_dir, llm, lean_checker):
         return None
     unit = func if func in g.names else f"{g.crate}.{func}"
     if f"{unit}.body" not in g.names:
+        return None
+    if _lean_mod.loop_state_type(g.def_text(unit) or "") is None:  # try_loop could not state the proof: ask nothing
         return None
     text = llm._ask(
         f"This Lean 4 theorem about a loop of a Rust function (translated by Aeneas) is not proved yet:\n"
