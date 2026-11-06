@@ -12,6 +12,7 @@ import pricing
 import lss_config as _lss_config
 import gate as _gate
 import bounded as _bounded
+import callgraph as _callgraph
 
 def _key():
     import os
@@ -1342,6 +1343,49 @@ def _verdict(spec, **fields):
     events.emit("verdict", stmt=spec["stmt"], **fields)
 
 
+def _loop_proof(spec, func, project_dir, llm, lean_checker):
+    """a loop unit's spec the aeneas layer did not prove: one request for the loop's
+    measure and invariant (Aeneas's loop.spec_decr_nat needs both; the tool can check
+    them but not invent the invariant), then lean.try_loop. None when the unit has no
+    loop body, or the answer is not usable."""
+    try:
+        g = _callgraph.for_project(project_dir)
+    except OSError:  # no translated crate there: nothing to ask about
+        return None
+    unit = func if func in g.names else f"{g.crate}.{func}"
+    if f"{unit}.body" not in g.names:
+        return None
+    text = llm._ask(
+        f"This Lean 4 theorem about a loop of a Rust function (translated by Aeneas) is not proved yet:\n"
+        f"  theorem {spec['name']} : {spec['stmt']}\n\n"
+        + (f"Its helper definitions:\n{spec['helpers']}\n\n" if spec.get("helpers") else "") +
+        f"The loop and its body:\n{g.def_text(unit) or ''}\n\n{g.def_text(unit + '.body') or ''}\n\n"
+        "Aeneas proves a loop with loop.spec_decr_nat, which needs two functions of the loop's state `s` (the "
+        "tuple the loop passes to `loop`; `s.1`, `s.2.1`, ... are its parts) and of the theorem's own variables:\n"
+        "- measure: a natural number that gets smaller on every iteration that goes on;\n"
+        "- invariant: what holds of the state on every iteration, enough to give the postcondition when the loop stops.\n"
+        'Return only JSON: {"measure": "fun s => ...", "invariant": "fun s => ..."}')
+    answer = {}
+    for m in re.finditer(r"\{[^{}]*\}", text or ""):  # the first JSON object in the answer
+        try:
+            answer = json.loads(m.group(0))
+            break
+        except json.JSONDecodeError:
+            continue
+    if not answer:  # a term with braces of its own: the widest object
+        m = re.search(r"\{.*\}", text or "", re.S)
+        try:
+            answer = json.loads(m.group(0)) if m else {}
+        except json.JSONDecodeError:
+            answer = {}
+    if not isinstance(answer, dict) or not isinstance(answer.get("measure"), str) \
+            or not isinstance(answer.get("invariant"), str):
+        return None
+    pr = lean_checker.try_loop(spec["stmt"], func, project_dir, answer["measure"], answer["invariant"],
+                               candidate_id=spec["name"])
+    return pr if pr.proved else None
+
+
 _DEF_START = re.compile(r"^(?:@\[[^\]]*\]\s*)?(?:(?:private|protected|noncomputable)\s+)*(?:def|abbrev)\s+([^\s:({\[]+)", re.M)
 _HELPER_NAME = re.compile(r"^lss_hp_\w+_[0-9a-f]{8}$")
 
@@ -1549,6 +1593,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                 # gate 4a: aeneas tactic layer, rust units only
                 if source == "rust-aeneas" and _lss_config.proof_cfg()["aeneas_layer"]:
                     pr0 = lean_checker.try_aeneas(spec["stmt"], func, project_dir, candidate_id=spec["name"])
+                    if not pr0.proved and llm:
+                        pr0 = _loop_proof(spec, func, project_dir, llm, lean_checker) or pr0
                     if pr0.blamed_callees:
                         spec["blamed_callees"] = pr0.blamed_callees
                     if pr0.proved:

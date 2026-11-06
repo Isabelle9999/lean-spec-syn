@@ -577,6 +577,68 @@ def run_static_helpers():
         lean_server.get_server, callgraph.for_project = old
 
 
+def run_static_loop_request():
+    print("=== static: an unproved loop spec asks for its measure and invariant ===")
+    import synth
+    import lean
+    import callgraph
+
+    class Graph(_FakeGraph):
+        names = {"C.f", "C.f.body", "C.g"}
+
+    class Checker(_StubChecker):
+        def __init__(self, loop_proves=True):
+            super().__init__()
+            self.loops, self.loop_proves = [], loop_proves
+
+        def try_aeneas(self, stmt, func, project_dir, candidate_id=None):
+            self.calls.append("aeneas")
+            return lean.ProofResult(proved=False, method="", error="open goal: ⊢ loop")
+
+        def try_loop(self, stmt, func, project_dir, measure, invariant, candidate_id=None):
+            self.loops.append((measure, invariant))
+            return lean.ProofResult(proved=self.loop_proves, method="aeneas:loop" if self.loop_proves else "",
+                                    error="", proof_text="tactic")
+
+    class LLM:
+        def __init__(self, answer):
+            self.answer, self.prompts = answer, []
+
+        def _ask(self, prompt):
+            self.prompts.append(prompt)
+            return self.answer
+
+    def run(answer, graph, loop_proves=True):
+        checker, llm = Checker(loop_proves), LLM(answer)
+        old = callgraph.for_project
+        callgraph.for_project = lambda p: graph  # type: ignore[assignment]
+        try:
+            specs = synth.validate([_spec("f")], "import Aeneas\nimport C.Code.Funs\n", [], checker, llm=llm,
+                                   func_name="f", project_dir="/p", source="rust-aeneas")
+        finally:
+            callgraph.for_project = old
+        return specs[0], checker, llm
+    good = 'here: {"measure": "fun s => s.2.val", "invariant": "fun s => True"}'
+    spec, checker, llm = run(good, Graph())
+    loop_prompts = [p for p in llm.prompts if "loop.spec_decr_nat" in p]
+    check("an unproved loop spec gets one measure-and-invariant request and is proved when the proposal checks",
+          len(loop_prompts) == 1 and checker.loops == [("fun s => s.2.val", "fun s => True")]
+          and spec["status"] == "proved" and spec["method"] == "aeneas:loop", str(spec)[:300])
+    check("the request shows the loop and its body", bool(loop_prompts) and "def C.f.body" in loop_prompts[0])
+    spec, checker, llm = run(good, _FakeGraph())
+    check("a unit with no loop body never gets that request",
+          not [p for p in llm.prompts if "loop.spec_decr_nat" in p] and not checker.loops, str(llm.prompts)[:200])
+    spec, checker, _ = run('I think {a} then: {"measure": "fun s => s.2.val", "invariant": "fun s => True"}', Graph())
+    check("the proposal is the first JSON object in the answer, whatever prose comes before it",
+          checker.loops == [("fun s => s.2.val", "fun s => True")], str(checker.loops))
+    spec, checker, _ = run("no idea", Graph())
+    check("an unusable proposal is a failed attempt, not an error", not checker.loops and spec.get("method") != "aeneas:loop",
+          str(spec)[:200])
+    spec, checker, _ = run(good, Graph(), loop_proves=False)
+    check("a proposal that does not check leaves the spec unproved by this layer",
+          len(checker.loops) == 1 and spec.get("method") != "aeneas:loop", str(spec)[:200])
+
+
 TO_LIST = ("@[simp] def lss_hp_toList_0000beef {T : Type} : NoNestedBorrows.List T → _root_.List T\n"
            "  | .Cons x tl => x :: lss_hp_toList_0000beef tl\n  | .Nil => []")
 NTH_SPEC = ("∀ {T : Type} (l : NoNestedBorrows.List T) (i : Std.U32), i.val < (lss_hp_toList_0000beef l).length → "
@@ -629,6 +691,7 @@ def run_full_suite():
 if static:
     run_static_helpers()  # first: run_static replaces gate.check_candidate for the rest of the file
     run_static()
+    run_static_loop_request()
 else:
     run_full()
     run_full_suite()
