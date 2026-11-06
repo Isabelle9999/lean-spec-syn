@@ -3,14 +3,17 @@ import json
 import os
 import time
 import hashlib
+import itertools
 import anthropic
 from lean import _errors, run_in_project, ProofResult, TACTICS, check_proof, MIN_TRY
+import lean as _lean_mod
 from strategies import generate_from_examples, generate_from_negatives, generate_with_proof, theorems, normalize_call
 import events
 import pricing
 import lss_config as _lss_config
 import gate as _gate
 import bounded as _bounded
+import callgraph as _callgraph
 
 def _key():
     import os
@@ -117,7 +120,7 @@ class LLMClient:
                 err = str(e)
         return None
 
-    def generate_specs(self, lean_code, type_templates, func_name=None, postcond_defs=None, func_source=None):
+    def generate_specs(self, lean_code, type_templates, func_name=None, postcond_defs=None, func_source=None, focus=""):
         self._method_ctx = "generate_specs"
         fn = func_name or _func_name(lean_code)
         sig_ctx = ""
@@ -227,6 +230,16 @@ class LLMClient:
                 "  <Crate>.Ordering.Less else if a = b then <Crate>.Ordering.Equal else <Crate>.Ordering.Greater)) ..., f OrdInst ... ⦃ r => P r ⦄\n"
                 "- Arithmetic can fail: a + b returns Result, not a plain value\n"
                 "- Vec type is alloc.vec.Vec Std.U32, not Vec or List\n"
+                "- to state a property of a recursive crate type (a list, a tree), define a helper\n"
+                "  before the theorems that turns it into a Lean value, then use it in the statement.\n"
+                "  a helper uses only the crate's types and Lean's own functions, never a crate\n"
+                "  function (the unit or any other): it is vocabulary, and the gate rejects one that\n"
+                "  calls a crate function. for example (the names are illustrative):\n"
+                "    def toList {T : Type} : <Crate>.List T → _root_.List T\n"
+                "      | .Cons x tl => x :: toList tl\n"
+                "      | .Nil => []\n"
+                "    theorem nth_spec : ∀ {T : Type} (l : <Crate>.List T) (i : Std.U32), i.val < (toList l).length →\n"
+                "      nth l i ⦃ r => (toList l)[i.val]? = some r ⦄ := sorry\n"
                 "- if (and only if) this function loops or recurses, you may instead write\n"
                 "  f args ⦃ r => P r ⦄div: the call never fails, and returns `r` with `P r` or runs\n"
                 "  forever; never use ⦃ ⦄div on a function that always terminates\n"
@@ -240,6 +253,8 @@ class LLMClient:
                 "  r.x = p.y  (use .first .second)\n"
                 "  (records.swap p).isOk\n"
             )
+        if focus:
+            prompt += "\n" + focus + "\n"
         if postcond_defs:
             for pc_name, pc_body in postcond_defs.items():
                 func_in_pc = pc_name.replace("_postcond", "")
@@ -1331,6 +1346,92 @@ def _verdict(spec, **fields):
     events.emit("verdict", stmt=spec["stmt"], **fields)
 
 
+def _loop_proof(spec, func, project_dir, llm, lean_checker):
+    """a loop unit's spec the aeneas layer did not prove: one request for the loop's
+    measure and invariant (Aeneas's loop.spec_decr_nat needs both; the tool can check
+    them but not invent the invariant), then lean.try_loop. None when the unit has no
+    loop body, or the answer is not usable."""
+    try:
+        g = _callgraph.for_project(project_dir)
+    except OSError:  # no translated crate there: nothing to ask about
+        return None
+    unit = func if func in g.names else f"{g.crate}.{func}"
+    if f"{unit}.body" not in g.names:
+        return None
+    if _lean_mod.loop_state_type(g.def_text(unit) or "") is None:  # try_loop could not state the proof: ask nothing
+        return None
+    text = llm._ask(
+        f"This Lean 4 theorem about a loop of a Rust function (translated by Aeneas) is not proved yet:\n"
+        f"  theorem {spec['name']} : {spec['stmt']}\n\n"
+        + (f"Its helper definitions:\n{spec['helpers']}\n\n" if spec.get("helpers") else "") +
+        f"The loop and its body:\n{g.def_text(unit) or ''}\n\n{g.def_text(unit + '.body') or ''}\n\n"
+        "Aeneas proves a loop with loop.spec_decr_nat, which needs two functions of the loop's state `s` (the "
+        "tuple the loop passes to `loop`; `s.1`, `s.2.1`, ... are its parts) and of the theorem's own variables:\n"
+        "- measure: a natural number that gets smaller on every iteration that goes on;\n"
+        "- invariant: what holds of the state on every iteration, enough to give the postcondition when the loop stops.\n"
+        'Return only JSON: {"measure": "fun s => ...", "invariant": "fun s => ..."}')
+    answer = {}
+    for m in re.finditer(r"\{[^{}]*\}", text or ""):  # the first JSON object in the answer
+        try:
+            answer = json.loads(m.group(0))
+            break
+        except json.JSONDecodeError:
+            continue
+    if not answer:  # a term with braces of its own: the widest object
+        m = re.search(r"\{.*\}", text or "", re.S)
+        try:
+            answer = json.loads(m.group(0)) if m else {}
+        except json.JSONDecodeError:
+            answer = {}
+    if not isinstance(answer, dict) or not isinstance(answer.get("measure"), str) \
+            or not isinstance(answer.get("invariant"), str):
+        return None
+    pr = lean_checker.try_loop(spec["stmt"], func, project_dir, answer["measure"], answer["invariant"],
+                               candidate_id=spec["name"])
+    return pr if pr.proved else None
+
+
+_DEF_START = re.compile(r"^(?:@\[[^\]]*\]\s*)?(?:(?:private|protected|noncomputable)\s+)*(?:def|abbrev)\s+([^\s:({\[]+)", re.M)
+_HELPER_NAME = re.compile(r"^lss_hp_\w+_[0-9a-f]{8}$")
+
+
+def rust_helpers(preamble, stmt):
+    """(helpers, stmt) for a Rust spec: the preamble's `def` blocks only, each named
+    `lss_hp_<name>_<8 hex of its text's sha256>` in every helper and in the statement,
+    so two specs with the same helper share one name and two different ones never
+    clash in the crate's env, and each tagged @[simp], as Aeneas's tutorial tags its
+    toList, so simp unfolds it in proofs. they stay computable: the bounded check
+    evaluates them."""
+    starts = [m for m in _DEF_START.finditer(preamble or "")]
+    blocks = []
+    for i, m in enumerate(starts):
+        end = starts[i + 1].start() if i + 1 < len(starts) else len(preamble)
+        text = preamble[m.start():end]
+        # a block ends at the first later top-level line that is no part of it
+        lines = text.splitlines()
+        keep = [lines[0]] + list(itertools.takewhile(
+            lambda ln: not ln.strip() or ln[:1].isspace() or ln.lstrip().startswith("|"), lines[1:]))
+        blocks.append((m.group(1), "\n".join(keep).rstrip()))
+    if not blocks:
+        return "", stmt
+    names = {}
+
+    def rename(text):
+        for old, new in names.items():
+            text = re.sub(rf"(?<![\w.']){re.escape(old)}(?![\w'])", new, text)
+        return text
+    out = []
+    for n, t in blocks:
+        t = re.sub(r"^@\[[^\]]*\]\s*", "", t)
+        t = re.sub(r"^(?:(?:private|protected|noncomputable)\s+)*", "", t)
+        t = rename(t)  # the helpers before it, by their new names: the hash covers what it calls
+        if not _HELPER_NAME.match(n):  # a helper copied from a callee's spec keeps its name
+            names[n] = f"lss_hp_{re.sub(r'[^A-Za-z0-9_]', '_', n)}_{hashlib.sha256(t.encode('utf-8')).hexdigest()[:8]}"
+        t = re.sub(r"^abbrev\s", "def ", t)
+        out.append("@[simp] " + rename(t))
+    return "\n\n".join(out), rename(stmt)
+
+
 def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=None, verbose=False, debug_dir=None, project_dir=None, func_source=None, source=None):
     func = func_name or _func_name(lean_code)
 
@@ -1353,6 +1454,26 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                     continue
                 processed_stmts.add(stmt_norm)
                 preamble = spec.get("preamble", "")
+                if preamble and _gate.is_rust(source):
+                    # a Rust spec's helpers: named by their text, @[simp], computable, and
+                    # defined once in the crate's env, after the crate is opened
+                    helpers, stmt_h = rust_helpers(preamble, spec["stmt"])
+                    preamble = ""
+                    if helpers:
+                        ok_pre, errs_pre = lean_checker.ensure_helpers(project_dir, helpers)
+                        if ok_pre:
+                            spec["helpers"], spec["stmt"] = helpers, stmt_h
+                        elif verbose:
+                            print(f"  [pre] {spec['name']}: helper typecheck FAIL: {errs_pre[0][:80] if errs_pre else 'unknown'}")
+                if _gate.is_rust(source) and hasattr(lean_checker, "known_helpers"):
+                    # helpers a callee's proved spec defined and this statement reuses (its
+                    # prompt shows them): the gate and the bounded check start from the crate
+                    # env as built, so they get them as text too
+                    reused = lean_checker.known_helpers(project_dir, spec["stmt"] + "\n" + spec.get("helpers", ""))
+                    own = spec.get("helpers", "")
+                    extra = "\n\n".join(b for b in reused.split("\n\n") if b and b not in own)
+                    if extra:
+                        spec["helpers"] = extra + ("\n\n" + own if own else "")
                 if preamble:
                     preamble_clean = "\n".join(
                         line for line in preamble.split("\n")
@@ -1373,13 +1494,15 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                             preamble = preamble_clean
                     else:
                         preamble = ""
+                # a Rust spec's helpers are already in its crate's env, where its text runs
                 eff = lean_code.rstrip() + "\n" + preamble if preamble else lean_code
 
                 # gate 1: well-formedness gate (shape, vocabulary, decidability -
                 # replaces the old bare typecheck; a candidate that passes it is
                 # already known to typecheck, since the gate elaborates it for real)
                 candidate_text = f"theorem {spec['name']} : {spec['stmt']} := sorry"
-                verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source)
+                verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source,
+                                                  helpers=spec.get("helpers", ""))
                 ok = _gate.is_well_formed(verdicts, source)
                 if _gate.failing_check(verdicts) == "env":
                     # the crate/base environment never came up -- a setup error,
@@ -1414,7 +1537,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                             spec["stmt"] = (normalize_call(fm[0][1], func) if _gate.is_rust(source)
                                             else fm[0][1])
                             candidate_text = f"theorem {spec['name']} : {spec['stmt']} := sorry"
-                            verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source)
+                            verdicts = _gate.check_candidate(lean_checker, candidate_text, func, eff, project_dir, source,
+                                                  helpers=spec.get("helpers", ""))
                             if _gate.is_well_formed(verdicts, source):
                                 ok = True
                                 if verbose:
@@ -1442,7 +1566,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                 # one rejected, and either gets one repair from the counterexample; a
                 # narrow precondition only warns, and a timeout goes on to the provers.
                 if _gate.is_rust(source) and func:
-                    b = _bounded.check_spec(lean_checker, spec["stmt"], func, project_dir)
+                    b = _bounded.check_spec(lean_checker, spec["stmt"], func, project_dir, helpers=spec.get("helpers", ""))
                     spec["bounded"] = b
                     events.emit("bounded", status=b["status"], warning=b.get("warning"),
                                 detail=(b.get("detail") or "")[:300], kernel=b.get("kernel"))
@@ -1460,7 +1584,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                             fm = theorems(fixed)
                             if fm:
                                 specs.append({"name": spec["name"] + "_r", "stmt": fm[0][1],
-                                              "preamble": spec.get("preamble", ""), "_b_repaired": True})
+                                              "preamble": spec.get("preamble", ""), "helpers": spec.get("helpers", ""),
+                                              "_b_repaired": True})
                         spec["status"] = "refuted" if b["status"] == "refuted" else "rejected"
                         spec["fail_gate"] = b["status"]
                         if b["status"] == "refuted":
@@ -1473,6 +1598,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                 # gate 4a: aeneas tactic layer, rust units only
                 if source == "rust-aeneas" and _lss_config.proof_cfg()["aeneas_layer"]:
                     pr0 = lean_checker.try_aeneas(spec["stmt"], func, project_dir, candidate_id=spec["name"])
+                    if not pr0.proved and llm:
+                        pr0 = _loop_proof(spec, func, project_dir, llm, lean_checker) or pr0
                     if pr0.blamed_callees:
                         spec["blamed_callees"] = pr0.blamed_callees
                     if pr0.proved:
@@ -1951,7 +2078,22 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker,
 
         # round 3: if still low, generate safe/simple specs
         proved_count = sum(1 for s in specs if s["status"] == "proved")
-        if proved_count < 3:
+        if proved_count < 3 and _gate.is_rust(source):
+            # the Rust track keeps its spec rules (Hoare triples on the unit's own call):
+            # a free-form prompt here gave specs about constructors that the gate rejects
+            round3 = llm.generate_specs(lean_code, templates, func_name=func_name, func_source=func_source, focus=(
+                f"THIS ROUND: write 5 simple theorems about {fn} itself, each a Hoare triple on its own call: "
+                "base cases, bounds on its result, what it leaves unchanged."))
+            if round3:
+                round3_validated = validate(round3, lean_code, test_inputs, lean_checker,
+                                            llm=llm, func_name=func_name,
+                                            verbose=verbose, debug_dir=debug_dir, project_dir=project_dir,
+                                            func_source=func_source, source=source)
+                new_proved = [s for s in round3_validated if s["status"] == "proved"]
+                specs.extend(new_proved)
+                if verbose:
+                    print(f"  [gen] round 3: {len(round3)} simple specs, {len(new_proved)} proved")
+        elif proved_count < 3:
             safe_prompt = (
                 f"I need simple theorems about this function that will definitely typecheck:\n"
                 f"{func_source if func_source else lean_code}\n\n"

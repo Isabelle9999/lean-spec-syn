@@ -650,10 +650,13 @@ def _seed_bytes(seed, fn_id):
 
 # ====================== Lean codegen ======================
 
-def lean_literal(T, value, self_T=None):
+def lean_literal(T, value, self_T=None, short=False):
+    """the Lean term for a value of type T. short=True writes it the way a statement
+    would, for prose a person or the LLM reads (n#usize, [a, b]); it carries no proof
+    and is never elaborated."""
     kind = T[0]
     if kind == "self":
-        return lean_literal(self_T, value, self_T)
+        return lean_literal(self_T, value, self_T, short)
     if kind in ("struct", "enum", "list_enum"):
         self_T = T
     if kind == "bool":
@@ -661,32 +664,33 @@ def lean_literal(T, value, self_T=None):
     if kind == "int":
         n = int(value)
         lit = f"({n})" if n < 0 else str(n)
-        # Usize/Isize are platform-width scalars. ofNat/ofInt's default proof
-        # obligation is x <= cMax, which for Usize/Isize is deliberately the
-        # *conservative* (32-bit) bound, not the actual platform width -- so
-        # it rejects any in-range value above U32/I32's max on a 64-bit
-        # platform. ofNatCore/ofIntCore's own obligation (x < 2^numBits) is
-        # the real platform bound; proving that symbolically needs to case
-        # split on System.Platform.numBits_eq (32 or 64), and the 32-bit case
-        # is then genuinely false for a value that only fits in 64 bits, so
-        # native_decide (which runs the check instead of reasoning about it)
-        # is what actually resolves it on this (64-bit) platform.
-        if T[1] == "Std.Usize":
+        # Usize/Isize are platform-width scalars. n#usize / n#isize (ofNat/ofInt)
+        # carry the conservative 32-bit bound, which decide proves on any platform,
+        # so every value that fits in 32 bits is written that way: the kernel can
+        # check it. a wider value exists only on a 64-bit platform: ofNatCore /
+        # ofIntCore's real bound (x < 2^numBits) holds there and fails in the 32-bit
+        # case of System.Platform.numBits_eq, so native_decide resolves it, which
+        # evaluation accepts and the kernel check does not.
+        if short:
+            return f"{lit}#{LEAN_SCALAR_SUFFIX[T[1]]}"
+        if T[1] == "Std.Usize" and not 0 <= n < 2 ** 32:
             return (f"(Usize.ofNatCore {lit} (by first | "
-                     f"(simp [Usize.numBits]; cases System.Platform.numBits_eq <;> simp_all; done) | "
-                     f"native_decide))")
-        if T[1] == "Std.Isize":
+                    f"(simp [Usize.numBits]; cases System.Platform.numBits_eq <;> simp_all; done) | "
+                    f"native_decide))")
+        if T[1] == "Std.Isize" and not -2 ** 31 <= n < 2 ** 31:
             return (f"(Isize.ofIntCore {lit} (by first | "
-                     f"(simp [Isize.numBits]; cases System.Platform.numBits_eq <;> simp_all; done) | "
-                     f"native_decide))")
+                    f"(simp [Isize.numBits]; cases System.Platform.numBits_eq <;> simp_all; done) | "
+                    f"native_decide))")
         suf = LEAN_SCALAR_SUFFIX[T[1]]
         return f"{lit}#{suf}"
     if kind == "tuple":
-        return "(" + ", ".join(lean_literal(e, v, self_T) for e, v in zip(T[1], value)) + ")"
+        return "(" + ", ".join(lean_literal(e, v, self_T, short) for e, v in zip(T[1], value)) + ")"
     if kind == "array":
         # Array's obligation is l.length = n.val for a small literal n: a
         # plain structural fact, nothing to do with Usize.max/numBits.
-        inner = ", ".join(lean_literal(T[1], v, self_T) for v in value)
+        inner = ", ".join(lean_literal(T[1], v, self_T, short) for v in value)
+        if short:
+            return f"[{inner}]"
         return f"(⟨[{inner}], by decide⟩ : Array {lean_type_str(T[1], self_T)} {T[2]}#usize)"
     if kind in ("slice", "vec"):
         # Vec/Slice's obligation is l.length <= Usize.max, which needs the
@@ -695,19 +699,21 @@ def lean_literal(T, value, self_T=None):
         # lists this produces, native_decide a fallback for anything it
         # can't close symbolically.
         ctor = "Slice" if kind == "slice" else "alloc.vec.Vec"
-        inner = ", ".join(lean_literal(T[1], v, self_T) for v in value)
+        inner = ", ".join(lean_literal(T[1], v, self_T, short) for v in value)
+        if short:
+            return f"[{inner}]"
         return (f"(⟨[{inner}], by first | decide | "
                 f"(simp [Usize.max, Usize.numBits]; cases System.Platform.numBits_eq <;> simp_all; done) | "
                 f"native_decide⟩ : {ctor} {lean_type_str(T[1], self_T)})")
     if kind == "struct":
-        parts = ", ".join(f"{fn} := {lean_literal(ft, value[fn], self_T)}" for fn, ft in T[2])
+        parts = ", ".join(f"{fn} := {lean_literal(ft, value[fn], self_T, short)}" for fn, ft in T[2])
         return "{ " + parts + " }"
     if kind == "enum":
         for vname, arg_types in T[2]:
             if value.get("tag") == vname:
                 if not arg_types:
                     return f"{T[1]}.{vname}"
-                args = " ".join(lean_literal(a, v, self_T) for a, v in zip(arg_types, value["args"]))
+                args = " ".join(lean_literal(a, v, self_T, short) for a, v in zip(arg_types, value["args"]))
                 return f"({T[1]}.{vname} {args})"
         raise Unsupported(f"unknown variant {value.get('tag')!r} for {T[1]}")
     if kind == "list_enum":
@@ -715,12 +721,12 @@ def lean_literal(T, value, self_T=None):
         items = _list_enum_to_list(T, value)
         acc = f"{lean_name}.{nil_v}"
         for item in reversed(items):
-            acc = f"({lean_name}.{cons_v} {lean_literal(elem_T, item)} {acc})"
+            acc = f"({lean_name}.{cons_v} {lean_literal(elem_T, item, short=short)} {acc})"
         return acc
     if kind == "option":
         if value is None:
             return "none"
-        return f"(some {lean_literal(T[1], value, self_T)})"
+        return f"(some {lean_literal(T[1], value, self_T, short)})"
     raise Unsupported(f"no literal for {T!r}")
 
 

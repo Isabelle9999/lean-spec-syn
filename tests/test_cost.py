@@ -244,6 +244,133 @@ def run_static_hammer_closer():
           not pr.proved and not any(lean.HAMMER in x["code"] for x in sent), str(sent)[:200])
 
 
+def run_static_attempts():
+    print("=== static: the aeneas layer's attempts ===")
+    import lean
+    import lean_server
+    import lss_config
+    import callgraph
+
+    class LoopGraph(_UnitGraph):
+        names = {"C.f", "C.f.body"}
+
+        def callees_outside_scc(self, unit):
+            return ["C.f.body"] if unit == "C.f" else []
+
+    def run(reply, graph):
+        checker = lean.LeanChecker()
+        state = {"ok": True, "env": 3, "admitted": [], "active": {}, "restarts": 0}
+        setattr(checker, "_aeneas_env_for", lambda project_dir: state)
+        fake = FakeServer(reply)
+        with Patch((lean_server, "get_server", lambda *a, **k: fake), (callgraph, "for_project", lambda p: graph),
+                   (lss_config, "proof_cfg", _proof_cfg(rust_hammer=False))):
+            pr = checker.try_aeneas("stmt", "f", "/crate")
+        return pr, fake.sent
+
+    def p_wins(code):
+        if "name:lss_admitted_0 " in code:
+            return _verdict_line("lss_admitted_0", True)
+        return _verdict_line("_aeneas_a", False, "elab") + _verdict_line("_aeneas_p", True)
+    pr, sent = run(p_wins, _UnitGraph())
+    code = (sent[0]["code"] if sent else "").replace("\\n", "\n")  # the theorems are escaped in a string
+    p_part = code.split("name:_aeneas_p", 1)[0].rsplit("theorem _aeneas_p", 1)[-1]
+    check("after step* the prover closes goals in Aeneas's tutorial order",
+          "step*\n  all_goals (try simp)\n  all_goals (try simp_lists [*])\n  all_goals first | (simp_all; done)" in p_part
+          and "(agrind; done) | grind" in p_part, p_part[:400])
+    check("a proof in that order is proved as aeneas:p and admitted with its own tactic",
+          pr.proved and pr.method == "aeneas:p" and "simp_lists [*]" in pr.proof_text, str(pr)[:200])
+    check("a unit with no loop body is never tried by opening loop", "_aeneas_e" not in code, code[:200])
+    pr, sent = run(lambda code: _verdict_line("_aeneas_a", False, "elab"), LoopGraph())
+    code = (sent[0]["code"] if sent else "").replace("\\n", "\n")
+    e_part = code.split("name:_aeneas_e", 1)[0].rsplit("theorem _aeneas_e", 1)[-1]
+    check("a loop unit is also tried by opening loop once, then its body",
+          "unfold f\n  rw [Aeneas.Std.loop]\n  unfold f.body\n  step*" in e_part, e_part[:300])
+    def e_wins(code):
+        if "name:lss_admitted_0 " in code:
+            return _verdict_line("lss_admitted_0", True)
+        return _verdict_line("_aeneas_e", True)
+    pr, sent = run(e_wins, LoopGraph())
+    check("a loop's body is part of its loop, never a callee its proof is checked without",
+          pr.proved and pr.modular is True and not pr.needs_callee_body and not any("lss_modular" in x["code"] for x in sent),
+          f"{pr} {[x['code'][:60] for x in sent]}"[:400])
+    goal = '{"head":"Aeneas.Std.WP.spec","text":"⊢ (x :: l)[i] = y"}'
+    pr, _ = run(lambda code: f"warning: LSS_GOALS {goal}\n" + "error: grind failed\n"
+                + _verdict_line("_aeneas_a", False, "elab"), _UnitGraph())
+    check("a failed proof reports the goal left, not the last closer's error",
+          not pr.proved and pr.error.startswith("open goal: ⊢ (x :: l)[i] = y") and "grind" not in pr.error, pr.error)
+
+
+def run_static_loop():
+    print("=== static: a loop spec from a measure and an invariant ===")
+    import lean
+    import lean_server
+    import lss_config
+    import callgraph
+    check("a loop's state type is the tuple of its own binders' types",
+          lean.loop_state_type("def f (x : alloc.vec.Vec Std.U32) (i : Std.Usize) : Result (alloc.vec.Vec Std.U32) := "
+                               "do\n  loop (fun x => f.body x.1 x.2) (x, i)") == "(alloc.vec.Vec Std.U32) × (Std.Usize)")
+    check("a state that is not the function's own binders has no type here",
+          lean.loop_state_type("def f (x : Std.U32) : Result Std.U32 := loop (fun s => f.body s) (x + 1)") is None)
+    check("a statement's binder names come in order, an anonymous instance keeping its place",
+          lean.stmt_binder_names("∀ {T : Type} (x y : C.V T) [C.D T] (i : Std.Usize), x = y → f x i ⦃ r => True ⦄")
+          == ["T", "x", "y", "_", "i"])
+    check("a binder written without brackets is named, its type left out",
+          lean.stmt_binder_names("∀ x y : Std.U32, ∀ (z : Std.U32), f x y z ⦃ r => True ⦄") == ["x", "y", "z"])
+
+    class Loop(_UnitGraph):
+        names = {"C.f", "C.f.body"}
+
+        def def_text(self, n):
+            return "def C.f (x : alloc.vec.Vec Std.U32) (i : Std.Usize) : Result (alloc.vec.Vec Std.U32) := " \
+                   "loop (fun x => f.body x.1 x.2) (x, i)"
+
+    class NoLoop(Loop):
+        names = {"C.f"}
+
+    def run(graph, stmt, reply):
+        checker = lean.LeanChecker()
+        state = {"ok": True, "env": 3, "admitted": [], "active": {}, "restarts": 0}
+        setattr(checker, "_aeneas_env_for", lambda project_dir: state)
+        fake = FakeServer(reply)
+        with Patch((lean_server, "get_server", lambda *a, **k: fake), (callgraph, "for_project", lambda p: graph),
+                   (lss_config, "proof_cfg", _proof_cfg(rust_hammer=False))):
+            pr = checker.try_loop(stmt, "f", "/crate", "fun s => s.1.length - s.2.val", "s.1.length = x.length")
+        return pr, [x["code"].replace("\\n", "\n") for x in fake.sent], state
+
+    def wins(code):
+        if "name:lss_admitted_0 " in code:
+            return _verdict_line("lss_admitted_0", True)
+        return _verdict_line("_aeneas_loop", True)
+    stmt = "∀ (x : alloc.vec.Vec Std.U32) (i : Std.Usize), f x i ⦃ r => r.length = x.length ⦄"
+    pr, sent, state = run(Loop(), stmt, wins)
+    code = sent[0] if sent else ""
+    check("a loop spec is tried by Aeneas's loop.spec_decr_nat with the measure and invariant, typed at the state",
+          "intro x i\n  intros\n  unfold f\n  apply Aeneas.Std.loop.spec_decr_nat "
+          "(fun (s : (alloc.vec.Vec Std.U32) × (Std.Usize)) => s.1.length - s.2.val) "
+          "(fun (s : (alloc.vec.Vec Std.U32) × (Std.Usize)) => s.1.length = x.length)" in code
+          and "· intro s hs\n    try simp only\n    unfold f.body\n    step*\n    all_goals (try simp)" in code, code[:600])
+    check("a loop spec it proves is proved as aeneas:loop and admitted",
+          pr.proved and pr.method == "aeneas:loop" and len(state["admitted"]) == 1, str(pr)[:200])
+    pr, sent, _ = run(Loop(), stmt.replace("⦄", "⦄div"), wins)
+    check("a loop's ⦄div spec goes through WP.spec_dspec first",
+          bool(sent) and "intros\n  apply Aeneas.Std.WP.spec_dspec\n  unfold f" in sent[0], (sent or [""])[0][:300])
+    pr, sent, state = run(Loop(), stmt, lambda code: _verdict_line("_aeneas_loop", False, "elab"))
+    check("a loop spec whose proof fails is not proved and nothing is admitted",
+          not pr.proved and not state["admitted"], str(pr)[:200])
+    checker = lean.LeanChecker()
+    setattr(checker, "_aeneas_env_for", lambda project_dir: {"ok": True, "env": 3, "admitted": [], "active": {}, "restarts": 0})
+    fake = FakeServer(lambda code: _verdict_line("_aeneas_loop", False, "elab"))
+    with Patch((lean_server, "get_server", lambda *a, **k: fake), (callgraph, "for_project", lambda p: Loop()),
+               (lss_config, "proof_cfg", _proof_cfg(rust_hammer=False))):
+        checker.try_loop(stmt, "f", "/crate", "fun (x, i) => x.length - i.val", "x.length = 3")
+    code = fake.sent[0]["code"].replace("\\n", "\n") if fake.sent else ""
+    check("a measure or invariant in another shape is typed at the state by ascription",
+          "((fun (x, i) => x.length - i.val) : (alloc.vec.Vec Std.U32) × (Std.Usize) → Nat)" in code
+          and "(fun (s : (alloc.vec.Vec Std.U32) × (Std.Usize)) => x.length = 3)" in code, code[:500])
+    pr, sent, _ = run(NoLoop(), stmt, wins)
+    check("a unit with no loop body is never tried as a loop", not pr.proved and not sent, str(sent)[:200])
+
+
 class Clock:
     def __init__(self):
         self.t = 0.0
@@ -421,6 +548,15 @@ def run_static_context():
           bool(sent) and "succeeds (it neither fails nor runs forever)" in sent[0]
           and "state as\nhypotheses what the inputs need for it to succeed" in sent[0]
           and "if `f args` succeeds" not in sent[0], (sent or [""])[0][-1500:])
+    sent.clear()
+    llm.generate_specs("import Aeneas\nimport C.Code.Funs\n", [], func_name="f",
+                       func_source="def f (x : Std.U32) : Result Std.U32 := ok x", focus="THIS ROUND: simple ones")
+    check("a round's focus is added to the spec prompt, which keeps its rules",
+          bool(sent) and "THIS ROUND: simple ones" in sent[0] and "SPEC FORM" in sent[0], (sent or [""])[0][-300:])
+    llm.generate_specs("import Aeneas\nimport C.Code.Funs\n", [], func_name="f", func_source="def f (x : Std.U32) : Result Std.U32 := ok x")
+    check("the Rust prompt shows a helper definition and says it calls no crate function",
+          bool(sent) and "def toList {T : Type}" in sent[0] and "never a crate\n  function" in sent[0]
+          and "(toList l)[i.val]?" in sent[0], (sent or [""])[0][-1500:])
 
 
 def run_static_report():
@@ -554,6 +690,8 @@ def run_full_context(rust_dir, benches, checker):
 if static:
     run_static_routing()
     run_static_hammer_closer()
+    run_static_attempts()
+    run_static_loop()
     run_static_budgets()
     run_static_context()
     run_static_report()

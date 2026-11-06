@@ -208,6 +208,11 @@ def classify_function(lean_env, func_name):
 
 
 HAMMER = "hammer { disableGrind := true }"
+# the closers after step*, in Aeneas's tutorial order (tests/lean/Tutorial/Solutions.lean:
+# `step*; simp; simp_lists [*]`, or `step*; agrind`); agrind and grind close the list
+# goals a shifted index leaves (`(x :: l)[i] = y` from `l[i - 1]? = some y`)
+AENEAS_CLOSE = ("all_goals (try simp)\n  all_goals (try simp_lists [*])\n  "
+                "all_goals first | (simp_all; done) | (simp_all <;> scalar_tac; done) | (agrind; done) | grind")
 # the least time worth giving one proof attempt under a shared time budget
 MIN_TRY = 5
 
@@ -266,6 +271,17 @@ def proof_check_call(theorems, name, heartbeats=0):
     """the lss_check_proof command for `theorems` (theorem declarations only,
     `name` among them); heartbeats=0 keeps the current maxHeartbeats."""
     return f'lss_check_proof "{_escape_lean_str(theorems)}" name:{name} heartbeats:{heartbeats}'
+
+
+def helpers_command(text):
+    """the lss_define_helpers command (proof_check.lean) for a Rust spec's helpers
+    (synth.rust_helpers' `@[simp] def lss_hp_...` blocks): Lean parses the text itself and
+    defines only plain `def lss_hp_...` commands, so nothing else hidden in a block runs;
+    the command adds the @[simp] the blocks carry. "" for no helpers."""
+    if not (text or "").strip():
+        return ""
+    defs = re.sub(r"(?m)^@\[simp\] def ", "def ", text.strip())
+    return f'lss_define_helpers "{_escape_lean_str(defs)}"\n'
 
 
 def parse_proof_verdicts(text):
@@ -648,7 +664,7 @@ class LeanChecker:
         if not ok:
             errs = _errors(combined)
             print(f"  aeneas env build failed: {(errs[0] if errs else combined.strip())[:200]}")
-        state = {"env": r.new_env, "env0": r0.new_env, "crate": g.crate, "admitted": [], "active": {},
+        state = {"env": r.new_env, "env0": r0.new_env, "crate": g.crate, "admitted": [], "active": {}, "helpers": {},
                  "restarts": server.stats()["restarts"], "ok": ok, "error": combined[:300]}
         self._aeneas_env[project_dir] = state
         return state
@@ -662,12 +678,54 @@ class LeanChecker:
         if state is None:
             return self._aeneas_build_env(project_dir)
         if state["restarts"] != server.stats()["restarts"]:
-            admitted = state["admitted"]
+            admitted, helpers = state["admitted"], state.get("helpers", {})
             state = self._aeneas_build_env(project_dir)
             if state["ok"]:
+                if helpers:
+                    self.ensure_helpers(project_dir, "\n\n".join(helpers.values()), state)
                 for name, stmt, tactic, unit in admitted:
                     self._aeneas_admit(project_dir, state, name, stmt, tactic, unit)
         return state
+
+    def ensure_helpers(self, project_dir, text, state=None):
+        """define a Rust spec's helpers (synth.rust_helpers: `@[simp] def lss_hp_...`
+        blocks, named by their text) in the crate's env, each once: a later spec with
+        the same helper finds it there, and a rebuilt env defines them again. returns
+        (ok, errors)."""
+        state = state or self._aeneas_env_for(project_dir)
+        if not state["ok"]:
+            return False, [state["error"][:200]]
+        blocks = [b for b in re.split(r"\n(?=@\[simp\] def )", text.strip()) if b.strip()]
+        new = []
+        for b in blocks:
+            m = re.match(r"@\[simp\] def ([^\s:({\[]+)", b)
+            if m and m.group(1) not in state["helpers"]:
+                new.append((m.group(1), b.strip()))
+        if not new:
+            return True, []
+        server = _lean_server.get_server(_lss_config.project_dir("aeneas"))
+        r = server.check(helpers_command("\n\n".join(b for _, b in new)), timeout=120, env=state["env"])
+        self.lean_calls += 1
+        errs = _errors((r.stdout or "") + (r.stderr or ""))
+        if r.rc != 0 or r.new_env is None or errs:
+            return False, errs or [((r.stderr or "") + (r.stdout or "")).strip()[:200]]
+        state["env"] = r.new_env
+        state["helpers"].update(new)
+        return True, []
+
+    def known_helpers(self, project_dir, text):
+        """the helpers already in the crate's env (ensure_helpers) that `text` uses,
+        with the helpers they use, in the order they were defined: a statement that
+        reuses a helper a callee's proved spec shows needs it in every layer."""
+        known = (self._aeneas_env.get(project_dir) or {}).get("helpers", {})
+        used, todo = set(), [text]
+        while todo:
+            t = todo.pop()
+            for h, body in known.items():
+                if h not in used and re.search(rf"(?<![\w.']){re.escape(h)}(?![\w'])", t):
+                    used.add(h)
+                    todo.append(body)
+        return "\n\n".join(body for h, body in known.items() if h in used)
 
     def _aeneas_admit(self, project_dir, state, name, stmt, tactic, unit):
         """extend the crate's env once with the winning proof, @[step]-registered.
@@ -713,6 +771,8 @@ class LeanChecker:
         if not state["ok"]:
             return ProofResult(proved=False, method="", error=state["error"])
 
+        g = _callgraph.for_project(rust_project_dir)
+        unit = func_name if func_name in g.names else f"{g.crate}.{func_name}"
         # subst_vars: a statement in the gate's normal form (strategies.normalize_call)
         # defines an argument by a hypothesis `lss_a0 = List.Cons x tl`; substituted
         # back, the call is on the constructor again and `unfold` reaches its case
@@ -721,35 +781,44 @@ class LeanChecker:
             ("a", f"{start}\n  step*"),
             ("b", f"{start}\n  "
                   "step* <;> first | scalar_tac | simp_scalar | (simp_all <;> simp_lists [*]) | grind"),
-            ("c", f"{start}\n  step*\n  lss_log_goals\n  all_goals sorry"),
+            # Aeneas's tutorial order (tests/lean/Tutorial/Solutions.lean): step* does the
+            # recursion through the theorem being proved, and what is left closes with simp
+            # (a helper is a simp lemma), then simp_lists [*], then the closers
+            ("p", f"{start}\n  step*\n  {AENEAS_CLOSE}"),
         ]
+        if f"{unit}.body" in g.names:
+            # a loop (Aeneas's `loop` combinator, never recursive itself) opened once: what
+            # holds when the loop stops at once (Std/Primitives.lean's `loop` equation)
+            attempts.append(("e", f"{start}\n  rw [Aeneas.Std.loop]\n  unfold {func_name}.body\n  step*\n  {AENEAS_CLOSE}"))
+        proofs = attempts
+        attempts = attempts + [("c", f"{start}\n  step*\n  lss_log_goals\n  all_goals sorry")]
 
-        # a and b are proof attempts, each checked by lss_check_proof; c only logs
+        # every attempt but c is a proof, each checked by lss_check_proof; c only logs
         # the goals step* leaves open (closed by sorry, never a verdict)
         full = "\n".join(proof_check_call(f"theorem _aeneas_{label} : {candidate_stmt} := by\n  {tactic}",
                                            f"_aeneas_{label}", heartbeats)
-                         for label, tactic in attempts[:2])
-        label_c, tactic_c = attempts[2]
+                         for label, tactic in proofs)
+        label_c, tactic_c = attempts[-1]
         full += (f"\nset_option maxHeartbeats {heartbeats} in\n"
                  f"theorem _aeneas_{label_c} : {candidate_stmt} := by\n  {tactic_c}")
 
-        r = server.check(full, timeout=90, env=state["env"])
+        r = server.check(full, timeout=90 + 30 * (len(proofs) - 2), env=state["env"])
         self.lean_calls += 1
         combined = (r.stdout or "") + (r.stderr or "")
 
+        goals = []
         for m in re.finditer(r"LSS_GOALS (\{[^\n]*\})", combined):
             try:
                 goal = json.loads(m.group(1))
             except json.JSONDecodeError:
                 continue
+            goals.append(goal)
             events.emit("open_goal", unit=func_name, candidate_id=candidate_id,
                         head=goal.get("head", "?"))
 
         verdicts = parse_proof_verdicts(combined)
 
-        g = _callgraph.for_project(rust_project_dir)
-        unit = func_name if func_name in g.names else f"{g.crate}.{func_name}"
-        for label, tactic in attempts[:2]:
+        for label, tactic in proofs:
             v = verdicts.get(f"_aeneas_{label}")
             if v and v.get("ok"):
                 return self._aeneas_proved(rust_project_dir, g, unit, candidate_stmt, label, tactic, v)
@@ -768,7 +837,52 @@ class LeanChecker:
             state = self._aeneas_env_for(rust_project_dir)  # a hammer timeout restarts the server
 
         blamed = self._blame(g, state, unit, candidate_stmt, attempts[1][1])
-        return ProofResult(proved=False, method="", error=combined.strip()[:200], blamed_callees=blamed)
+        # what step* left, not the last closer's complaint about it
+        error = ("open goal: " + goals[0].get("text", "")[:300]) if goals else combined.strip()[:200]
+        return ProofResult(proved=False, method="", error=error, blamed_callees=blamed)
+
+    @events.layer("aeneas")
+    def try_loop(self, candidate_stmt, func_name, rust_project_dir, measure, invariant, candidate_id=None):
+        """a loop unit's spec by Aeneas's loop pattern (documentation/proof-strategies.md
+        Pattern B, Std/WP.lean `loop.spec_decr_nat`): `measure` (a Nat that drops on
+        every iteration) and `invariant` (what holds at every iteration) are terms in
+        the loop's state `s` and the statement's own variables; the body's goals close
+        with step* and the closers. a ⦄div spec follows from the ⦃ ⦄ one (WP.spec_dspec)."""
+        g = _callgraph.for_project(rust_project_dir)
+        unit = func_name if func_name in g.names else f"{g.crate}.{func_name}"
+        sigma = loop_state_type(g.def_text(unit) or "")
+        if sigma is None or f"{unit}.body" not in g.names:
+            return ProofResult(proved=False, method="", error="not a loop whose state this can name")
+        state = self._aeneas_env_for(rust_project_dir)
+        if not state["ok"]:
+            return ProofResult(proved=False, method="", error=state["error"])
+
+        def term(t, codomain):
+            """the LLM's function of the state, typed at it: `fun s => e` (or a bare `e` in
+            `s`) as the probe ran it, `(fun (s : σ) => e)`; any other shape
+            (`fun (x, i) => e`) by ascription."""
+            t = t.strip()
+            m = re.match(r"^(?:fun|λ)\s+s\s*=>", t)
+            if m or not re.match(r"^(?:fun|λ)\b", t):
+                return f"(fun (s : {sigma}) => {t[m.end():].strip() if m else t})"
+            return f"(({t}) : {sigma} → {codomain})"
+        names = stmt_binder_names(candidate_stmt)  # `_` keeps an anonymous binder's place
+        intro = (f"intro {' '.join(names)}\n  " if names else "") + "intros\n  "
+        dspec = "apply Aeneas.Std.WP.spec_dspec\n  " if re.search(r"⦄\s*div", candidate_stmt) else ""
+        tactic = (f"{intro}{dspec}unfold {func_name}\n  "
+                  f"apply Aeneas.Std.loop.spec_decr_nat {term(measure, 'Nat')} {term(invariant, 'Prop')}\n  "
+                  f"· intro s hs\n    try simp only\n    unfold {func_name}.body\n    step*\n    "
+                  + AENEAS_CLOSE.replace("\n  ", "\n    ") + "\n  · first | rfl | simp | simp_all")
+        heartbeats = _lss_config.proof_cfg()["aeneas_heartbeats"]
+        server = _lean_server.get_server(_lss_config.project_dir("aeneas"))
+        r = server.check(proof_check_call(f"theorem _aeneas_loop : {candidate_stmt} := by\n  {tactic}", "_aeneas_loop",
+                                          heartbeats), timeout=120, env=state["env"])
+        self.lean_calls += 1
+        out = (r.stdout or "") + (r.stderr or "")
+        v = parse_proof_verdicts(out).get("_aeneas_loop")
+        if v and v.get("ok"):
+            return self._aeneas_proved(rust_project_dir, g, unit, candidate_stmt, "loop", tactic, v)
+        return ProofResult(proved=False, method="", error=((v or {}).get("detail") or out.strip())[:300])
 
     def _aeneas_proved(self, project_dir, g, unit, stmt, label, tactic, verdict):
         """a winning aeneas-layer attempt: check modularity, admit it, report it."""
@@ -788,12 +902,17 @@ class LeanChecker:
         g = _callgraph.for_project(project_dir)
         name = unit if unit in g.names else f"{g.crate}.{unit}"
         proved = {}
-        for _, stmt, _, u in (self._aeneas_env.get(project_dir) or {"admitted": []})["admitted"]:
+        state = self._aeneas_env.get(project_dir) or {"admitted": [], "helpers": {}}
+        for _, stmt, _, u in state["admitted"]:
             proved.setdefault(u, []).append(stmt)
+        helpers = state.get("helpers", {})
         parts = []
         for c in g.callees_outside_scc(name):
             if proved.get(c):
-                parts.append(f"-- proved specs of {c}:\n" + "\n".join(f"--   {st}" for st in proved[c]))
+                # a proved spec that states its property through a helper shows the helper
+                used = [h for h in helpers if any(re.search(rf"\b{re.escape(h)}\b", st) for st in proved[c])]
+                parts.append("".join(helpers[h] + "\n" for h in used)
+                             + f"-- proved specs of {c}:\n" + "\n".join(f"--   {st}" for st in proved[c]))
             else:
                 parts.append(g.def_text(c) or "")
         i = g.scc_of(name)
@@ -833,7 +952,8 @@ class LeanChecker:
         body the proof needs. recursive units are not checked (None)."""
         if g.recursive(unit):
             return None, []
-        callees = [(c, state["active"].get(c)) for c in g.callees_outside_scc(unit)]
+        # a loop's body is part of its loop (loader.py: never a unit of its own), not a callee
+        callees = [(c, state["active"].get(c)) for c in g.callees_outside_scc(unit) if c != f"{unit}.body"]
         if not callees:
             return True, []
         if self._modular_check(state, unit, stmt, tactic, callees, [])["ok"]:
@@ -848,8 +968,8 @@ class LeanChecker:
         through. recursive units are not checked."""
         if g.recursive(unit):
             return []
-        blamed = [c for c in g.callees_outside_scc(unit)
-                  if self._modular_check(state, unit, stmt, tactic, [], [c])["ok"]]
+        blamed = [c for c in g.callees_outside_scc(unit) if c != f"{unit}.body"
+                  and self._modular_check(state, unit, stmt, tactic, [], [c])["ok"]]
         for c in blamed:
             events.emit("blame", unit=unit, callee=c)
         return blamed
@@ -868,6 +988,98 @@ class LeanChecker:
             cx = m.group(1).strip() if m else "found"
             return PBTResult(passed=False, counterexample=cx, message="counterexample found")
         return PBTResult(passed=False, counterexample="", message=combined.strip()[:200])
+
+
+_OPEN, _CLOSE = "({[⦃", ")}]⦄"
+
+
+def _group_end(text, i):
+    """the index after the bracket group that starts at text[i]."""
+    depth = 0
+    for j in range(i, len(text)):
+        if text[j] in _OPEN:
+            depth += 1
+        elif text[j] in _CLOSE:
+            depth -= 1
+            if depth == 0:
+                return j + 1
+    raise ValueError("unbalanced brackets")
+
+
+def binder_groups(text):
+    """(names, type) of each binder group at the start of `text` (`(a b : T) {U : Type}
+    [inst : C]`; an anonymous instance `[C]` binds `_`), and the rest of the text."""
+    out, i = [], 0
+    while True:
+        while i < len(text) and text[i].isspace():
+            i += 1
+        if i >= len(text) or text[i] not in _OPEN:
+            return out, text[i:]
+        j = _group_end(text, i)
+        inner = text[i + 1:j - 1]
+        depth, colon = 0, -1
+        for k, c in enumerate(inner):
+            depth += (c in _OPEN) - (c in _CLOSE)
+            if c == ":" and depth == 0 and not inner.startswith(":=", k):
+                colon = k
+                break
+        out.append((inner[:colon].split() or ["_"], inner[colon + 1:].strip()) if colon >= 0 else (["_"], inner.strip()))
+        i = j
+
+
+def stmt_binder_names(stmt):
+    """the names a statement's leading ∀ binders bind, in order, over every `∀ ... ,`."""
+    names, rest = [], stmt.strip()
+    while rest.startswith("∀") or rest.startswith("forall"):
+        rest = rest[1:] if rest.startswith("∀") else rest[len("forall"):]
+        groups, rest = binder_groups(rest)
+        if not groups:  # `∀ x y, ...` or `∀ x y : T, ...` without brackets
+            m = re.match(r"\s*([^,(]+),", rest)
+            if not m:
+                break
+            names += m.group(1).split(":", 1)[0].split()
+            rest = rest[m.end():].strip()
+            continue
+        names += [n for ns, _ in groups for n in ns]
+        rest = rest.lstrip()
+        if not rest.startswith(","):
+            break
+        rest = rest[1:].strip()
+    return names
+
+
+def loop_state_type(def_text):
+    """the Lean type of a loop function's state, the tuple Aeneas passes to `loop`
+    (`def f (a : A) (b : B) : Result R := loop (fun x => f.body x.1 x.2) (a, b)` gives
+    `A × B`), or None when the state is not a tuple of the function's own binders."""
+    m = re.search(r"\bdef\s+\S+", def_text or "")
+    if not m:
+        return None
+    try:
+        groups, _ = binder_groups(def_text[m.end():])
+        types = {n: t for ns, t in groups for n in ns}
+        k = re.search(r"\bloop\s*\(", def_text)
+        if not k:
+            return None
+        after = def_text[_group_end(def_text, k.end() - 1):].lstrip()
+        if after.startswith("("):
+            state = after[1:_group_end(after, 0) - 1]
+        else:
+            state = re.match(r"[^\s)]+", after).group(0)  # type: ignore[union-attr]
+    except (ValueError, AttributeError):
+        return None
+    parts, depth, cur = [], 0, ""
+    for c in state:
+        depth += (c in _OPEN) - (c in _CLOSE)
+        if c == "," and depth == 0:
+            parts.append(cur.strip())
+            cur = ""
+        else:
+            cur += c
+    parts.append(cur.strip())
+    if not all(p in types for p in parts):
+        return None
+    return " × ".join(f"({types[p]})" for p in parts)
 
 
 def _parse_forall_types(stmt):

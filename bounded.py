@@ -30,6 +30,7 @@ tools/translation_check.py's type IR. the commands run in the check's own env
 (_Lean), which holds the gate's Decidable instances and DecidableEq for the
 crate's own types; proofs never run in it.
 """
+import itertools
 import json
 import os
 import random
@@ -226,15 +227,32 @@ def perturb(T, v, self_T=None):
 
 
 def shrink(T, v, self_T=None):
-    """simpler values than v. for an int: 0, 1, the powers of two below it, and
-    the steps n - n/2^k toward it (QuickCheck's shrinkIntegral), so the
-    smallest failing candidate is found in a few rounds, not one halving each.
-    a recursive value shrinks to its own subtrees."""
+    """simpler values than v, never v itself. for an int: 0, 1, the powers of two
+    below it, and the steps n - n/2^k toward it (QuickCheck's shrinkIntegral), so
+    the smallest failing candidate is found in a few rounds, not one halving each.
+    a recursive value shrinks to its own subtrees first, then one argument at a
+    time; a struct one field at a time; a list each element in turn (QuickCheck's
+    shrinkList: drop an element, or shrink one)."""
     kind = T[0]
     if kind == "self":
         return shrink(self_T, v, self_T)
     if _named(T):
         self_T = T
+    key = json.dumps(v, sort_keys=True)
+    return [c for c in _shrink(kind, T, v, self_T) if json.dumps(c, sort_keys=True) != key]
+
+
+def _interleave(lists):
+    """every list's first item, then every list's second, ...: each position's simplest
+    candidate comes before any position's second, so a cap on how many are tried never
+    leaves a position (a field deep inside a list) with none."""
+    return [x for rank in itertools.zip_longest(*lists, fillvalue=_NONE) for x in rank if x is not _NONE]
+
+
+_NONE = object()
+
+
+def _shrink(kind, T, v, self_T):
     if kind == "int":
         n = int(v)
         a = abs(n)
@@ -244,20 +262,35 @@ def shrink(T, v, self_T=None):
     if kind == "bool":
         return [False] if v else []
     if kind in ("slice", "vec"):
-        out = [v[:i] + v[i + 1:] for i in range(len(v))]
-        for i, x in enumerate(v):
-            out += [v[:i] + [s] + v[i + 1:] for s in shrink(T[1], x, self_T)[:1]]
-        return out
+        return [v[:i] + v[i + 1:] for i in range(len(v))] + _interleave(
+            [[v[:i] + [s] + v[i + 1:] for s in shrink(T[1], x, self_T)] for i, x in enumerate(v)])
     if kind in ("tuple", "array"):
         ts = T[1] if kind == "tuple" else [T[1]] * len(v)
-        return [v[:i] + [s] + v[i + 1:] for i, t in enumerate(ts) for s in shrink(t, v[i], self_T)[:1]]
+        return _interleave([[v[:i] + [s] + v[i + 1:] for s in shrink(t, v[i], self_T)] for i, t in enumerate(ts)])
     if kind == "option":
         return [None] if v is not None else []
+    if kind == "struct":
+        return _interleave([[{**v, fn: s} for s in shrink(ft, v[fn], self_T)] for fn, ft in T[2]])
     if kind == "list_enum":
-        return [v["args"][1]] if v["tag"] == T[3] else []
+        nil_v, cons_v, elem_T = T[2], T[3], T[4]
+        items, x = [], v
+        while x["tag"] == cons_v:
+            items.append(x["args"][0])
+            x = x["args"][1]
+
+        def chain(xs):
+            out = {"tag": nil_v, "args": []}
+            for e in reversed(xs):
+                out = {"tag": cons_v, "args": [e, out]}
+            return out
+        return ([chain(items[1:])] if items else []) + [chain(items[:i] + items[i + 1:]) for i in range(1, len(items))] \
+            + _interleave([[chain(items[:i] + [s] + items[i + 1:]) for s in shrink(elem_T, e)] for i, e in enumerate(items)])
     if kind == "enum":
         args = dict(T[2])[v["tag"]]
-        return [c for a, x in zip(args, v["args"]) for c in _children(a, x, self_T)]
+        subtrees = [c for a, x in zip(args, v["args"]) for c in _children(a, x, self_T)]
+        return subtrees + _interleave([[{"tag": v["tag"], "args": v["args"][:i] + [s] + v["args"][i + 1:]}
+                                        for s in shrink(a, v["args"][i], self_T)]
+                                       for i, a in enumerate(args) if not _self_refs(a)])
     return []
 
 
@@ -353,34 +386,104 @@ def type_ir(j):
     raise tc.Unsupported(f"type kind {k}")
 
 
-def refutation_text(name, stmt, binders, insts, arg_types, ret_type, row, outcome, value):
+# Aeneas's own definitions a call's evaluation unfolds into: Vec indexing, the scalar
+# operations with their bounds check (ok or integerOverflow), and lean/bounded.lean's
+# lemmas that turn a scalar `+ - * / %` (an unnamed instance) into the named operation
+EVAL_DEFS = ["Aeneas.Std.alloc.vec.Vec.index_mut_usize", "Aeneas.Std.alloc.vec.Vec.index_usize",
+             "Aeneas.Std.alloc.vec.Vec.set", "Aeneas.Std.alloc.vec.Vec.len",
+             "lss_eval_uadd", "lss_eval_usub", "lss_eval_umul", "lss_eval_udiv", "lss_eval_urem",
+             "lss_eval_iadd", "lss_eval_isub", "lss_eval_imul", "lss_eval_idiv", "lss_eval_irem",
+             "Aeneas.Std.UScalar.add", "Aeneas.Std.UScalar.sub", "Aeneas.Std.UScalar.mul", "Aeneas.Std.UScalar.div",
+             "Aeneas.Std.UScalar.rem", "Aeneas.Std.IScalar.add", "Aeneas.Std.IScalar.sub", "Aeneas.Std.IScalar.mul",
+             "Aeneas.Std.IScalar.div", "Aeneas.Std.IScalar.rem",
+             "Aeneas.Std.UScalar.tryMk", "Aeneas.Std.UScalar.tryMkOpt", "Aeneas.Std.IScalar.tryMk",
+             "Aeneas.Std.IScalar.tryMkOpt", "Aeneas.Std.Result.ofOption"]
+EVAL_ROUNDS = 32
+
+
+def eval_tactic(unfold):
+    """a tactic evaluating the call in the goal: unfold `loop` once per round (its
+    equation always applies again, so it is never a simp lemma: `simp [loop]` runs
+    forever), then simp with the unit, its callees and Aeneas's definitions evaluates
+    what that exposed. it is parenthesized: `iterate` takes a tactic sequence, so a
+    tactic written after it with `;` would otherwise run inside every round."""
+    names = ", ".join(list(unfold) + EVAL_DEFS)
+    return f"(iterate {EVAL_ROUNDS} (try ((try rw [Aeneas.Std.loop]); simp [{names}])))"
+
+
+def unfold_names(project_dir, unit):
+    """the unit and every function it calls, with each loop's body, crate-qualified
+    (a unit `C.List.length` stripped of `C.` would clash with Lean's own); opaque ones
+    (no body) left out. [] when there is no call graph."""
+    import callgraph
+    try:
+        g = callgraph.for_project(project_dir)
+    except OSError:
+        return []
+    q = unit if unit in g.names else f"{g.crate}.{unit}"
+    if q not in g.names:
+        return []
+    out = []
+    for n in sorted({q} | g.transitive_callees(q)):
+        for m in (n, f"{n}.body"):
+            if m in g.names and not g.is_opaque(m) and m not in out:
+                out.append(m)
+    return out
+
+
+def refutation_text(name, stmt, binders, insts, arg_types, ret_type, row, outcome, value, unfold=(),
+                    stated=False):
     """`theorem <name> : ¬ (<stmt>)` proved from the shrunk witness: instantiate the
     statement at the check's instantiation (its types, the crate's instances and their
     laws by lss_law_tac) and the witness (a defined binder by unification, the
-    hypotheses by decide), compute the call, and show the postcondition is false on its
-    value (or that the call does not succeed). `spec` statements only: `dspec`
-    refutations stay evaluation-only."""
+    hypotheses by decide), then show the call fails or its value breaks the
+    postcondition: by evaluating the call with its value left open (eval_tactic), or,
+    with `stated`, by stating that value and letting rfl or decide compute the call (the
+    kernel unfolds what simp has no name for, such as a trait instance passed as an
+    argument). check_spec tries the evaluation first and the stated value in a theorem
+    of its own: a heartbeat or recursion limit is not an error `first` can catch, so
+    one way running out must not keep the other from being tried.
+    h is first applied to variables in place of the witness, its defined binders and
+    its hypotheses, and that function is then applied to them: applying h to the
+    literals directly leaves the triple as the application's type, which the elaborator
+    reduces looking for further arguments, evaluating the call in unary Nat arithmetic
+    (a value like 2^31 reaches the recursion limit). a defined binder is a variable too,
+    given as `_` and fixed by the hypothesis that defines it. `spec` statements only:
+    `dspec` refutations stay evaluation-only."""
     lits = [tc.lean_literal(t, v) for t, v in zip(arg_types, row)]
     law = "(by lss_law_tac [" + ", ".join(insts) + "])"
-    parts = []
+    fixed = {"class": "(inferInstance)", "law": law}
+    xs, parts, given = [], [], []
     for b in binders:
         k = b.get("k")
-        parts.append({"type": f"({b.get('v')})", "inst": f"({b.get('v')})", "class": "(inferInstance)",
-                      "law": law, "hyp": "(by first | rfl | decide | simp_all | omega)",
-                      "det": "_"}.get(k) or f"({lits[b['i']]})")
+        if k in ("type", "inst"):
+            parts.append(f"({b.get('v')})")
+        elif k in fixed:
+            parts.append(fixed[k])
+        else:
+            x = f"lss_x{len(xs)}"
+            xs.append(x)
+            parts.append(x)
+            given.append({"hyp": "(by first | rfl | decide | simp_all | omega)", "det": "_"}.get(k)
+                         or f"({lits[b['i']]})")
+    spec = f"Aeneas.Std.WP.spec_imp_exists (@h {' '.join(parts)})"
     if outcome == "violates":
         got = f"Aeneas.Std.Result.ok ({tc.lean_literal(ret_type, json.loads(value))})"
     elif outcome == "fail":
         got = f"Aeneas.Std.Result.fail {value}"
     else:
         got = "Aeneas.Std.Result.div"
-    lines = [f"theorem {name} : ¬ ({stmt}) := by",
-             "  intro h",
-             f"  obtain ⟨y, hy, hp⟩ := Aeneas.Std.WP.spec_imp_exists (@h {' '.join(parts)})",
-             f"  have hv : (Aeneas.Std.Result.ok y : Aeneas.Std.Result _) = {got} := hy.symm.trans (by first | rfl | decide)",
-             "  cases hv"]
-    if outcome == "violates":
-        lines += ["  revert hp", "  first | decide | simp | omega"]
+    lines = [f"theorem {name} : ¬ ({stmt}) := by", "  intro h"]
+    if xs:
+        lines += [f"  have lss_h := fun {' '.join(xs)} => {spec}",
+                  f"  obtain ⟨y, hy, hp⟩ := lss_h {' '.join(given)}"]
+    else:
+        lines.append(f"  obtain ⟨y, hy, hp⟩ := {spec}")
+    if stated:
+        lines += [f"  have hv : (Aeneas.Std.Result.ok y : Aeneas.Std.Result _) = {got} := hy.symm.trans (by first | rfl | decide)",
+                  "  cases hv"] + (["  revert hp", "  first | decide | simp | omega"] if outcome == "violates" else [])
+    else:
+        lines += ["  revert y", f"  {eval_tactic(unfold)}", "  all_goals (first | decide | omega)"]
     return "\n".join(lines)
 
 
@@ -400,8 +503,9 @@ class _Lean:
     (wf_gate.lean, wf_gate_aeneas.lean), lean/bounded.lean, and DecidableEq for
     the crate's types. proofs never run in it."""
 
-    def __init__(self, checker, project_dir):
+    def __init__(self, checker, project_dir, helpers=""):
         self.checker, self.project_dir, self.n = checker, project_dir, 0
+        self.helpers = _lean.helpers_command(helpers)
         self.prefix = _gate._wf_gate_text() + "\n" + _gate._wf_gate_aeneas_text() + "\n"
         self.crate = None
 
@@ -433,7 +537,7 @@ class _Lean:
         env, why = self._env(server)
         if env is None:
             return None, why
-        r = server.check(f"open {self.crate}\n" + text, timeout=EVAL_TIMEOUT, env=env)
+        r = server.check(f"open {self.crate}\n" + self.helpers + text, timeout=EVAL_TIMEOUT, env=env)
         self.checker.lean_calls += 1
         if r.timed_out:
             return None, "timeout"
@@ -481,20 +585,21 @@ NOT_EVALUATED = "not evaluated:"
 
 
 def _shown(T, value):
-    """an encoded output as the Lean literal the statement would use."""
+    """an encoded output as the statement would write it."""
     try:
-        return tc.lean_literal(T, json.loads(value))
+        return tc.lean_literal(T, json.loads(value), short=True)
     except (tc.Unsupported, ValueError, KeyError, TypeError):
         return value
 
 
 @events.layer("bounded")
-def check_spec(checker, stmt, unit, project_dir, seed=0):
+def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     """the bounded verdict for one candidate (see the module docstring).
     status: pass, refuted, vacuous, not_evaluated, timeout or skipped; warning:
     None, narrow or no_witness; a refutation carries the shrunk witness, whether
-    the kernel checked it, and the feedback text a repair prompt uses."""
-    lean = _Lean(checker, project_dir)
+    the kernel checked it, and the feedback text a repair prompt uses. `helpers` (a
+    Rust spec's own definitions) are defined before each command."""
+    lean = _Lean(checker, project_dir, helpers) if helpers else _Lean(checker, project_dir)
     try:
         plan, why = lean.plan(stmt)
     except OSError as e:  # no translated crate at project_dir: nothing to run
@@ -515,11 +620,19 @@ def check_spec(checker, stmt, unit, project_dir, seed=0):
     except tc.Unsupported:
         ret = None  # outcomes still evaluate; no values, perturbations or kernel refutation
     binders, insts = plan["binders"], plan.get("insts", [])
+    # a postcondition Lean cannot decide (a statement about a backward function's every
+    # input) still lets the call run: a failing call refutes the statement, which claims
+    # success whatever the postcondition says; a succeeding one decides nothing
+    decided = plan.get("post_decidable", True)
     rows = sample_rows(args, seed=seed)
     ev, why = lean.eval(stmt, args, ret, rows)
     if ev is None:
         return {"status": "timeout" if why == "timeout" else "skipped", "detail": why}
     kind, outs = ev["kind"], ev["rows"]
+    # the plan decided the postcondition, so a row whose value it cannot decide is an
+    # error, never a row that neither fits nor fails (which would pass with no witness)
+    outs = [{"outcome": "error", "detail": "the postcondition is not decided at this input"}
+            if decided and r["outcome"] == "unknown" else r for r in outs]
     errors = [r for r in outs if r["outcome"] == "error"]
     if len(errors) == len(outs):
         return {"status": "skipped", "detail": errors[0].get("detail", "")[:300]}
@@ -527,7 +640,7 @@ def check_spec(checker, stmt, unit, project_dir, seed=0):
     if bad:
         row, res = rows[bad[0]], outs[bad[0]]
         for _ in range(SHRINK_ROUNDS):
-            cands = [row[:j] + [x] + row[j + 1:] for j, t in enumerate(args) for x in shrink(t, row[j])]
+            cands = _interleave([[row[:j] + [x] + row[j + 1:] for x in shrink(t, row[j])] for j, t in enumerate(args)])
             cands = cands[:2 * tc.MAX_BATCH]
             if not cands:
                 break
@@ -537,27 +650,41 @@ def check_spec(checker, stmt, unit, project_dir, seed=0):
                 break
             k = min(hits, key=lambda k: sum(size(t, x) for t, x in zip(args, cands[k])))
             row, res = cands[k], sev["rows"][k]
-        kernel = False
+        kernel, kernel_why = False, "not attempted"
         if kind == "spec" and (ret is not None or res["outcome"] != "violates"):
             lean.n += 1
             nm = f"lss_refute_{lean.n}"
-            text = refutation_text(nm, stmt, binders, insts, args, ret, row, res["outcome"], res.get("value", ""))
             hb = _lss_config.proof_cfg()["aeneas_heartbeats"]
-            out, _ = lean.run(_lean.proof_check_call(text, nm, hb))
-            kernel = bool((_lean.parse_proof_verdicts(out).get(nm) or {}).get("ok")) if out else False
+            whys = []
+            for stated in (False, True):
+                text = refutation_text(nm, stmt, binders, insts, args, ret, row, res["outcome"], res.get("value", ""),
+                                       unfold_names(project_dir, unit), stated=stated)
+                out, why = lean.run(_lean.proof_check_call(text, nm, hb))
+                verdict = (_lean.parse_proof_verdicts(out).get(nm) or {}) if out else {}
+                if verdict.get("ok"):
+                    kernel = True
+                    break
+                whys.append(f"{'stated value' if stated else 'evaluation'}: {why or verdict.get('detail') or 'no verdict'}")
+            kernel_why = "" if kernel else "; ".join(w[:300] for w in whys)
         names = [f.get("name") or f"x{i}" for i, f in enumerate(plan["free"])]
-        shown = ", ".join(f"{n} := {tc.lean_literal(t, v)}" for n, t, v in zip(names, args, row))
+        shown = ", ".join(f"{n} := {tc.lean_literal(t, v, short=True)}" for n, t, v in zip(names, args, row))
         types = [f"{b['name']} := {b['v']}" for b in binders if b.get("k") in ("type", "inst") and b.get("name")]
         at = f" at {', '.join(types)}" if types else ""
         got = (f"returned {_shown(ret, res['value'])}" if res["outcome"] == "violates" and ret is not None
                else "returned a value" if res["outcome"] == "violates"
                else f"gave {res['outcome']} {res.get('value', '')}".strip())
-        return {"status": "refuted", "kernel": kernel, "witness": row, "outcome": res["outcome"],
+        return {"status": "refuted", "kernel": kernel, "kernel_why": kernel_why, "witness": row,
+                "outcome": res["outcome"],
                 "value": res.get("value", ""), "instantiation": ", ".join(types),
                 "feedback": (f"On input ({shown}){at} the function {got}, and the statement is false there "
                              f"(checked by running the function{', and by a kernel proof' if kernel else ''})."
                              + (" `f args ⦃ … ⦄` says the call succeeds, so state as a hypothesis what the inputs "
-                                "need for it to succeed." if res["outcome"] in ("fail", "div") else ""))}
+                                "need for it to succeed. If this input is one the function is never meant to get (a "
+                                "value whose fields break what its type is for, such as a table with no slots), state "
+                                "the condition that excludes it, on the input's fields, as a hypothesis."
+                                if res["outcome"] in ("fail", "div") else ""))}
+    if not decided:
+        return {"status": "not_evaluated", "detail": f"postcondition: {plan.get('post_why', '')}"[:300]}
     fit = [i for i, r in enumerate(outs) if r["outcome"] == "holds"]
     discard = sum(1 for r in outs if r["outcome"] == "discard")
     warning = None

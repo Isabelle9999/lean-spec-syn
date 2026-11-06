@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -493,10 +494,309 @@ theorem top_proved : forall (p : records.Pair),
     check("no lean process left after shutdown", server._worker is None)
 
 
+class _FakeServer:
+    """lean_server's server, recording every text: each check succeeds with a new env."""
+
+    def __init__(self):
+        self.sent = []
+
+    def check(self, code, timeout=None, env=None, prelude=""):
+        import lean_server
+        self.sent.append((code, env))
+        return lean_server.CheckResult(stdout="", stderr="", rc=0, via="repl", new_env=len(self.sent) + 100)
+
+    def stats(self):
+        return {"restarts": 0}
+
+
+class _FakeGraph:
+    crate = "C"
+    names = {"C.f", "C.g"}
+    crate_text = ""
+    sccs = [{"C.f"}, {"C.g"}]
+
+    def can_diverge(self, n):
+        return False
+
+    def recursive(self, n):
+        return False
+
+    def callees_outside_scc(self, n):
+        return ["C.g"] if n == "C.f" else []
+
+    def scc_of(self, n):
+        return 0 if n == "C.f" else 1
+
+    def def_text(self, n):
+        return f"def {n} : Nat := 0"
+
+
+def run_static_helpers():
+    print("=== static: a spec's helpers in every layer ===")
+    import lean
+    import lean_server
+    import gate
+    import callgraph
+    import bounded
+    sent = lean.helpers_command("@[simp] def lss_hp_x_00000000 : Nat := 0\n  set_option debug.skipKernelTC true in\n"
+                                "  theorem lss_bad : False := sorry")
+    check("a spec's helpers reach Lean as one lss_define_helpers string, which Lean parses itself: an indented "
+          "command inside a block is never a command of the file",
+          sent.startswith('lss_define_helpers "def lss_hp_x_00000000 : Nat := 0\\n  set_option')
+          and sent.count("\n") == 1 and sent.endswith('"\n') and "@[simp]" not in sent, sent)
+    check("no helpers, no command", lean.helpers_command("") == "" and lean.helpers_command("  \n") == "")
+    pc = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lean", "proof_check.lean"),
+              encoding="utf-8").read()
+    body = pc[pc.index('elab "lss_define_helpers "'):]
+    check("lss_define_helpers takes definitions only, with no modifier, named lss_hp_, kernel-checked, on the "
+          "standard axioms, then tagged simp",
+          all(x in body for x in ["``Parser.Command.definition", "cmd[0].getArgs.all (·.isNone)", '"lss_hp_"',
+                                  "`debug.skipKernelTC false", "lssAxiomProblem", "attribute [simp]", "setEnv env0",
+                                  "m.severity matches .error"]), body[:200])
+    server = _FakeServer()
+    old = (lean_server.get_server, callgraph.for_project)
+    lean_server.get_server = lambda *a, **k: server  # type: ignore[assignment]
+    callgraph.for_project = lambda p: _FakeGraph()  # type: ignore[assignment]
+    helper = "@[simp] def lss_hp_toList_0123abcd (l : C.List) : List Nat := []"
+    try:
+        checker = lean.LeanChecker.__new__(lean.LeanChecker)
+        checker.lean_calls = 0
+        state = {"ok": True, "env": 7, "env0": 5, "crate": "C", "admitted": [], "active": {}, "helpers": {},
+                 "restarts": 0, "error": ""}
+        checker._aeneas_env = {"/p": state}
+        ok, _ = checker.ensure_helpers("/p", helper)
+        ok2, _ = checker.ensure_helpers("/p", helper)
+        check("a spec's helper is defined once in the crate's env, and a later spec finds it there",
+              ok and ok2 and [c for c, _ in server.sent] == [lean.helpers_command(helper)] and state["env"] == 101
+              and list(state["helpers"]) == ["lss_hp_toList_0123abcd"], str(server.sent))
+        server.sent.clear()
+        gate.check_candidate(checker, "theorem t : S := sorry", "f", "", "/p", "rust-aeneas", helpers=helper)
+        text = server.sent[0][0] if server.sent else ""
+        check("the gate elaborates a spec's helpers after opening the crate, before the candidate",
+              "open C\n" + lean.helpers_command(helper) in text
+              and text.index("lss_define_helpers") < text.rindex("lss_wf_gate \""), text[-300:])
+        server.sent.clear()
+        bl = bounded._Lean(checker, "/p", helper)
+        bl.crate = "C"
+        bl._env = lambda srv: (9, "")  # type: ignore[method-assign]
+        bl.run("lss_eval_plan t crate:C stmt:\"S\"")
+        check("the bounded check runs with a spec's helpers, after opening the crate",
+              bool(server.sent) and server.sent[0][0].startswith("open C\n" + lean.helpers_command(helper)),
+              str(server.sent)[:300])
+        state["admitted"].append(("lss_admitted_0", "∀ l, g l ⦃ r => r = (lss_hp_toList_0123abcd l).length ⦄",
+                                  "step*", "C.g"))
+        ctx = checker.unit_context("/p", "f")
+        check("a caller's prompt shows the helper a callee's proved spec uses",
+              helper in ctx and ctx.index(helper) < ctx.index("-- proved specs of C.g"), ctx[:400])
+        check("a statement that reuses a helper already in the env gets its definition for every layer",
+              checker.known_helpers("/p", "∀ l, f l ⦃ r => r = lss_hp_toList_0123abcd l ⦄") == helper
+              and checker.known_helpers("/p", "∀ l, f l ⦃ r => True ⦄") == "", "")
+    finally:
+        lean_server.get_server, callgraph.for_project = old
+
+
+def run_static_loop_request():
+    print("=== static: an unproved loop spec asks for its measure and invariant ===")
+    import synth
+    import lean
+    import callgraph
+
+    class Graph(_FakeGraph):
+        names = {"C.f", "C.f.body", "C.g"}
+
+        def def_text(self, n):
+            return ("def C.f (x : Nat) (i : Nat) : Result Nat :=\n  loop (fun x => C.f.body x.1 x.2) (x, i)"
+                    if n == "C.f" else f"def {n} : Nat := 0")
+
+    class Untupled(Graph):
+        def def_text(self, n):
+            return "def C.f (x : Nat) : Result Nat :=\n  loop C.f.body x" if n == "C.f" else f"def {n} : Nat := 0"
+
+    class Checker(_StubChecker):
+        def __init__(self, loop_proves=True):
+            super().__init__()
+            self.loops, self.loop_proves = [], loop_proves
+
+        def try_aeneas(self, stmt, func, project_dir, candidate_id=None):
+            self.calls.append("aeneas")
+            return lean.ProofResult(proved=False, method="", error="open goal: ⊢ loop")
+
+        def try_loop(self, stmt, func, project_dir, measure, invariant, candidate_id=None):
+            self.loops.append((measure, invariant))
+            return lean.ProofResult(proved=self.loop_proves, method="aeneas:loop" if self.loop_proves else "",
+                                    error="", proof_text="tactic")
+
+    class LLM:
+        def __init__(self, answer):
+            self.answer, self.prompts = answer, []
+
+        def _ask(self, prompt):
+            self.prompts.append(prompt)
+            return self.answer
+
+    def run(answer, graph, loop_proves=True):
+        checker, llm = Checker(loop_proves), LLM(answer)
+        old = callgraph.for_project
+        callgraph.for_project = lambda p: graph  # type: ignore[assignment]
+        try:
+            specs = synth.validate([_spec("f")], "import Aeneas\nimport C.Code.Funs\n", [], checker, llm=llm,
+                                   func_name="f", project_dir="/p", source="rust-aeneas")
+        finally:
+            callgraph.for_project = old
+        return specs[0], checker, llm
+    good = 'here: {"measure": "fun s => s.2.val", "invariant": "fun s => True"}'
+    spec, checker, llm = run(good, Graph())
+    loop_prompts = [p for p in llm.prompts if "loop.spec_decr_nat" in p]
+    check("an unproved loop spec gets one measure-and-invariant request and is proved when the proposal checks",
+          len(loop_prompts) == 1 and checker.loops == [("fun s => s.2.val", "fun s => True")]
+          and spec["status"] == "proved" and spec["method"] == "aeneas:loop", str(spec)[:300])
+    check("the request shows the loop and its body", bool(loop_prompts) and "def C.f.body" in loop_prompts[0])
+    spec, checker, llm = run(good, _FakeGraph())
+    check("a unit with no loop body never gets that request",
+          not [p for p in llm.prompts if "loop.spec_decr_nat" in p] and not checker.loops, str(llm.prompts)[:200])
+    spec, checker, llm = run(good, Untupled())
+    check("a loop whose state is not a tuple of the function's binders costs no request (no proof could follow)",
+          not [p for p in llm.prompts if "loop.spec_decr_nat" in p] and not checker.loops, str(llm.prompts)[:200])
+    spec, checker, _ = run('I think {a} then: {"measure": "fun s => s.2.val", "invariant": "fun s => True"}', Graph())
+    check("the proposal is the first JSON object in the answer, whatever prose comes before it",
+          checker.loops == [("fun s => s.2.val", "fun s => True")], str(checker.loops))
+    spec, checker, _ = run("no idea", Graph())
+    check("an unusable proposal is a failed attempt, not an error", not checker.loops and spec.get("method") != "aeneas:loop",
+          str(spec)[:200])
+    spec, checker, _ = run(good, Graph(), loop_proves=False)
+    check("a proposal that does not check leaves the spec unproved by this layer",
+          len(checker.loops) == 1 and spec.get("method") != "aeneas:loop", str(spec)[:200])
+
+
+def run_static_last_round():
+    print("=== static: the last generation round ===")
+    import synth
+    import strategies
+
+    class LLM:
+        def __init__(self):
+            self.focus, self.raw = [], []
+
+        def generate_specs(self, *a, **k):
+            self.focus.append(k.get("focus", ""))
+            return [{"name": "s", "stmt": "S", "status": "pending", "method": ""}] if k.get("focus") else []
+
+        def generate_specs_raw(self, prompt):
+            self.raw.append(prompt)
+            return []
+
+        def _ask(self, prompt):
+            return ""
+    old = (synth.validate, strategies.generate_failure_freedom)
+    synth.validate = lambda specs, *a, **k: [dict(x, status="unproved") for x in specs]  # type: ignore[assignment]
+    strategies.generate_failure_freedom = lambda *a, **k: []  # type: ignore[assignment]
+    try:
+        results = {}
+        for source in ("rust-aeneas", None):
+            llm = LLM()
+            synth.synthesize("import Aeneas\n", [], ["T"], llm, _StubChecker(), func_name="f",
+                             func_source="def f (x : Std.U32) : Result Std.U32 := ok x", source=source, project_dir="/p")
+            results[source] = llm
+    finally:
+        synth.validate, strategies.generate_failure_freedom = old
+    rust = results["rust-aeneas"]
+    check("on the Rust track the last round asks through the spec prompt, with its Hoare-triple rules",
+          any("Hoare triple on its own call" in f and "about f itself" in f for f in rust.focus) and not rust.raw,
+          f"{rust.focus} {rust.raw}"[:300])
+    check("the Lean-native track keeps its own last-round prompt", bool(results[None].raw), str(results[None].raw)[:200])
+
+
+TO_LIST = ("@[simp] def lss_hp_toList_0000beef {T : Type} : NoNestedBorrows.List T → _root_.List T\n"
+           "  | .Cons x tl => x :: lss_hp_toList_0000beef tl\n  | .Nil => []")
+NTH_SPEC = ("∀ {T : Type} (l : NoNestedBorrows.List T) (i : Std.U32), i.val < (lss_hp_toList_0000beef l).length → "
+            "list_nth_mut l i ⦃ r => (lss_hp_toList_0000beef l)[i.val]? = some r.1 ∧ "
+            "∀ x', lss_hp_toList_0000beef (r.2 x') = (lss_hp_toList_0000beef l).set i.val x' ⦄")
+REV_SPEC = ("∀ {T : Type} (li lo : NoNestedBorrows.List T), list_rev_aux li lo ⦃ r => "
+            "lss_hp_toList_0000beef r = (lss_hp_toList_0000beef li).reverse ++ lss_hp_toList_0000beef lo ⦄")
+REV_FALSE = ("∀ {T : Type} (li lo : NoNestedBorrows.List T), list_rev_aux li lo ⦃ r => "
+             "lss_hp_toList_0000beef r = lss_hp_toList_0000beef li ⦄")
+ZERO_PAST_END = ("∀ (x : alloc.vec.Vec Std.U32) (i : Std.Usize), alloc.vec.Vec.len x ≤ i.val → "
+                 "zero_loop x i ⦃ r => r = x ⦄")
+
+
+def run_full_suite():
+    """recursive data and loops, on the suite's own crates (read-only)."""
+    print("=== full: recursive data and loops ===")
+    import lean
+    import lean_server
+    import lss_config
+    suite = os.path.expanduser("~/rust_suite")
+    checker = lean.LeanChecker()
+    nnb, tut = os.path.join(suite, "NoNestedBorrows"), os.path.join(suite, "Tutorial")
+    if not (os.path.isdir(nnb) and os.path.isdir(tut)):
+        check(f"{nnb} and {tut} exist", False, "not a directory")
+        return
+    ok, errs = checker.ensure_helpers(nnb, TO_LIST)
+    check("the helper is defined in the crate's env", ok, str(errs)[:300])
+    smuggled = [
+        ("a command indented inside a helper's block",
+         "@[simp] def lss_hp_bad_00000001 : Nat := 0\n  attribute [simp] Nat.add_comm"),
+        ("an axiom indented inside a helper's block",
+         "@[simp] def lss_hp_bad_00000002 : Nat := 0\n  axiom lss_bad_ax : False"),
+        ("a helper defined by sorry", "@[simp] def lss_hp_bad_00000003 : Nat := sorry"),
+        ("a helper whose name is not a helper's", "@[simp] def my_length_00000004 : Nat := 0"),
+        # named and unmodified like a helper, so only the definitions-only rule rejects it
+        ("a theorem among a spec's helpers",
+         "@[simp] def lss_hp_bad_00000005 : Nat := 0\n  theorem lss_hp_bad_00000006 : 1 = 1 := rfl"),
+        # a definition named like a helper whose only fault is its modifier
+        ("an unsafe definition among a spec's helpers",
+         "@[simp] def lss_hp_bad_00000007 : Nat := 0\n  unsafe def lss_hp_bad_00000008 : Nat := 0"),
+        ("a partial definition among a spec's helpers",
+         "@[simp] def lss_hp_bad_00000009 : Nat := 0\n  partial def lss_hp_bad_00000010 (n : Nat) : Nat := lss_hp_bad_00000010 n"),
+        ("a definition with an attribute of its own among a spec's helpers",
+         "@[simp] def lss_hp_bad_00000011 : Nat := 0\n  @[implemented_by lss_hp_bad_00000011] def lss_hp_bad_00000012 : Nat := 1"),
+    ]
+    server = lean_server.get_server(lss_config.project_dir("aeneas"))
+    for label, text in smuggled:
+        ok, errs = checker.ensure_helpers(nnb, text)
+        known = checker._aeneas_env[nnb]["helpers"]
+        names = re.findall(r"(?:def|theorem) (\S+)", text)
+        # in Lean itself: the command, then a check of its first definition, in the crate's env
+        r = server.check(lean.helpers_command(text) + f"#check @{names[0]}\n", timeout=120,
+                         env=checker._aeneas_env[nnb]["env"])
+        # the pinned Lean writes "Unknown identifier `x`" (older ones "unknown identifier 'x'")
+        undefined = any(("unknown identifier" in e.lower() or "unknown constant" in e.lower()) and names[0] in e
+                        for e in lean._errors((r.stdout or "") + (r.stderr or "")))
+        check(f"{label} is rejected and nothing of it is kept", not ok and not any(n in known for n in names)
+              and undefined, f"{ok} {str(errs)[:200]} {list(known)} undefined={undefined}")
+    pr = checker.try_aeneas(NTH_SPEC, "list_nth_mut", nnb, candidate_id="suite_nth_after_rejects")
+    check("the crate's env still proves through the accepted helper after the rejections", pr.proved, pr.error[:300])
+    pr = checker.try_aeneas(NTH_SPEC, "list_nth_mut", nnb, candidate_id="suite_nth")
+    check("a spec through a helper on a recursive list function is proved", pr.proved, pr.error[:300])
+    pr = checker.try_aeneas(REV_SPEC, "list_rev_aux", nnb, candidate_id="suite_rev")
+    check("an accumulator recursion is proved through the induction step* does itself", pr.proved, pr.error[:300])
+    pr = checker.try_aeneas(REV_FALSE, "list_rev_aux", nnb, candidate_id="suite_rev_false")
+    check("a false spec through a helper is not proved", not pr.proved, pr.method)
+    pr = checker.try_aeneas(ZERO_PAST_END, "zero_loop", tut, candidate_id="suite_zero_end")
+    check("a loop's exit-case spec is proved by opening loop once", pr.proved and pr.method == "aeneas:e",
+          f"{pr.method} {pr.error[:300]}")
+    zero = "∀ (x : alloc.vec.Vec Std.U32) (i : Std.Usize), zero_loop x i ⦃ r => r.length = x.length ⦄"
+    measure, inv = "fun s => s.1.length - s.2.val", "fun s => s.1.length = x.length"
+    pr = checker.try_loop(zero, "zero_loop", tut, measure, inv, candidate_id="suite_zero_len")
+    check("a loop spec is proved from a measure and an invariant", pr.proved and pr.method == "aeneas:loop",
+          pr.error[:300])
+    pr = checker.try_loop(zero.replace("⦄", "⦄div"), "zero_loop", tut, measure, inv, candidate_id="suite_zero_div")
+    check("a loop's ⦄div spec is proved from the same measure and invariant", pr.proved, pr.error[:300])
+    before = len(checker._aeneas_env[tut]["admitted"])
+    pr = checker.try_loop(zero, "zero_loop", tut, measure, "fun s => s.1.length = 0", candidate_id="suite_zero_bad")
+    check("a wrong invariant is not proved and nothing is admitted",
+          not pr.proved and len(checker._aeneas_env[tut]["admitted"]) == before, pr.method)
+    lean_server.shutdown_all()
+
+
 if static:
+    run_static_helpers()  # first: run_static replaces gate.check_candidate for the rest of the file
     run_static()
+    run_static_loop_request()
+    run_static_last_round()
 else:
     run_full()
+    run_full_suite()
 
 if fails:
     print(f"\n{len(fails)} FAILURE(S): {fails}")
