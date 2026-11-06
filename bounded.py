@@ -629,6 +629,10 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     if ev is None:
         return {"status": "timeout" if why == "timeout" else "skipped", "detail": why}
     kind, outs = ev["kind"], ev["rows"]
+    # the plan decided the postcondition, so a row whose value it cannot decide is an
+    # error, never a row that neither fits nor fails (which would pass with no witness)
+    outs = [{"outcome": "error", "detail": "the postcondition is not decided at this input"}
+            if decided and r["outcome"] == "unknown" else r for r in outs]
     errors = [r for r in outs if r["outcome"] == "error"]
     if len(errors) == len(outs):
         return {"status": "skipped", "detail": errors[0].get("detail", "")[:300]}

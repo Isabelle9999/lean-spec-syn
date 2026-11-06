@@ -332,6 +332,8 @@ def run_static_check():
                         plan=undecided))
     check("an undecided postcondition never passes and is never called vacuous",
           v["status"] == "not_evaluated" and "not Decidable" in v["detail"], str(v))
+    v = _check(FakeLean(lambda r: {"outcome": "unknown", "value": ""}))
+    check("a postcondition the plan decided but no row can is an error, never a pass", v["status"] == "skipped", str(v))
     v = _check(FakeLean(lambda r: {"outcome": "div", "value": ""}))
     check("divergence refutes a ⦃ ⦄ spec", v["status"] == "refuted", str(v))
     v = _check(FakeLean(lambda r: {"outcome": "div", "value": ""}), stmt="div S")
