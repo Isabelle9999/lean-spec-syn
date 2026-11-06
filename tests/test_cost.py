@@ -421,6 +421,9 @@ def run_static_context():
           bool(sent) and "succeeds (it neither fails nor runs forever)" in sent[0]
           and "state as\nhypotheses what the inputs need for it to succeed" in sent[0]
           and "if `f args` succeeds" not in sent[0], (sent or [""])[0][-1500:])
+    check("the Rust prompt shows a helper definition and says it calls no crate function",
+          bool(sent) and "def toList {T : Type}" in sent[0] and "never a crate\n  function" in sent[0]
+          and "(toList l)[i.val]?" in sent[0], (sent or [""])[0][-1500:])
 
 
 def run_static_report():
