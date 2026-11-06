@@ -54,6 +54,21 @@
 
 /-- one evaluated run, as text python splits on the first tab: the outcome, then
 the encoded `ok` value or the `fail` error. -/
+-- a scalar operator is an unnamed instance whose field is the named operation, so
+-- `simp [UScalar.add]` never matches `x + y`; these say so for scalars only (as
+-- Aeneas's own proofs do, Std/Scalar/Ops/Add.lean: `have : x + y = add x y := by rfl`),
+-- leaving Nat arithmetic alone. the kernel refutation's evaluation uses them.
+theorem lss_eval_uadd {ty} (x y : Aeneas.Std.UScalar ty) : x + y = Aeneas.Std.UScalar.add x y := rfl
+theorem lss_eval_usub {ty} (x y : Aeneas.Std.UScalar ty) : x - y = Aeneas.Std.UScalar.sub x y := rfl
+theorem lss_eval_umul {ty} (x y : Aeneas.Std.UScalar ty) : x * y = Aeneas.Std.UScalar.mul x y := rfl
+theorem lss_eval_udiv {ty} (x y : Aeneas.Std.UScalar ty) : x / y = Aeneas.Std.UScalar.div x y := rfl
+theorem lss_eval_urem {ty} (x y : Aeneas.Std.UScalar ty) : x % y = Aeneas.Std.UScalar.rem x y := rfl
+theorem lss_eval_iadd {ty} (x y : Aeneas.Std.IScalar ty) : x + y = Aeneas.Std.IScalar.add x y := rfl
+theorem lss_eval_isub {ty} (x y : Aeneas.Std.IScalar ty) : x - y = Aeneas.Std.IScalar.sub x y := rfl
+theorem lss_eval_imul {ty} (x y : Aeneas.Std.IScalar ty) : x * y = Aeneas.Std.IScalar.mul x y := rfl
+theorem lss_eval_idiv {ty} (x y : Aeneas.Std.IScalar ty) : x / y = Aeneas.Std.IScalar.div x y := rfl
+theorem lss_eval_irem {ty} (x y : Aeneas.Std.IScalar ty) : x % y = Aeneas.Std.IScalar.rem x y := rfl
+
 def lssOutcome {α : Type u} (m : Aeneas.Std.Result α) (p : α → Bool) (enc : α → String) : String :=
   match m with
   | .ok r => (if p r then "holds\t" else "violates\t") ++ enc r

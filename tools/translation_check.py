@@ -664,26 +664,23 @@ def lean_literal(T, value, self_T=None, short=False):
     if kind == "int":
         n = int(value)
         lit = f"({n})" if n < 0 else str(n)
-        # Usize/Isize are platform-width scalars. ofNat/ofInt's default proof
-        # obligation is x <= cMax, which for Usize/Isize is deliberately the
-        # *conservative* (32-bit) bound, not the actual platform width -- so
-        # it rejects any in-range value above U32/I32's max on a 64-bit
-        # platform. ofNatCore/ofIntCore's own obligation (x < 2^numBits) is
-        # the real platform bound; proving that symbolically needs to case
-        # split on System.Platform.numBits_eq (32 or 64), and the 32-bit case
-        # is then genuinely false for a value that only fits in 64 bits, so
-        # native_decide (which runs the check instead of reasoning about it)
-        # is what actually resolves it on this (64-bit) platform.
+        # Usize/Isize are platform-width scalars. n#usize / n#isize (ofNat/ofInt)
+        # carry the conservative 32-bit bound, which decide proves on any platform,
+        # so every value that fits in 32 bits is written that way: the kernel can
+        # check it. a wider value exists only on a 64-bit platform: ofNatCore /
+        # ofIntCore's real bound (x < 2^numBits) holds there and fails in the 32-bit
+        # case of System.Platform.numBits_eq, so native_decide resolves it, which
+        # evaluation accepts and the kernel check does not.
         if short:
             return f"{lit}#{LEAN_SCALAR_SUFFIX[T[1]]}"
-        if T[1] == "Std.Usize":
+        if T[1] == "Std.Usize" and not 0 <= n < 2 ** 32:
             return (f"(Usize.ofNatCore {lit} (by first | "
-                     f"(simp [Usize.numBits]; cases System.Platform.numBits_eq <;> simp_all; done) | "
-                     f"native_decide))")
-        if T[1] == "Std.Isize":
+                    f"(simp [Usize.numBits]; cases System.Platform.numBits_eq <;> simp_all; done) | "
+                    f"native_decide))")
+        if T[1] == "Std.Isize" and not -2 ** 31 <= n < 2 ** 31:
             return (f"(Isize.ofIntCore {lit} (by first | "
-                     f"(simp [Isize.numBits]; cases System.Platform.numBits_eq <;> simp_all; done) | "
-                     f"native_decide))")
+                    f"(simp [Isize.numBits]; cases System.Platform.numBits_eq <;> simp_all; done) | "
+                    f"native_decide))")
         suf = LEAN_SCALAR_SUFFIX[T[1]]
         return f"{lit}#{suf}"
     if kind == "tuple":

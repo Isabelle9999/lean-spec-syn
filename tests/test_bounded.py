@@ -157,16 +157,65 @@ def run_static_commands():
                                   [5, True], "violates", '"6"')
     check("refutation applies every binder explicitly, in order: the type, the instance, the class "
           "instance, the law by lss_law_tac, the witness, a defined binder by unification, a hypothesis by decide",
-          "(@h (Aeneas.Std.I32) (C.I32.Insts.Ord) (inferInstance) (by lss_law_tac [C.I32.Insts.Ord]) (true) (5#u32) _ "
-          "(by first | rfl | decide | simp_all | omega))" in ref, ref)
-    check("refutation computes the call's value without restating it",
-          "have hv : (Aeneas.Std.Result.ok y : Aeneas.Std.Result _) = Aeneas.Std.Result.ok (6#u32) := "
-          "hy.symm.trans (by first | rfl | decide)" in ref, ref)
-    check("refutation of a violated postcondition decides it", ref.endswith("first | decide | simp | omega"))
+          "fun lss_x0 lss_x1 lss_x2 lss_x3 => Aeneas.Std.WP.spec_imp_exists (@h (Aeneas.Std.I32) (C.I32.Insts.Ord) "
+          "(inferInstance) (by lss_law_tac [C.I32.Insts.Ord]) lss_x0 lss_x1 lss_x2 lss_x3)" in ref
+          and "obtain ⟨y, hy, hp⟩ := lss_h (true) (5#u32) _ (by first | rfl | decide | simp_all | omega)" in ref, ref)
+    check("refutation applies the statement to variables and only then to the witness, so the elaborator never "
+          "reduces the triple at the witness (which evaluates the call in unary arithmetic)",
+          "(@h " in ref and "#u32" not in ref.split("(@h ", 1)[1].split("\n", 1)[0], ref)
+    check("refutation first computes the call's value without restating it, then states it for rfl or decide",
+          "first | (revert y; (iterate " in ref and ") | (have hv : (Aeneas.Std.Result.ok y : Aeneas.Std.Result _) = "
+          "Aeneas.Std.Result.ok (6#u32) := hy.symm.trans (by first | rfl | decide); cases hv" in ref, ref)
+    check("the evaluation is closed off from what follows it (iterate takes a tactic sequence), and must close the "
+          "goal before the stated value is tried",
+          "]))); (all_goals (first | decide | omega)); done) | (have hv" in ref, ref)
+    check("refutation of a violated postcondition decides it",
+          ref.endswith("(all_goals (first | decide | omega)); done) | (have hv : (Aeneas.Std.Result.ok y : Aeneas.Std.Result _) "
+                       "= Aeneas.Std.Result.ok (6#u32) := hy.symm.trans (by first | rfl | decide); cases hv; revert hp; "
+                       "first | decide | simp | omega)"), ref[-200:])
+    tac = bounded.eval_tactic(["f", "f_loop", "f_loop.body"])
+    check("the refutation unrolls loop one step at a time and never hands its equation to simp",
+          "(try rw [Aeneas.Std.loop])" in tac and "simp [f, f_loop, f_loop.body, " in tac
+          and all("Aeneas.Std.loop" not in part.split("]", 1)[0] for part in tac.split("simp [")[1:]), tac)
+    check("the evaluation turns scalar operators into Aeneas's operations by lemmas typed at scalars, never by "
+          "unfolding the operator classes (which would rewrite Nat arithmetic too)",
+          "lss_eval_uadd" in tac and "lss_eval_urem" in tac and "Aeneas.Std.UScalar.tryMk" in tac
+          and not any(c in tac for c in ("HAdd.hAdd", "HMod.hMod", "HDiv.hDiv")), tac)
+    import callgraph
+    text = "\n".join(f"line{i}" for i in range(1, 10))
+    units = [{"name": n, "callees": c, "generic": False, "range": [i + 1, i + 1], "no_eqn": False}
+             for i, (n, c) in enumerate([("C.f", ["C.f_loop"]), ("C.f_loop", ["C.f_loop.body"]),
+                                         ("C.f_loop.body", ["C.g", "C.h"]), ("C.g", []), ("C.h", []), ("C.other", [])])]
+    info = {"C.h": {"is_opaque": True}}
+    g = callgraph.CallGraph(text, units, manifest_info=info)
+    g.crate = "C"
+    old_fp = callgraph.for_project
+    callgraph.for_project = lambda p: g
+    try:
+        names = bounded.unfold_names("/p", "f_loop")
+    finally:
+        callgraph.for_project = old_fp
+    check("the unfold list of a loop unit holds the unit, its callees and each loop's body, and nothing outside "
+          "the call graph", names == ["C.f_loop", "C.f_loop.body", "C.g"], str(names))
     ref = bounded.refutation_text("rf", "S", [{"k": "arg", "i": 0}], [], [U32], U32, [0], "fail",
                                   "Aeneas.Std.Error.integerOverflow")
     check("refutation of a failing call needs only the constructor clash",
-          ref.endswith("cases hv") and "Result.fail Aeneas.Std.Error.integerOverflow" in ref, ref)
+          ref.endswith("cases hv)") and "Result.fail Aeneas.Std.Error.integerOverflow" in ref
+          and "obtain ⟨y, hy, hp⟩ := lss_h (0#u32)\n" in ref, ref)
+    ref = bounded.refutation_text("rf", "S", [{"k": "type", "v": "Aeneas.Std.U32"}], [], [], U32, [], "fail",
+                                  "Aeneas.Std.Error.integerOverflow")
+    check("a refutation with no witness applies the statement directly",
+          "obtain ⟨y, hy, hp⟩ := Aeneas.Std.WP.spec_imp_exists (@h (Aeneas.Std.U32))" in ref and "lss_h" not in ref, ref)
+    usz, isz = ("int", "Std.Usize"), ("int", "Std.Isize")
+    check("the kernel literal of a Usize or Isize that fits in 32 bits is n#usize / n#isize, whose bound decide "
+          "proves on any platform",
+          [tc.lean_literal(usz, v) for v in (0, 2 ** 32 - 1)] == ["0#usize", "4294967295#usize"]
+          and [tc.lean_literal(isz, v) for v in (-2 ** 31, 2 ** 31 - 1)] == ["(-2147483648)#isize", "2147483647#isize"],
+          str([tc.lean_literal(usz, 0), tc.lean_literal(isz, -2 ** 31)]))
+    check("a wider Usize or Isize keeps the platform bound",
+          tc.lean_literal(usz, 2 ** 32).startswith("(Usize.ofNatCore 4294967296 ")
+          and tc.lean_literal(isz, -2 ** 31 - 1).startswith("(Isize.ofIntCore (-2147483649) "),
+          tc.lean_literal(usz, 2 ** 32))
 
 
 def _plan(free=None, ret=None, binders=None, insts=None):
@@ -243,8 +292,9 @@ def run_static_check():
     check("feedback writes a Usize as n#usize, never Usize.ofNatCore",
           "n := 3#usize" in v.get("feedback", "") and "ofNatCore" not in v.get("feedback", ""), v.get("feedback"))
     check("feedback writes a Vec as a list literal", "v := [2#u32]" in v.get("feedback", ""), v.get("feedback"))
-    check("the kernel refutation still writes the full Usize literal",
-          bool(fake.sent) and "Usize.ofNatCore 3" in fake.sent[-1], fake.sent[-1][-300:] if fake.sent else "")
+    check("the kernel refutation writes a Usize that fits in 32 bits as n#usize, a literal the kernel accepts",
+          bool(fake.sent) and "(3#usize)" in fake.sent[-1] and "native_decide" not in fake.sent[-1].split("lss_h ")[-1],
+          fake.sent[-1][-300:] if fake.sent else "")
     gen = _plan(binders=[{"k": "type", "v": "Aeneas.Std.U32", "name": "T"}, {"k": "arg", "i": 0}])
     v = _check(FakeLean(lambda r: {"outcome": "violates", "value": '"1"'}, plan=gen))
     check("a generic spec's refutation says at which instantiation",
@@ -252,6 +302,7 @@ def run_static_check():
           and v["instantiation"] == "T := Aeneas.Std.U32", str(v))
     v = _check(FakeLean(lambda r: {"outcome": "violates", "value": '"1"'}, kernel=False))
     check("a refutation the kernel does not check is evaluation-only", v["status"] == "refuted" and v["kernel"] is False)
+    check("and the verdict keeps why the kernel did not check it", bool(v.get("kernel_why")), str(v))
     v = _check(FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.integerOverflow"}))
     check("a spec whose call fails is refuted", v["status"] == "refuted" and v["outcome"] == "fail", str(v))
     check("its feedback says the triple claims success and asks for the precondition that gives it",
@@ -603,6 +654,7 @@ def run_full():
           v["status"] == "refuted" and len(v.get("witness", [[]])[0]) == 2, str(v))
 
     run_planted(checker)
+    run_suite_refutations(checker)
 
     # a diverging evaluation: the server times out, restarts, and the next check works
     state = checker._aeneas_env_for(rust_dir)
@@ -622,6 +674,29 @@ def run_full():
         v = bounded.check_spec(checker, "∀ (value : Std.U32), identity value ⦃ r => r = value ⦄", "identity", rust_dir)
         check("after the timeout the crate env is rebuilt and checks still run", v["status"] == "pass", str(v))
     lean_server.shutdown_all()
+
+
+def run_suite_refutations(checker):
+    """kernel refutations that evaluate the call: a recursive function, a loop, plain
+    arithmetic. on the suite's own crates, read-only."""
+    print("=== full: kernel refutations that evaluate the call ===")
+    suite = os.path.expanduser("~/rust_suite")
+    for crate, unit, stmt, title in [
+            ("NoNestedBorrows", "list_nth_mut",
+             "∀ {T : Type} (l : NoNestedBorrows.List T) (i : Std.U32), list_nth_mut l i ⦃ _ => True ⦄",
+             "a recursive function's failing call is refuted by the kernel"),
+            ("AeneasStandalone", "hashmap.HashMap.move_elements_loop",
+             "∀ {T : Type} (ntable : hashmap.HashMap T) (slots : alloc.vec.Vec (hashmap.AList T)) (i : Std.Usize), "
+             "hashmap.HashMap.move_elements_loop ntable slots i ⦃ _ => True ⦄",
+             "a loop's failing call is refuted by the kernel"),
+            ("Tutorial", "mul2_add1", "∀ (x : Std.U32), mul2_add1 x ⦃ _ => True ⦄",
+             "an arithmetic overflow is refuted by the kernel")]:
+        d = os.path.join(suite, crate)
+        if not os.path.isdir(d):
+            check(f"{d} exists", False, "not a directory")
+            continue
+        v = bounded.check_spec(checker, stmt, unit, d)
+        check(title, v["status"] == "refuted" and v.get("kernel") is True, str(v)[:400])
 
 
 PLANTED_TYPES = """-- hand-written in the shape Aeneas generates, for LSS's tests
