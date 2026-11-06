@@ -1,4 +1,5 @@
 import json
+import re
 import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -567,8 +568,7 @@ def run_static_preamble():
     synth._gate.check_candidate = lambda *a, **k: (_ for _ in ()).throw(StopIteration)
     try:
         synth.validate([{"name": "s", "stmt": "S", "preamble": "def helper (x : U32) : Prop := ext x = x"}],
-                       "import Aeneas\nimport C.Code.Funs\n", [], Checker(), func_name="f", project_dir="/p",
-                       source="rust-aeneas")
+                       "import Mathlib\n", [], Checker(), func_name="f", project_dir="/p", source=None)
     except StopIteration:
         pass
     finally:
@@ -576,6 +576,54 @@ def run_static_preamble():
     check("helper definitions sit in their own noncomputable section, closed after them",
           bool(seen) and seen[0].endswith("noncomputable section\ndef helper (x : U32) : Prop := ext x = x\nend"),
           str(seen)[-200:])
+
+    pre = ("def toList {T : Type} : C.List T → _root_.List T\n  | .Cons x tl => x :: toList tl\n  | .Nil => []\n\n"
+           "theorem other : True := trivial\n")
+    stmt = "∀ {T : Type} (l : C.List T), f l ⦃ r => r = (toList l).length ⦄"
+    helpers, renamed = synth.rust_helpers(pre, stmt)
+    name = re.search(r"def (lss_hp_toList_[0-9a-f]{8}) ", helpers)
+    check("a Rust helper is renamed by its text's hash, in the helper and in the statement",
+          bool(name) and helpers.startswith("@[simp] def ") and f":: {name.group(1)} tl" in helpers
+          and f"({name.group(1)} l)" in renamed and "toList l" not in renamed.replace(name.group(1), ""), helpers + renamed)
+    check("two specs with the same helper share one name", synth.rust_helpers(pre, "x")[0] == helpers)
+    copied, st = synth.rust_helpers(helpers + "\n\nabbrev twice (n : Nat) : Nat := 2 * n\n",
+                                    f"f l ⦃ r => twice ({name.group(1) if name else 'x'} l).length = r ⦄")
+    check("a helper copied from a callee's spec keeps its name, and an abbrev is a helper too",
+          bool(name) and copied.startswith(helpers) and "@[simp] def lss_hp_twice_" in copied
+          and st.startswith("f l ⦃ r => lss_hp_twice_"), copied + st)
+    check("a Rust spec keeps only the helper definitions, @[simp] and outside any noncomputable section",
+          "theorem other" not in helpers and "noncomputable" not in helpers, helpers)
+    seen.clear()
+    got = {}
+    Checker.ensure_helpers = lambda self, project_dir, text: (seen.append(text), (True, []))[1]  # type: ignore[attr-defined]
+    synth._gate.check_candidate = lambda checker, text, func, eff, *a, **k: got.setdefault("eff", eff) and (
+        _ for _ in ()).throw(StopIteration)
+    try:
+        spec = {"name": "s", "stmt": stmt, "preamble": pre}
+        synth.validate([spec], "import Aeneas\nimport C.Code.Funs\n", [], Checker(), func_name="f",
+                       project_dir="/p", source="rust-aeneas")
+    except StopIteration:
+        pass
+    finally:
+        synth._gate.check_candidate = old_gate
+    check("a Rust helper is defined in the crate's env, never checked against the crate's imports",
+          seen == [helpers], str(seen)[-300:])
+    check("a Rust spec carries its helpers and the renamed statement",
+          spec.get("helpers") == helpers and spec["stmt"] == renamed, str(spec))
+
+    class Bad(Checker):
+        def ensure_helpers(self, project_dir, text):
+            return False, ["error: unknown identifier"]
+    synth._gate.check_candidate = lambda *a, **k: (_ for _ in ()).throw(StopIteration)
+    try:
+        spec = {"name": "s", "stmt": stmt, "preamble": pre}
+        synth.validate([spec], "import Aeneas\n", [], Bad(), func_name="f", project_dir="/p", source="rust-aeneas")
+    except StopIteration:
+        pass
+    finally:
+        synth._gate.check_candidate = old_gate
+    check("a helper that does not elaborate is dropped and the spec goes on without it",
+          "helpers" not in spec and spec["stmt"] == stmt, str(spec))
 
 
 def run_static_with_proof():

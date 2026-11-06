@@ -648,7 +648,7 @@ class LeanChecker:
         if not ok:
             errs = _errors(combined)
             print(f"  aeneas env build failed: {(errs[0] if errs else combined.strip())[:200]}")
-        state = {"env": r.new_env, "env0": r0.new_env, "crate": g.crate, "admitted": [], "active": {},
+        state = {"env": r.new_env, "env0": r0.new_env, "crate": g.crate, "admitted": [], "active": {}, "helpers": {},
                  "restarts": server.stats()["restarts"], "ok": ok, "error": combined[:300]}
         self._aeneas_env[project_dir] = state
         return state
@@ -662,12 +662,40 @@ class LeanChecker:
         if state is None:
             return self._aeneas_build_env(project_dir)
         if state["restarts"] != server.stats()["restarts"]:
-            admitted = state["admitted"]
+            admitted, helpers = state["admitted"], state.get("helpers", {})
             state = self._aeneas_build_env(project_dir)
             if state["ok"]:
+                if helpers:
+                    self.ensure_helpers(project_dir, "\n\n".join(helpers.values()), state)
                 for name, stmt, tactic, unit in admitted:
                     self._aeneas_admit(project_dir, state, name, stmt, tactic, unit)
         return state
+
+    def ensure_helpers(self, project_dir, text, state=None):
+        """define a Rust spec's helpers (synth.rust_helpers: `@[simp] def lss_hp_...`
+        blocks, named by their text) in the crate's env, each once: a later spec with
+        the same helper finds it there, and a rebuilt env defines them again. returns
+        (ok, errors)."""
+        state = state or self._aeneas_env_for(project_dir)
+        if not state["ok"]:
+            return False, [state["error"][:200]]
+        blocks = [b for b in re.split(r"\n(?=@\[simp\] def )", text.strip()) if b.strip()]
+        new = []
+        for b in blocks:
+            m = re.match(r"@\[simp\] def (\S+)", b)
+            if m and m.group(1) not in state["helpers"]:
+                new.append((m.group(1), b.strip()))
+        if not new:
+            return True, []
+        server = _lean_server.get_server(_lss_config.project_dir("aeneas"))
+        r = server.check("\n\n".join(b for _, b in new), timeout=120, env=state["env"])
+        self.lean_calls += 1
+        errs = _errors((r.stdout or "") + (r.stderr or ""))
+        if r.rc != 0 or r.new_env is None or errs:
+            return False, errs or [((r.stderr or "") + (r.stdout or "")).strip()[:200]]
+        state["env"] = r.new_env
+        state["helpers"].update(new)
+        return True, []
 
     def _aeneas_admit(self, project_dir, state, name, stmt, tactic, unit):
         """extend the crate's env once with the winning proof, @[step]-registered.

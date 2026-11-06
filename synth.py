@@ -3,6 +3,7 @@ import json
 import os
 import time
 import hashlib
+import itertools
 import anthropic
 from lean import _errors, run_in_project, ProofResult, TACTICS, check_proof, MIN_TRY
 from strategies import generate_from_examples, generate_from_negatives, generate_with_proof, theorems, normalize_call
@@ -1331,6 +1332,47 @@ def _verdict(spec, **fields):
     events.emit("verdict", stmt=spec["stmt"], **fields)
 
 
+_DEF_START = re.compile(r"^(?:@\[[^\]]*\]\s*)?(?:(?:private|protected|noncomputable)\s+)*(?:def|abbrev)\s+([^\s:({\[]+)", re.M)
+_HELPER_NAME = re.compile(r"^lss_hp_\w+_[0-9a-f]{8}$")
+
+
+def rust_helpers(preamble, stmt):
+    """(helpers, stmt) for a Rust spec: the preamble's `def` blocks only, each named
+    `lss_hp_<name>_<8 hex of its text's sha256>` in every helper and in the statement,
+    so two specs with the same helper share one name and two different ones never
+    clash in the crate's env, and each tagged @[simp], as Aeneas's tutorial tags its
+    toList, so simp unfolds it in proofs. they stay computable: the bounded check
+    evaluates them."""
+    starts = [m for m in _DEF_START.finditer(preamble or "")]
+    blocks = []
+    for i, m in enumerate(starts):
+        end = starts[i + 1].start() if i + 1 < len(starts) else len(preamble)
+        text = preamble[m.start():end]
+        # a block ends at the first later top-level line that is no part of it
+        lines = text.splitlines()
+        keep = [lines[0]] + list(itertools.takewhile(
+            lambda ln: not ln.strip() or ln[:1].isspace() or ln.lstrip().startswith("|"), lines[1:]))
+        blocks.append((m.group(1), "\n".join(keep).rstrip()))
+    if not blocks:
+        return "", stmt
+    names = {}
+
+    def rename(text):
+        for old, new in names.items():
+            text = re.sub(rf"(?<![\w.']){re.escape(old)}(?![\w'])", new, text)
+        return text
+    out = []
+    for n, t in blocks:
+        t = re.sub(r"^@\[[^\]]*\]\s*", "", t)
+        t = re.sub(r"^(?:(?:private|protected|noncomputable)\s+)*", "", t)
+        t = rename(t)  # the helpers before it, by their new names: the hash covers what it calls
+        if not _HELPER_NAME.match(n):  # a helper copied from a callee's spec keeps its name
+            names[n] = f"lss_hp_{re.sub(r'[^A-Za-z0-9_]', '_', n)}_{hashlib.sha256(t.encode('utf-8')).hexdigest()[:8]}"
+        t = re.sub(r"^abbrev\s", "def ", t)
+        out.append("@[simp] " + rename(t))
+    return "\n\n".join(out), rename(stmt)
+
+
 def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=None, verbose=False, debug_dir=None, project_dir=None, func_source=None, source=None):
     func = func_name or _func_name(lean_code)
 
@@ -1353,6 +1395,17 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                     continue
                 processed_stmts.add(stmt_norm)
                 preamble = spec.get("preamble", "")
+                if preamble and _gate.is_rust(source):
+                    # a Rust spec's helpers: named by their text, @[simp], computable, and
+                    # defined once in the crate's env, after the crate is opened
+                    helpers, stmt_h = rust_helpers(preamble, spec["stmt"])
+                    preamble = ""
+                    if helpers:
+                        ok_pre, errs_pre = lean_checker.ensure_helpers(project_dir, helpers)
+                        if ok_pre:
+                            spec["helpers"], spec["stmt"] = helpers, stmt_h
+                        elif verbose:
+                            print(f"  [pre] {spec['name']}: helper typecheck FAIL: {errs_pre[0][:80] if errs_pre else 'unknown'}")
                 if preamble:
                     preamble_clean = "\n".join(
                         line for line in preamble.split("\n")
@@ -1373,6 +1426,7 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                             preamble = preamble_clean
                     else:
                         preamble = ""
+                # a Rust spec's helpers are already in its crate's env, where its text runs
                 eff = lean_code.rstrip() + "\n" + preamble if preamble else lean_code
 
                 # gate 1: well-formedness gate (shape, vocabulary, decidability -
