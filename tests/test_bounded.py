@@ -164,16 +164,17 @@ def run_static_commands():
     check("refutation applies the statement to variables and only then to the witness, so the elaborator never "
           "reduces the triple at the witness (which evaluates the call in unary arithmetic)",
           "(@h " in ref and "#u32" not in ref.split("(@h ", 1)[1].split("\n", 1)[0], ref)
-    check("refutation first computes the call's value without restating it, then states it for rfl or decide",
-          "first | (revert y; (iterate " in ref and ") | (have hv : (Aeneas.Std.Result.ok y : Aeneas.Std.Result _) = "
-          "Aeneas.Std.Result.ok (6#u32) := hy.symm.trans (by first | rfl | decide); cases hv" in ref, ref)
-    check("the evaluation is closed off from what follows it (iterate takes a tactic sequence), and must close the "
-          "goal before the stated value is tried",
-          "]))); (all_goals (first | decide | omega)); done) | (have hv" in ref, ref)
+    stated = bounded.refutation_text("rf", "S", binders, ["C.I32.Insts.Ord"], [U32, ("bool",)], U32,
+                                     [5, True], "violates", '"6"', stated=True)
+    check("refutation computes the call's value without restating it, or, as a theorem of its own, states it for "
+          "rfl or decide",
+          "  revert y\n  (iterate " in ref and "hv" not in ref
+          and "  have hv : (Aeneas.Std.Result.ok y : Aeneas.Std.Result _) = Aeneas.Std.Result.ok (6#u32) := "
+          "hy.symm.trans (by first | rfl | decide)\n  cases hv\n" in stated and "iterate" not in stated, ref + stated)
+    check("the evaluation is closed off from what follows it (iterate takes a tactic sequence)",
+          ref.endswith("])))\n  all_goals (first | decide | omega)"), ref[-200:])
     check("refutation of a violated postcondition decides it",
-          ref.endswith("(all_goals (first | decide | omega)); done) | (have hv : (Aeneas.Std.Result.ok y : Aeneas.Std.Result _) "
-                       "= Aeneas.Std.Result.ok (6#u32) := hy.symm.trans (by first | rfl | decide); cases hv; revert hp; "
-                       "first | decide | simp | omega)"), ref[-200:])
+          stated.endswith("  cases hv\n  revert hp\n  first | decide | simp | omega"), stated[-200:])
     tac = bounded.eval_tactic(["f", "f_loop", "f_loop.body"])
     check("the refutation unrolls loop one step at a time and never hands its equation to simp",
           "(try rw [Aeneas.Std.loop])" in tac and "simp [f, f_loop, f_loop.body, " in tac
@@ -199,9 +200,9 @@ def run_static_commands():
     check("the unfold list of a loop unit holds the unit, its callees and each loop's body, and nothing outside "
           "the call graph", names == ["C.f_loop", "C.f_loop.body", "C.g"], str(names))
     ref = bounded.refutation_text("rf", "S", [{"k": "arg", "i": 0}], [], [U32], U32, [0], "fail",
-                                  "Aeneas.Std.Error.integerOverflow")
+                                  "Aeneas.Std.Error.integerOverflow", stated=True)
     check("refutation of a failing call needs only the constructor clash",
-          ref.endswith("cases hv)") and "Result.fail Aeneas.Std.Error.integerOverflow" in ref
+          ref.endswith("  cases hv") and "Result.fail Aeneas.Std.Error.integerOverflow" in ref
           and "obtain ⟨y, hy, hp⟩ := lss_h (0#u32)\n" in ref, ref)
     ref = bounded.refutation_text("rf", "S", [{"k": "type", "v": "Aeneas.Std.U32"}], [], [], U32, [], "fail",
                                   "Aeneas.Std.Error.integerOverflow")
@@ -253,7 +254,8 @@ class FakeLean:
     def run(self, text):
         self.sent.append(text)
         name = text.split(" name:")[1].split()[0]
-        return f'LSS_PROOF {{"name":"{name}","ok":{"true" if self.kernel else "false"},"stage":"ok","detail":"","axioms":[]}}', ""
+        ok = self.kernel(text) if callable(self.kernel) else self.kernel
+        return f'LSS_PROOF {{"name":"{name}","ok":{"true" if ok else "false"},"stage":"ok","detail":"no","axioms":[]}}', ""
 
 
 def _check(fake, stmt="S"):
@@ -303,7 +305,17 @@ def run_static_check():
           and v["instantiation"] == "T := Aeneas.Std.U32", str(v))
     v = _check(FakeLean(lambda r: {"outcome": "violates", "value": '"1"'}, kernel=False))
     check("a refutation the kernel does not check is evaluation-only", v["status"] == "refuted" and v["kernel"] is False)
-    check("and the verdict keeps why the kernel did not check it", bool(v.get("kernel_why")), str(v))
+    check("and the verdict keeps why the kernel did not check it, for each way it tried",
+          "evaluation: " in v.get("kernel_why", "") and "stated value: " in v.get("kernel_why", ""), str(v))
+    fake = FakeLean(lambda r: {"outcome": "violates", "value": '"1"'}, kernel=lambda text: "have hv" in text)
+    v = _check(fake)
+    check("when the evaluation is not kernel-checked, the stated value is tried in a theorem of its own",
+          v["kernel"] is True and len(fake.sent) == 2 and "revert y" in fake.sent[0] and "have hv" in fake.sent[1]
+          and "have hv" not in fake.sent[0], str(fake.sent)[:300])
+    fake = FakeLean(lambda r: {"outcome": "violates", "value": '"1"'})
+    v = _check(fake)
+    check("a refutation the evaluation proves is not tried again", v["kernel"] is True and len(fake.sent) == 1,
+          str(len(fake.sent)))
     v = _check(FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.integerOverflow"}))
     check("a spec whose call fails is refuted", v["status"] == "refuted" and v["outcome"] == "fail", str(v))
     check("its feedback says the triple claims success and asks for the precondition that gives it",

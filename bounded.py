@@ -431,14 +431,18 @@ def unfold_names(project_dir, unit):
     return out
 
 
-def refutation_text(name, stmt, binders, insts, arg_types, ret_type, row, outcome, value, unfold=()):
+def refutation_text(name, stmt, binders, insts, arg_types, ret_type, row, outcome, value, unfold=(),
+                    stated=False):
     """`theorem <name> : ¬ (<stmt>)` proved from the shrunk witness: instantiate the
     statement at the check's instantiation (its types, the crate's instances and their
     laws by lss_law_tac) and the witness (a defined binder by unification, the
     hypotheses by decide), then show the call fails or its value breaks the
-    postcondition: first by evaluating the call with its value left open (eval_tactic),
-    else by stating that value and letting rfl or decide compute the call (the kernel
-    unfolds what simp has no name for, such as a trait instance passed as an argument).
+    postcondition: by evaluating the call with its value left open (eval_tactic), or,
+    with `stated`, by stating that value and letting rfl or decide compute the call (the
+    kernel unfolds what simp has no name for, such as a trait instance passed as an
+    argument). check_spec tries the evaluation first and the stated value in a theorem
+    of its own: a heartbeat or recursion limit is not an error `first` can catch, so
+    one way running out must not keep the other from being tried.
     h is first applied to variables in place of the witness, its defined binders and
     its hypotheses, and that function is then applied to them: applying h to the
     literals directly leaves the triple as the application's type, which the elaborator
@@ -469,15 +473,17 @@ def refutation_text(name, stmt, binders, insts, arg_types, ret_type, row, outcom
         got = f"Aeneas.Std.Result.fail {value}"
     else:
         got = "Aeneas.Std.Result.div"
-    stated = (f"have hv : (Aeneas.Std.Result.ok y : Aeneas.Std.Result _) = {got} := hy.symm.trans (by first | rfl | decide); "
-              "cases hv" + ("; revert hp; first | decide | simp | omega" if outcome == "violates" else ""))
     lines = [f"theorem {name} : ¬ ({stmt}) := by", "  intro h"]
     if xs:
         lines += [f"  have lss_h := fun {' '.join(xs)} => {spec}",
                   f"  obtain ⟨y, hy, hp⟩ := lss_h {' '.join(given)}"]
     else:
         lines.append(f"  obtain ⟨y, hy, hp⟩ := {spec}")
-    lines += [f"  first | (revert y; {eval_tactic(unfold)}; (all_goals (first | decide | omega)); done) | ({stated})"]
+    if stated:
+        lines += [f"  have hv : (Aeneas.Std.Result.ok y : Aeneas.Std.Result _) = {got} := hy.symm.trans (by first | rfl | decide)",
+                  "  cases hv"] + (["  revert hp", "  first | decide | simp | omega"] if outcome == "violates" else [])
+    else:
+        lines += ["  revert y", f"  {eval_tactic(unfold)}", "  all_goals (first | decide | omega)"]
     return "\n".join(lines)
 
 
@@ -644,13 +650,18 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
         if kind == "spec" and (ret is not None or res["outcome"] != "violates"):
             lean.n += 1
             nm = f"lss_refute_{lean.n}"
-            text = refutation_text(nm, stmt, binders, insts, args, ret, row, res["outcome"], res.get("value", ""),
-                                   unfold_names(project_dir, unit))
             hb = _lss_config.proof_cfg()["aeneas_heartbeats"]
-            out, why = lean.run(_lean.proof_check_call(text, nm, hb))
-            verdict = (_lean.parse_proof_verdicts(out).get(nm) or {}) if out else {}
-            kernel = bool(verdict.get("ok"))
-            kernel_why = "" if kernel else (why or verdict.get("detail") or "no verdict")[:400]
+            whys = []
+            for stated in (False, True):
+                text = refutation_text(nm, stmt, binders, insts, args, ret, row, res["outcome"], res.get("value", ""),
+                                       unfold_names(project_dir, unit), stated=stated)
+                out, why = lean.run(_lean.proof_check_call(text, nm, hb))
+                verdict = (_lean.parse_proof_verdicts(out).get(nm) or {}) if out else {}
+                if verdict.get("ok"):
+                    kernel = True
+                    break
+                whys.append(f"{'stated value' if stated else 'evaluation'}: {why or verdict.get('detail') or 'no verdict'}")
+            kernel_why = "" if kernel else "; ".join(w[:300] for w in whys)
         names = [f.get("name") or f"x{i}" for i, f in enumerate(plan["free"])]
         shown = ", ".join(f"{n} := {tc.lean_literal(t, v, short=True)}" for n, t, v in zip(names, args, row))
         types = [f"{b['name']} := {b['v']}" for b in binders if b.get("k") in ("type", "inst") and b.get("name")]
