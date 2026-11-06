@@ -639,6 +639,44 @@ def run_static_loop_request():
           len(checker.loops) == 1 and spec.get("method") != "aeneas:loop", str(spec)[:200])
 
 
+def run_static_last_round():
+    print("=== static: the last generation round ===")
+    import synth
+    import strategies
+
+    class LLM:
+        def __init__(self):
+            self.focus, self.raw = [], []
+
+        def generate_specs(self, *a, **k):
+            self.focus.append(k.get("focus", ""))
+            return [{"name": "s", "stmt": "S", "status": "pending", "method": ""}] if k.get("focus") else []
+
+        def generate_specs_raw(self, prompt):
+            self.raw.append(prompt)
+            return []
+
+        def _ask(self, prompt):
+            return ""
+    old = (synth.validate, strategies.generate_failure_freedom)
+    synth.validate = lambda specs, *a, **k: [dict(x, status="unproved") for x in specs]  # type: ignore[assignment]
+    strategies.generate_failure_freedom = lambda *a, **k: []  # type: ignore[assignment]
+    try:
+        results = {}
+        for source in ("rust-aeneas", None):
+            llm = LLM()
+            synth.synthesize("import Aeneas\n", [], ["T"], llm, _StubChecker(), func_name="f",
+                             func_source="def f (x : Std.U32) : Result Std.U32 := ok x", source=source, project_dir="/p")
+            results[source] = llm
+    finally:
+        synth.validate, strategies.generate_failure_freedom = old
+    rust = results["rust-aeneas"]
+    check("on the Rust track the last round asks through the spec prompt, with its Hoare-triple rules",
+          any("Hoare triple on its own call" in f and "about f itself" in f for f in rust.focus) and not rust.raw,
+          f"{rust.focus} {rust.raw}"[:300])
+    check("the Lean-native track keeps its own last-round prompt", bool(results[None].raw), str(results[None].raw)[:200])
+
+
 TO_LIST = ("@[simp] def lss_hp_toList_0000beef {T : Type} : NoNestedBorrows.List T → _root_.List T\n"
            "  | .Cons x tl => x :: lss_hp_toList_0000beef tl\n  | .Nil => []")
 NTH_SPEC = ("∀ {T : Type} (l : NoNestedBorrows.List T) (i : Std.U32), i.val < (lss_hp_toList_0000beef l).length → "
@@ -692,6 +730,7 @@ if static:
     run_static_helpers()  # first: run_static replaces gate.check_candidate for the rest of the file
     run_static()
     run_static_loop_request()
+    run_static_last_round()
 else:
     run_full()
     run_full_suite()

@@ -119,7 +119,7 @@ class LLMClient:
                 err = str(e)
         return None
 
-    def generate_specs(self, lean_code, type_templates, func_name=None, postcond_defs=None, func_source=None):
+    def generate_specs(self, lean_code, type_templates, func_name=None, postcond_defs=None, func_source=None, focus=""):
         self._method_ctx = "generate_specs"
         fn = func_name or _func_name(lean_code)
         sig_ctx = ""
@@ -252,6 +252,8 @@ class LLMClient:
                 "  r.x = p.y  (use .first .second)\n"
                 "  (records.swap p).isOk\n"
             )
+        if focus:
+            prompt += "\n" + focus + "\n"
         if postcond_defs:
             for pc_name, pc_body in postcond_defs.items():
                 func_in_pc = pc_name.replace("_postcond", "")
@@ -2073,7 +2075,22 @@ def synthesize(lean_code, test_inputs, templates, llm, lean_checker,
 
         # round 3: if still low, generate safe/simple specs
         proved_count = sum(1 for s in specs if s["status"] == "proved")
-        if proved_count < 3:
+        if proved_count < 3 and _gate.is_rust(source):
+            # the Rust track keeps its spec rules (Hoare triples on the unit's own call):
+            # a free-form prompt here gave specs about constructors that the gate rejects
+            round3 = llm.generate_specs(lean_code, templates, func_name=func_name, func_source=func_source, focus=(
+                f"THIS ROUND: write 5 simple theorems about {fn} itself, each a Hoare triple on its own call: "
+                "base cases, bounds on its result, what it leaves unchanged."))
+            if round3:
+                round3_validated = validate(round3, lean_code, test_inputs, lean_checker,
+                                            llm=llm, func_name=func_name,
+                                            verbose=verbose, debug_dir=debug_dir, project_dir=project_dir,
+                                            func_source=func_source, source=source)
+                new_proved = [s for s in round3_validated if s["status"] == "proved"]
+                specs.extend(new_proved)
+                if verbose:
+                    print(f"  [gen] round 3: {len(round3)} simple specs, {len(new_proved)} proved")
+        elif proved_count < 3:
             safe_prompt = (
                 f"I need simple theorems about this function that will definitely typecheck:\n"
                 f"{func_source if func_source else lean_code}\n\n"
