@@ -54,7 +54,9 @@ def _env_fail(detail):
 
 def _parse_verdicts(text):
     verdicts = []
-    for m in re.finditer(r"LSS_WF (\{[^\n]*\})", text or ""):
+    # a verdict is a warning the gate logs (wf_gate.lean); an error that merely quotes
+    # one (a helper's or a candidate's own text) is not a verdict
+    for m in re.finditer(r"warning: LSS_WF (\{[^\n]*\})", text or ""):
         try:
             verdicts.append(json.loads(m.group(1)))
         except json.JSONDecodeError:

@@ -180,6 +180,10 @@ def run_static():
     print("=== static ===")
     import gate
     import synth
+    v = '{"gate":"wf","check":"elaborates","ok":true,"detail":""}'
+    got = gate._parse_verdicts(f":3:1: error: LSS_WF {v}\n:9:1: warning: LSS_WF {v}\n")
+    check("a gate verdict is a warning the gate logs; an error that quotes one is not a verdict",
+          len(got) == 1 and got[0]["check"] == "elaborates", str(got))
 
     check("gate.py has no _fix_aeneas_spec-style regex fixups left in synth.py",
           not hasattr(synth, "_fix_aeneas_spec"))
