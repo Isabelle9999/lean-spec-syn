@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -537,6 +538,20 @@ def run_static_helpers():
     import gate
     import callgraph
     import bounded
+    sent = lean.helpers_command("@[simp] def lss_hp_x_00000000 : Nat := 0\n  set_option debug.skipKernelTC true in\n"
+                                "  theorem lss_bad : False := sorry")
+    check("a spec's helpers reach Lean as one lss_define_helpers string, which Lean parses itself: an indented "
+          "command inside a block is never a command of the file",
+          sent.startswith('lss_define_helpers "def lss_hp_x_00000000 : Nat := 0\\n  set_option')
+          and sent.count("\n") == 1 and sent.endswith('"\n') and "@[simp]" not in sent, sent)
+    check("no helpers, no command", lean.helpers_command("") == "" and lean.helpers_command("  \n") == "")
+    pc = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lean", "proof_check.lean"),
+              encoding="utf-8").read()
+    body = pc[pc.index('elab "lss_define_helpers "'):]
+    check("lss_define_helpers takes definitions only, with no modifier, named lss_hp_, kernel-checked, on the "
+          "standard axioms, then tagged simp",
+          all(x in body for x in ["``Parser.Command.definition", "cmd[0].getArgs.all (·.isNone)", '"lss_hp_"',
+                                  "`debug.skipKernelTC false", "lssAxiomProblem", "attribute [simp]"]), body[:200])
     server = _FakeServer()
     old = (lean_server.get_server, callgraph.for_project)
     lean_server.get_server = lambda *a, **k: server  # type: ignore[assignment]
@@ -551,20 +566,22 @@ def run_static_helpers():
         ok, _ = checker.ensure_helpers("/p", helper)
         ok2, _ = checker.ensure_helpers("/p", helper)
         check("a spec's helper is defined once in the crate's env, and a later spec finds it there",
-              ok and ok2 and [c for c, _ in server.sent] == [helper] and state["env"] == 101
+              ok and ok2 and [c for c, _ in server.sent] == [lean.helpers_command(helper)] and state["env"] == 101
               and list(state["helpers"]) == ["lss_hp_toList_0123abcd"], str(server.sent))
         server.sent.clear()
         gate.check_candidate(checker, "theorem t : S := sorry", "f", "", "/p", "rust-aeneas", helpers=helper)
         text = server.sent[0][0] if server.sent else ""
         check("the gate elaborates a spec's helpers after opening the crate, before the candidate",
-              "open C\n" + helper + "\n" in text and text.index(helper) < text.rindex("lss_wf_gate \""), text[-300:])
+              "open C\n" + lean.helpers_command(helper) in text
+              and text.index("lss_define_helpers") < text.rindex("lss_wf_gate \""), text[-300:])
         server.sent.clear()
         bl = bounded._Lean(checker, "/p", helper)
         bl.crate = "C"
         bl._env = lambda srv: (9, "")  # type: ignore[method-assign]
         bl.run("lss_eval_plan t crate:C stmt:\"S\"")
         check("the bounded check runs with a spec's helpers, after opening the crate",
-              bool(server.sent) and server.sent[0][0].startswith("open C\n" + helper + "\n"), str(server.sent)[:300])
+              bool(server.sent) and server.sent[0][0].startswith("open C\n" + lean.helpers_command(helper)),
+              str(server.sent)[:300])
         state["admitted"].append(("lss_admitted_0", "∀ l, g l ⦃ r => r = (lss_hp_toList_0123abcd l).length ⦄",
                                   "step*", "C.g"))
         ctx = checker.unit_context("/p", "f")
@@ -703,6 +720,25 @@ def run_full_suite():
         return
     ok, errs = checker.ensure_helpers(nnb, TO_LIST)
     check("the helper is defined in the crate's env", ok, str(errs)[:300])
+    smuggled = [
+        ("a command indented inside a helper's block",
+         "@[simp] def lss_hp_bad_00000001 : Nat := 0\n  attribute [simp] Nat.add_comm"),
+        ("an axiom indented inside a helper's block",
+         "@[simp] def lss_hp_bad_00000002 : Nat := 0\n  axiom lss_bad_ax : False"),
+        ("a helper defined by sorry", "@[simp] def lss_hp_bad_00000003 : Nat := sorry"),
+        ("a helper whose name is not a helper's", "@[simp] def length' : Nat := 0"),
+        # named and unmodified like a helper, so only the definitions-only rule rejects it
+        ("a theorem among a spec's helpers",
+         "@[simp] def lss_hp_bad_00000005 : Nat := 0\n  theorem lss_hp_bad_00000006 : 1 = 1 := rfl"),
+    ]
+    for label, text in smuggled:
+        ok, errs = checker.ensure_helpers(nnb, text)
+        known = checker._aeneas_env[nnb]["helpers"]
+        names = re.findall(r"(?:def|theorem) (\S+)", text)
+        check(f"{label} is rejected and nothing of it is kept", not ok and not any(n in known for n in names),
+              f"{ok} {str(errs)[:200]} {list(known)}")
+    pr = checker.try_aeneas(NTH_SPEC, "list_nth_mut", nnb, candidate_id="suite_nth_after_rejects")
+    check("the crate's env still proves through the accepted helper after the rejections", pr.proved, pr.error[:300])
     pr = checker.try_aeneas(NTH_SPEC, "list_nth_mut", nnb, candidate_id="suite_nth")
     check("a spec through a helper on a recursive list function is proved", pr.proved, pr.error[:300])
     pr = checker.try_aeneas(REV_SPEC, "list_rev_aux", nnb, candidate_id="suite_rev")

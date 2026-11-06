@@ -128,3 +128,47 @@ elab "lss_check_proof " src:str " name:" nmId:ident " heartbeats:" hb:num : comm
     logWarning (lssProofMsg fullName false "parse" s!"proof text does not parse: {err}" #[])
     return
   lssCheckCmds cmds fullName heartbeats
+
+open Lean Elab Command in
+/-- `lss_define_helpers "<defs>"`: a Rust spec's helper definitions (synth.rust_helpers'
+blocks, sent by lean.helpers_command without their `@[simp]`), checked as
+lss_check_proof checks proof text. the string is parsed here, not spliced into the
+file, so it can only add definitions: every command must be a `def lss_hp_…` with no
+modifier (no attribute, docstring, `private`, `noncomputable`, `unsafe`, `partial`),
+and anything else (`set_option`, `attribute`, `axiom`, `#eval`, `run_cmd`, a theorem)
+is rejected before anything elaborates. each definition elaborates with
+debug.skipKernelTC false and Elab.async false (as lssProofOpts sets them; autoImplicit
+stays as the crate has it), so the kernel checks it, may depend only on the standard
+axioms, and is then made a simp lemma, as Aeneas's tutorial tags its toList. every rejection is an
+error, so a statement that uses a rejected helper never elaborates. -/
+elab "lss_define_helpers " src:str : command => do
+  let (cmds, parseLog) ← lssParseText src.getString
+  if let some err ← lssFirstError parseLog then
+    throwError "LSS_HELPERS: the helper text does not parse: {err}"
+  let mut names : Array Name := #[]
+  for cmd in cmds do
+    unless cmd.getKind == ``Parser.Command.declaration && cmd[1].getKind == ``Parser.Command.definition do
+      let kind := if cmd.getKind == ``Parser.Command.declaration then cmd[1].getKind else cmd.getKind
+      throwError "LSS_HELPERS: only definitions are allowed, got `{kind}`"
+    unless cmd[0].getArgs.all (·.isNone) do
+      throwError "LSS_HELPERS: a helper takes no modifier or attribute: {cmd[0]}"
+    let id := cmd[1][1][0].getId
+    unless id.isAtomic && (toString id).startsWith "lss_hp_" do
+      throwError "LSS_HELPERS: a helper's name is `lss_hp_<name>_<hash>`, got `{id}`"
+    names := names.push ((← getCurrNamespace) ++ id)
+  let before := (← get).messages
+  modify fun s => { s with messages := {} }
+  withScope (fun sc => { sc with opts := (sc.opts.setBool `debug.skipKernelTC false).setBool `Elab.async false }) do
+    for cmd in cmds do
+      elabCommand cmd
+  let log := (← get).messages
+  modify fun s => { s with messages := before ++ log }
+  if (← lssFirstError log).isSome then
+    return
+  for n in names do
+    unless (← getEnv).contains n do
+      throwError "LSS_HELPERS: no definition `{n}` was added"
+    let bad := (← collectAxioms n).filterMap (fun a => (lssAxiomProblem a).map (fun why => s!"{a} ({why})"))
+    if bad.size > 0 then
+      throwError "LSS_HELPERS: `{n}` depends on axioms that are not allowed: {bad.toList}"
+    elabCommand (← `(attribute [simp] $(mkIdent n):ident))

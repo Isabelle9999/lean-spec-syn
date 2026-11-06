@@ -273,6 +273,17 @@ def proof_check_call(theorems, name, heartbeats=0):
     return f'lss_check_proof "{_escape_lean_str(theorems)}" name:{name} heartbeats:{heartbeats}'
 
 
+def helpers_command(text):
+    """the lss_define_helpers command (proof_check.lean) for a Rust spec's helpers
+    (synth.rust_helpers' `@[simp] def lss_hp_...` blocks): Lean parses the text itself and
+    defines only plain `def lss_hp_...` commands, so nothing else hidden in a block runs;
+    the command adds the @[simp] the blocks carry. "" for no helpers."""
+    if not (text or "").strip():
+        return ""
+    defs = re.sub(r"(?m)^@\[simp\] def ", "def ", text.strip())
+    return f'lss_define_helpers "{_escape_lean_str(defs)}"\n'
+
+
 def parse_proof_verdicts(text):
     """every LSS_PROOF verdict in `text`, keyed by theorem name."""
     out = {}
@@ -687,13 +698,13 @@ class LeanChecker:
         blocks = [b for b in re.split(r"\n(?=@\[simp\] def )", text.strip()) if b.strip()]
         new = []
         for b in blocks:
-            m = re.match(r"@\[simp\] def (\S+)", b)
+            m = re.match(r"@\[simp\] def ([^\s:({\[]+)", b)
             if m and m.group(1) not in state["helpers"]:
                 new.append((m.group(1), b.strip()))
         if not new:
             return True, []
         server = _lean_server.get_server(_lss_config.project_dir("aeneas"))
-        r = server.check("\n\n".join(b for _, b in new), timeout=120, env=state["env"])
+        r = server.check(helpers_command("\n\n".join(b for _, b in new)), timeout=120, env=state["env"])
         self.lean_calls += 1
         errs = _errors((r.stdout or "") + (r.stderr or ""))
         if r.rc != 0 or r.new_env is None or errs:

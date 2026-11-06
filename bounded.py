@@ -499,7 +499,7 @@ class _Lean:
 
     def __init__(self, checker, project_dir, helpers=""):
         self.checker, self.project_dir, self.n = checker, project_dir, 0
-        self.helpers = helpers.strip() + "\n" if helpers else ""
+        self.helpers = _lean.helpers_command(helpers)
         self.prefix = _gate._wf_gate_text() + "\n" + _gate._wf_gate_aeneas_text() + "\n"
         self.crate = None
 
