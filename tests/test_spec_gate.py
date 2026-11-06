@@ -334,6 +334,21 @@ def run_full():
         got = [(v.get("check"), v.get("ok"), v.get("detail")) for v in verdicts]
         check(desc, _same(got, expected), f"expected {expected}, got {got}")
 
+    sum_h = "@[simp] def lss_hp_sum_0000aaaa (p : records.Pair) : Nat := p.first.val + p.second.val"
+    swap_h = "@[simp] def lss_hp_swapped_0000bbbb (p : records.Pair) : Prop := records.swap p = ok p"
+    order_h = ("@[simp] def lss_hp_inner_0000cccc (p : records.Pair) : Prop := records.order_pair p = ok p\n\n"
+               "@[simp] def lss_hp_outer_0000dddd (p : records.Pair) : Prop := lss_hp_inner_0000cccc p")
+    for desc, helpers, post, ok in [
+            ("a helper over the crate's types only passes the vocabulary check", sum_h,
+             "lss_hp_sum_0000aaaa r = lss_hp_sum_0000aaaa p", True),
+            ("a helper that calls the unit fails the vocabulary check", swap_h, "lss_hp_swapped_0000bbbb p", False),
+            ("a helper that calls another crate function fails the vocabulary check, even through another helper",
+             order_h, "lss_hp_outer_0000dddd p", False)]:
+        verdicts = gate.check_candidate(checker, f"theorem t : ∀ (p : records.Pair), records.swap p ⦃ r => {post} ⦄ := sorry",
+                                        "records.swap", None, rust_dir, "rust-aeneas", helpers=helpers)
+        voc = next((v for v in verdicts if v.get("check") == "vocabulary"), {})
+        check(desc, voc.get("ok") is ok and (ok or "records." in voc.get("detail", "")), str(verdicts)[:400])
+
     native_dir = lss_config.project_dir("lean-native")
     if not os.path.isdir(native_dir):
         check(f"{native_dir} exists", False, f"not a directory: {native_dir}")

@@ -60,6 +60,36 @@ def lssCheckCallShape (unitName : Name) (fvars : Array Expr) (callExpr : Expr) :
   return .ok ()
 
 open Lean Meta in
+/-- `consts` and every constant a helper among them uses, transitively. a helper is a
+Rust spec's own definition (named `lss_hp_...` by synth.rust_helpers, with the
+auxiliary definitions Lean makes for it under that name): it is vocabulary for the
+postcondition, so its body is scanned as if it were written there, and a helper that
+calls a crate function cannot carry that function into its own spec. -/
+def lssThroughHelpers (consts : Array Name) : MetaM (Array Name) := do
+  let env ← getEnv
+  let isHelper (n : Name) : Bool := n.components.any (fun c => c.toString.startsWith "lss_hp_")
+  let mut out := consts
+  let mut todo := (consts.filter isHelper).toList
+  let mut seen : Array Name := #[]
+  for _ in [0:100000] do
+    match todo with
+    | [] => break
+    | n :: rest =>
+      todo := rest
+      if seen.contains n then continue
+      seen := seen.push n
+      let v? : Option Expr := match env.find? n with
+        | some (.defnInfo d) => some d.value
+        | some (.opaqueInfo d) => some d.value
+        | some (.thmInfo d) => some d.value
+        | _ => none
+      if let some v := v? then
+        let used := v.getUsedConstants
+        out := out ++ used
+        todo := todo ++ (used.filter isHelper).toList
+  return out
+
+open Lean Meta in
 /-- every crate-manifest name used among `scanTerms` or in any hyp's type (the
 rust track's `scanTerms` is just `#[post]`, a sibling of `progPos` under `spec`/
 `dspec` rather than a subterm of it, so no exclusion is needed to begin with --
@@ -72,7 +102,7 @@ def lssForbiddenAmong (manifestNames : Array Name) (hyps scanTerms : Array Expr)
     consts := consts ++ t.getUsedConstants
   for h in hyps do
     consts := consts ++ (<- h.fvarId!.getType).getUsedConstants
-  return consts.filter (fun n => manifestNames.contains n)
+  return (← lssThroughHelpers consts).filter (fun n => manifestNames.contains n)
 
 open Lean Meta in
 /-- every crate-manifest name used in `scanRoot` (`core`) outside the subterm
