@@ -1569,7 +1569,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                     b = _bounded.check_spec(lean_checker, spec["stmt"], func, project_dir, helpers=spec.get("helpers", ""))
                     spec["bounded"] = b
                     events.emit("bounded", status=b["status"], warning=b.get("warning"),
-                                detail=(b.get("detail") or "")[:300], kernel=b.get("kernel"))
+                                detail=(b.get("detail") or "")[:300], kernel=b.get("kernel"),
+                                kernel_why=(b.get("kernel_why") or "")[:600])
                     if verbose:
                         print(f"  [b] {spec['name']}: {b['status']}"
                               + (f" ({b['warning']})" if b.get("warning") else ""))

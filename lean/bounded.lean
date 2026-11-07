@@ -50,7 +50,10 @@
 --   the handler does not cover) decided by its derived structural BEq at
 --   evaluation time (lssDecEqViaBEq), which the kernel cannot reduce: such a
 --   refutation can only be evaluation-only unless another tactic closes it.
--- every message is one LSS_EVAL warning (warning, as LSS_PROOF/LSS_WF).
+-- `lss_eval_ops <C> <f> ...` names the Aeneas operations a call reaches, for the
+--   kernel refutation's evaluation (bounded.py's refutation_text).
+-- every message is one LSS_EVAL warning (warning, as LSS_PROOF/LSS_WF), except
+-- lss_eval_ops's one LSS_OPS warning.
 
 -- a scalar operator is an unnamed instance whose field is the named operation, so
 -- `simp [UScalar.add]` never matches `x + y`; these say so for scalars only (as
@@ -66,6 +69,45 @@ theorem lss_eval_isub {ty} (x y : Aeneas.Std.IScalar ty) : x - y = Aeneas.Std.IS
 theorem lss_eval_imul {ty} (x y : Aeneas.Std.IScalar ty) : x * y = Aeneas.Std.IScalar.mul x y := rfl
 theorem lss_eval_idiv {ty} (x y : Aeneas.Std.IScalar ty) : x / y = Aeneas.Std.IScalar.div x y := rfl
 theorem lss_eval_irem {ty} (x y : Aeneas.Std.IScalar ty) : x % y = Aeneas.Std.IScalar.rem x y := rfl
+
+-- a ⦄div statement's two ways to hold: the call returns a value the postcondition
+-- holds of, or it diverges. a refutation evaluates the call in both cases.
+theorem lss_dspec_cases {α : Type} {m : Aeneas.Std.Result α} {P : α → Prop}
+    (h : Aeneas.Std.WP.dspec m P) : (∃ y, m = Aeneas.Std.Result.ok y ∧ P y) ∨ m = Aeneas.Std.Result.div := by
+  cases m <;> simp_all [Aeneas.Std.WP.dspec]
+
+open Lean Elab Command in
+/-- `lss_eval_ops <C> <f> <g> ...`: the Aeneas operations the definitions of f, g, ...
+reach, followed through C's definitions and Aeneas.Std's, as one LSS_OPS warning (a
+JSON list): what the kernel refutation's evaluation unfolds besides C's own functions
+(Slice.index_usize, core.num.Isize.overflowing_div, lift, ...). left out: how a scalar
+is stored (val, bv, the literal constructors, its bounds and bit width: Aeneas's simp
+lemmas rewrite those back, so unfolding them loops), types, instances (lss_eval_*
+above names the arithmetic), auxiliary matchers, internal names, and `loop`, whose
+equation always applies again. -/
+elab "lss_eval_ops " crate:ident roots:ident* : command => do
+  let env ← getEnv
+  let stored : _root_.List String := ["val", "bv", "ofNatCore", "ofIntCore", "numBits", "cNumBits", "max", "min",
+    "rMax", "cMax", "rMin", "cMin", "ctorIdx", "casesOn", "recOn", "rec"]
+  let mut todo : Array Name := roots.map (·.getId)
+  let mut seen : NameSet := {}
+  let mut out : Array Name := #[]
+  for _ in [0:20000] do
+    match todo.back? with
+    | none => break
+    | some n =>
+      todo := todo.pop
+      unless seen.contains n do
+        seen := seen.insert n
+        if let some (.defnInfo d) := env.find? n then
+          let last := match n with | .str _ s => s | _ => ""
+          if ((`Aeneas.Std).isPrefixOf n && !n.isInternal && n != ``Aeneas.Std.loop &&
+              !d.type.getForallBody.isSort && !stored.contains last && !last.startsWith "match_" &&
+              !last.startsWith "inst" && !n.getPrefix.toString.endsWith "Ty") then
+            out := out.push n
+          for c in d.value.getUsedConstants do
+            if (`Aeneas.Std).isPrefixOf c || crate.getId.isPrefixOf c then todo := todo.push c
+  logWarning m!"LSS_OPS {Json.compress (Json.arr (out.map (Json.str ∘ toString)))}"
 
 /-- one evaluated run, as text python splits on the first tab: the outcome, then
 the encoded `ok` value or the `fail` error. -/

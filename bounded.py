@@ -399,15 +399,27 @@ EVAL_DEFS = ["Aeneas.Std.alloc.vec.Vec.index_mut_usize", "Aeneas.Std.alloc.vec.V
              "Aeneas.Std.UScalar.tryMk", "Aeneas.Std.UScalar.tryMkOpt", "Aeneas.Std.IScalar.tryMk",
              "Aeneas.Std.IScalar.tryMkOpt", "Aeneas.Std.Result.ofOption"]
 EVAL_ROUNDS = 32
+# with the platform split: the Usize/Isize bit width (System.Platform.numBits, fixed by
+# the split's hypothesis lss_hb), and the 64-bit edge values written as the platform's
+# own constants (EDGE_CONSTS)
+WIDTH_DEFS = ["Aeneas.Std.Usize.numBits", "Aeneas.Std.Isize.numBits", "Aeneas.Std.core.num.Usize.MAX",
+              "Aeneas.Std.Usize.max", "Aeneas.Std.core.num.Isize.MAX", "Aeneas.Std.Isize.max",
+              "Aeneas.Std.core.num.Isize.MIN"]
+EDGE_CONSTS = {("Std.Usize", 2 ** 64 - 1): "Aeneas.Std.core.num.Usize.MAX",
+               ("Std.Isize", 2 ** 63 - 1): "Aeneas.Std.core.num.Isize.MAX",
+               ("Std.Isize", -2 ** 63): "Aeneas.Std.core.num.Isize.MIN"}
 
 
-def eval_tactic(unfold):
+def eval_tactic(unfold, ops=(), split=False):
     """a tactic evaluating the call in the goal: unfold `loop` once per round (its
     equation always applies again, so it is never a simp lemma: `simp [loop]` runs
     forever), then simp with the unit, its callees and Aeneas's definitions evaluates
-    what that exposed. it is parenthesized: `iterate` takes a tactic sequence, so a
-    tactic written after it with `;` would otherwise run inside every round."""
-    names = ", ".join(list(unfold) + EVAL_DEFS)
+    what that exposed: EVAL_DEFS, the operations the call reaches (`ops`, from
+    lss_eval_ops) and, after the platform split, its hypothesis and WIDTH_DEFS. it is
+    parenthesized: `iterate` takes a tactic sequence, so a tactic written after it with
+    `;` would otherwise run inside every round."""
+    names = ", ".join((["lss_hb"] if split else []) + list(unfold) + EVAL_DEFS + list(ops)
+                      + (WIDTH_DEFS if split else []))
     return f"(iterate {EVAL_ROUNDS} (try ((try rw [Aeneas.Std.loop]); simp [{names}])))"
 
 
@@ -432,7 +444,7 @@ def unfold_names(project_dir, unit):
 
 
 def refutation_text(name, stmt, binders, insts, arg_types, ret_type, row, outcome, value, unfold=(),
-                    stated=False):
+                    stated=False, ops=(), split=False, div=False):
     """`theorem <name> : ¬ (<stmt>)` proved from the shrunk witness: instantiate the
     statement at the check's instantiation (its types, the crate's instances and their
     laws by lss_law_tac) and the witness (a defined binder by unification, the
@@ -448,9 +460,17 @@ def refutation_text(name, stmt, binders, insts, arg_types, ret_type, row, outcom
     literals directly leaves the triple as the application's type, which the elaborator
     reduces looking for further arguments, evaluating the call in unary Nat arithmetic
     (a value like 2^31 reaches the recursion limit). a defined binder is a variable too,
-    given as `_` and fixed by the hypothesis that defines it. `spec` statements only:
-    `dspec` refutations stay evaluation-only."""
-    lits = [tc.lean_literal(t, v) for t, v in zip(arg_types, row)]
+    given as `_` and fixed by the hypothesis that defines it.
+    `ops` adds the operations the call reaches to the evaluation. `split` evaluates once
+    per platform bit width (System.Platform.numBits_eq: a Usize bound is 2^numBits) and
+    writes a witness at a 64-bit edge as the platform's own constant (EDGE_CONSTS): the
+    literal itself exists only on a 64-bit platform, so its proof needs native_decide;
+    the constant exists on both, and the refutation holds only if the call fails there
+    on both. `div` refutes a ⦄div statement (dspec): by lss_dspec_cases the call either
+    returns a value its postcondition holds of or diverges, and each case is evaluated."""
+    lits = [EDGE_CONSTS.get((t[1], v)) if split and t[0] == "int" and isinstance(v, int) else None
+            for t, v in zip(arg_types, row)]
+    lits = [lit or tc.lean_literal(t, v) for lit, t, v in zip(lits, arg_types, row)]
     law = "(by lss_law_tac [" + ", ".join(insts) + "])"
     fixed = {"class": "(inferInstance)", "law": law}
     xs, parts, given = [], [], []
@@ -466,7 +486,7 @@ def refutation_text(name, stmt, binders, insts, arg_types, ret_type, row, outcom
             parts.append(x)
             given.append({"hyp": "(by first | rfl | decide | simp_all | omega)", "det": "_"}.get(k)
                          or f"({lits[b['i']]})")
-    spec = f"Aeneas.Std.WP.spec_imp_exists (@h {' '.join(parts)})"
+    spec = f"{'lss_dspec_cases' if div else 'Aeneas.Std.WP.spec_imp_exists'} (@h {' '.join(parts)})"
     if outcome == "violates":
         got = f"Aeneas.Std.Result.ok ({tc.lean_literal(ret_type, json.loads(value))})"
     elif outcome == "fail":
@@ -475,15 +495,21 @@ def refutation_text(name, stmt, binders, insts, arg_types, ret_type, row, outcom
         got = "Aeneas.Std.Result.div"
     lines = [f"theorem {name} : ¬ ({stmt}) := by", "  intro h"]
     if xs:
-        lines += [f"  have lss_h := fun {' '.join(xs)} => {spec}",
-                  f"  obtain ⟨y, hy, hp⟩ := lss_h {' '.join(given)}"]
-    else:
-        lines.append(f"  obtain ⟨y, hy, hp⟩ := {spec}")
+        lines.append(f"  have lss_h := fun {' '.join(xs)} => {spec}")
+        spec = f"lss_h {' '.join(given)}"
     if stated:
-        lines += [f"  have hv : (Aeneas.Std.Result.ok y : Aeneas.Std.Result _) = {got} := hy.symm.trans (by first | rfl | decide)",
-                  "  cases hv"] + (["  revert hp", "  first | decide | simp | omega"] if outcome == "violates" else [])
+        ok_case = [f"have hv : (Aeneas.Std.Result.ok y : Aeneas.Std.Result _) = {got} := hy.symm.trans (by first | rfl | decide)",
+                   "cases hv"] + (["revert hp", "first | decide | simp | omega"] if outcome == "violates" else [])
+        div_case = [f"have hv : (Aeneas.Std.Result.div : Aeneas.Std.Result _) = {got} := hd.symm.trans (by first | rfl | decide)",
+                    "cases hv"]
     else:
-        lines += ["  revert y", f"  {eval_tactic(unfold)}", "  all_goals (first | decide | omega)"]
+        ev = ((["rcases System.Platform.numBits_eq with lss_hb | lss_hb", f"all_goals {eval_tactic(unfold, ops, True)}"]
+               if split else [eval_tactic(unfold, ops)]) + ["all_goals (first | decide | omega)"])
+        ok_case, div_case = ["revert y"] + ev, ["revert hd"] + ev
+    if div:
+        lines += [f"  rcases {spec} with ⟨y, hy, hp⟩ | hd"] + ["  · " + "\n    ".join(c) for c in (ok_case, div_case)]
+    else:
+        lines += [f"  obtain ⟨y, hy, hp⟩ := {spec}"] + ["  " + t for t in ok_case]
     return "\n".join(lines)
 
 
@@ -495,6 +521,14 @@ _BOUNDED_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean",
 def _bounded_text():
     with open(_BOUNDED_PATH, encoding="utf-8") as f:
         return f.read()
+
+
+_OPS = {}  # (project_dir, unit) -> the operations its call reaches (_Lean.ops)
+
+
+def _crate_name(project_dir):
+    import callgraph
+    return callgraph.for_project(project_dir).crate
 
 
 class _Lean:
@@ -543,6 +577,19 @@ class _Lean:
             return None, "timeout"
         return (r.stdout or "") + (r.stderr or ""), ""
 
+    def ops(self, unit, unfold):
+        """the Aeneas operations `unit` reaches past EVAL_DEFS (lean/bounded.lean's
+        lss_eval_ops), once per crate and unit."""
+        key = (self.project_dir, unit)
+        if key not in _OPS:
+            out, _ = self.run(f"lss_eval_ops {self.crate or _crate_name(self.project_dir)} " + " ".join(unfold)) \
+                if unfold else (None, "")
+            m = re.search(r"LSS_OPS (\[[^\n]*\])", out or "")
+            if not m:
+                return []  # not kept: a failed run (a timeout, a lost env) is asked again next time
+            _OPS[key] = [n for n in json.loads(m.group(1)) if n not in EVAL_DEFS]
+        return _OPS[key]
+
     def _one(self, make):
         self.n += 1
         tag = f"lss_eval_{self.n}"
@@ -590,6 +637,56 @@ def _shown(T, value):
         return tc.lean_literal(T, json.loads(value), short=True)
     except (tc.Unsupported, ValueError, KeyError, TypeError):
         return value
+
+
+def _kernel_refutation(lean, stmt, kind, binders, insts, args, ret, row, res, unfold, unit):
+    """(kernel, why): the refutation of a shrunk witness proved through lss_check_proof,
+    by the first of these that passes (each a theorem of its own: a heartbeat or recursion
+    limit is not an error `first` can catch): the evaluation as it is; the evaluation also
+    unfolding the operations the call reaches; that once per platform bit width, with a
+    64-bit edge witness written as the platform's constant; the stated value. the plain
+    evaluation goes first because unfolding more can cost a refutation it proves (a
+    nested loop runs out of rounds). when none passes, why says what each gave and what
+    the evaluation left: a goal that still runs the loop needs more rounds than
+    EVAL_ROUNDS (a sum that overflows only after 92,800 steps)."""
+    lean.n += 1
+    nm = f"lss_refute_{lean.n}"
+    hb = _lss_config.proof_cfg()["aeneas_heartbeats"]
+    whys, text, ops = [], "", None
+    for label, kw in [("evaluation", {}), ("with the operations it reaches", {"ops": True}),
+                      ("per platform width", {"ops": True, "split": True}), ("stated value", {"stated": True})]:
+        if kw.get("ops"):
+            ops = lean.ops(unit, unfold) if ops is None else ops  # asked only once the plain evaluation failed
+            if not ops and not kw.get("split"):
+                continue  # nothing past EVAL_DEFS: the same theorem as the plain evaluation
+            kw = {**kw, "ops": ops}
+        t = refutation_text(nm, stmt, binders, insts, args, ret, row, res["outcome"], res.get("value", ""),
+                            unfold, div=kind == "dspec", **kw)
+        out, why = lean.run(_lean.proof_check_call(t, nm, hb))
+        verdict = (_lean.parse_proof_verdicts(out).get(nm) or {}) if out else {}
+        if verdict.get("ok"):
+            return True, ""
+        whys.append(f"{label}: {why or verdict.get('detail') or 'no verdict'}"[:300])
+        text = t if kw.get("split") else text
+    tail = "  all_goals (first | decide | omega)"
+    out, _ = lean.run(text[:text.rindex(tail)] + "  lss_log_goals\n  all_goals sorry") if tail in text else (None, "")
+    left = [g.get("text", "") for g in _lean_goals(out)]
+    if any(re.search(r"\bloop\b", g) for g in left):
+        whys.insert(0, f"the evaluation stops after {EVAL_ROUNDS} rounds with the loop still running")
+    elif left:
+        whys.insert(0, "the evaluation leaves: " + left[0][:300])
+    return False, "; ".join(whys)
+
+
+def _lean_goals(out):
+    """the goals lss_log_goals reported (aeneas_layer.lean), as dicts."""
+    goals = []
+    for m in re.finditer(r"LSS_GOALS (\{[^\n]*\})", out or ""):
+        try:
+            goals.append(json.loads(m.group(1)))
+        except json.JSONDecodeError:
+            pass
+    return goals
 
 
 @events.layer("bounded")
@@ -651,21 +748,9 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
             k = min(hits, key=lambda k: sum(size(t, x) for t, x in zip(args, cands[k])))
             row, res = cands[k], sev["rows"][k]
         kernel, kernel_why = False, "not attempted"
-        if kind == "spec" and (ret is not None or res["outcome"] != "violates"):
-            lean.n += 1
-            nm = f"lss_refute_{lean.n}"
-            hb = _lss_config.proof_cfg()["aeneas_heartbeats"]
-            whys = []
-            for stated in (False, True):
-                text = refutation_text(nm, stmt, binders, insts, args, ret, row, res["outcome"], res.get("value", ""),
-                                       unfold_names(project_dir, unit), stated=stated)
-                out, why = lean.run(_lean.proof_check_call(text, nm, hb))
-                verdict = (_lean.parse_proof_verdicts(out).get(nm) or {}) if out else {}
-                if verdict.get("ok"):
-                    kernel = True
-                    break
-                whys.append(f"{'stated value' if stated else 'evaluation'}: {why or verdict.get('detail') or 'no verdict'}")
-            kernel_why = "" if kernel else "; ".join(w[:300] for w in whys)
+        if ret is not None or res["outcome"] != "violates":
+            kernel, kernel_why = _kernel_refutation(lean, stmt, kind, binders, insts, args, ret, row, res,
+                                                    unfold_names(project_dir, unit), unit)
         names = [f.get("name") or f"x{i}" for i, f in enumerate(plan["free"])]
         shown = ", ".join(f"{n} := {tc.lean_literal(t, v, short=True)}" for n, t, v in zip(names, args, row))
         types = [f"{b['name']} := {b['v']}" for b in binders if b.get("k") in ("type", "inst") and b.get("name")]

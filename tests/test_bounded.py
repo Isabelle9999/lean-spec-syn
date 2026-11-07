@@ -231,11 +231,12 @@ class FakeLean:
     result, `post_outcome(row, out)` one perturbed output's, `plan` the plan."""
     calls = []
 
-    def __init__(self, row_outcome, post_outcome=None, kernel=True, timeout=False, plan=None):
+    def __init__(self, row_outcome, post_outcome=None, kernel=True, timeout=False, plan=None, ops=(), goals=()):
         self.row_outcome, self.post_outcome, self.kernel, self.timeout = row_outcome, post_outcome, kernel, timeout
         self.plan_ = plan or _plan()
         self.n = 0
         self.sent = []
+        self.ops_, self.goals = list(ops), list(goals)
 
     def __call__(self, checker, project_dir):
         return self
@@ -251,8 +252,13 @@ class FakeLean:
     def post(self, stmt, args, ret, row, outs):
         return [self.post_outcome(row, o) for o in outs] if self.post_outcome else None
 
+    def ops(self, unit, unfold):
+        return self.ops_
+
     def run(self, text):
         self.sent.append(text)
+        if " name:" not in text:  # the goals the last evaluation left (lss_log_goals)
+            return "\n".join(f"LSS_GOALS {json.dumps({'head': 'Not', 'text': g})}" for g in self.goals), ""
         name = text.split(" name:")[1].split()[0]
         ok = self.kernel(text) if callable(self.kernel) else self.kernel
         return f'LSS_PROOF {{"name":"{name}","ok":{"true" if ok else "false"},"stage":"ok","detail":"no","axioms":[]}}', ""
@@ -309,9 +315,61 @@ def run_static_check():
           "evaluation: " in v.get("kernel_why", "") and "stated value: " in v.get("kernel_why", ""), str(v))
     fake = FakeLean(lambda r: {"outcome": "violates", "value": '"1"'}, kernel=lambda text: "have hv" in text)
     v = _check(fake)
-    check("when the evaluation is not kernel-checked, the stated value is tried in a theorem of its own",
-          v["kernel"] is True and len(fake.sent) == 2 and "revert y" in fake.sent[0] and "have hv" in fake.sent[1]
-          and "have hv" not in fake.sent[0], str(fake.sent)[:300])
+    check("when no evaluation is kernel-checked, the stated value is tried in a theorem of its own",
+          v["kernel"] is True and len(fake.sent) == 3 and "revert y" in fake.sent[0] and "have hv" in fake.sent[-1]
+          and not any("have hv" in t for t in fake.sent[:-1]), str(fake.sent)[:300])
+    op = "Aeneas.Std.Slice.index_usize"
+    fake = FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.arrayOutOfBounds"}, ops=[op],
+                    kernel=lambda text: op in text)
+    v = _check(fake)
+    check("when the plain evaluation is not kernel-checked, the evaluation also unfolding the operations the call "
+          "reaches is tried next, in a theorem of its own",
+          v["kernel"] is True and len(fake.sent) == 2 and op not in fake.sent[0] and "lss_hb" not in fake.sent[1]
+          and f", {op}" in fake.sent[1].split("simp [", 1)[1].split("]", 1)[0], str(fake.sent)[:300])
+    usize1 = _plan(free=[{"name": "n", "type": "Aeneas.Std.Usize", "ir": ["int", "Std.Usize"]}])
+    fake = FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.integerOverflow"} if r[0] == 2 ** 64 - 1
+                    else _ok(1), plan=usize1,
+                    ops=[op], kernel=lambda text: "with lss_hb | lss_hb" in text)
+    old_rows = bounded.sample_rows
+    bounded.sample_rows = lambda args, seed=0: [[2 ** 64 - 1]]
+    try:
+        v = _check(fake)
+    finally:
+        bounded.sample_rows = old_rows
+    split = fake.sent[-1].replace("\\n", "\n") if fake.sent else ""  # the proof text, as lss_check_proof reads it
+    check("then once per platform bit width, the 64-bit edge witness written as the platform's own constant",
+          v["kernel"] is True and len(fake.sent) == 3
+          and "  revert y\n  rcases System.Platform.numBits_eq with lss_hb | lss_hb\n  all_goals (iterate " in split
+          and "simp [lss_hb, " in split and "Aeneas.Std.Usize.numBits" in split
+          and "lss_h (Aeneas.Std.core.num.Usize.MAX)" in split and "18446744073709551615" not in split
+          and "18446744073709551615" in fake.sent[0], split[-400:])
+    fake = FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.integerOverflow"})
+    v = _check(fake, stmt="S div")
+    ref = fake.sent[0].replace("\\n", "\n") if fake.sent else ""
+    check("a ⦄div statement is refuted through its two cases, a returned value or divergence, each evaluated",
+          v["status"] == "refuted" and v["kernel"] is True and "lss_dspec_cases (@h " in ref
+          and " with ⟨y, hy, hp⟩ | hd\n  · revert y\n    (iterate " in ref and "\n  · revert hd\n    (iterate " in ref
+          and ref.count("all_goals (first | decide | omega)") == 2, ref[-500:])
+    fake = FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.integerOverflow"}, kernel=False,
+                    goals=["∀ (y : U32), ¬loop (fun x => ok (done x)) (16#u32, 9#u32) = ok y"])
+    v = _check(fake)
+    check("a refutation no attempt proves says the evaluation ran out of rounds when the loop is still running",
+          v["kernel"] is False and v.get("kernel_why", "").startswith(
+              f"the evaluation stops after {bounded.EVAL_ROUNDS} rounds with the loop still running")
+          and "lss_log_goals" in fake.sent[-1] and "lss_hb" in fake.sent[-1], v.get("kernel_why", "")[:300])
+    lb = bounded._Lean.__new__(bounded._Lean)
+    lb.project_dir, lb.crate, runs = "/p-ops", "C", []
+    lb.run = lambda text: (runs.append(text) or ('x:1:0: warning: LSS_OPS ["Aeneas.Std.Slice.index_usize",'
+                                                 '"Aeneas.Std.UScalar.add"]', ""))
+    got = [lb.ops("C.f", ["C.f", "C.g"]), lb.ops("C.f", ["C.f", "C.g"])]
+    check("the operations a call reaches come from lss_eval_ops, past EVAL_DEFS, asked once per unit",
+          got == [[op], [op]] and runs == ["lss_eval_ops C C.f C.g"], f"{got} {runs}")
+    bl = open(bounded._BOUNDED_PATH, encoding="utf-8").read()
+    body = bl[bl.index('elab "lss_eval_ops "'):]
+    check("lss_eval_ops never names how a scalar is stored, a type, an instance, a matcher or loop",
+          all(x in body for x in ['"val", "bv", "ofNatCore", "ofIntCore", "numBits"', "``Aeneas.Std.loop",
+                                  "getForallBody.isSort", 'startsWith "match_"', 'startsWith "inst"', "isInternal"]),
+          body[:300])
     fake = FakeLean(lambda r: {"outcome": "violates", "value": '"1"'})
     v = _check(fake)
     check("a refutation the evaluation proves is not tried again", v["kernel"] is True and len(fake.sent) == 1,
@@ -766,13 +824,36 @@ def run_suite_refutations(checker):
              "hashmap.HashMap.move_elements_loop ntable slots i ⦃ _ => True ⦄",
              "a loop's failing call is refuted by the kernel"),
             ("Tutorial", "mul2_add1", "∀ (x : Std.U32), mul2_add1 x ⦃ _ => True ⦄",
-             "an arithmetic overflow is refuted by the kernel")]:
+             "an arithmetic overflow is refuted by the kernel"),
+            ("AeneasStandalone", "arrays.sum", "∀ (s : Slice Std.U32), arrays.sum s ⦃ _ => True ⦄",
+             "a loop over a slice that overflows is refuted by the kernel, through Slice.index_usize and the platform "
+             "split"),
+            ("AeneasStandalone", "overflowing_ops.isize_overflowing_div",
+             "∀ (x y : Std.Isize), overflowing_ops.isize_overflowing_div x y ⦃ _ => True ⦄",
+             "a division by zero in a library operation is refuted by the kernel"),
+            ("AeneasStandalone", "scalars.match_isize", "∀ (x : Std.Isize), scalars.match_isize x ⦃ _ => True ⦄",
+             "an overflow at Isize's 64-bit maximum is refuted by the kernel, at the platform's own maximum"),
+            ("Tutorial", "Usize.Insts.TutorialCounter.incr",
+             "∀ (self : Std.Usize), Usize.Insts.TutorialCounter.incr self ⦃ _ => True ⦄",
+             "an overflow at Usize's 64-bit maximum is refuted by the kernel, at the platform's own maximum"),
+            ("Tutorial", "add_with_carry", "∀ (x y : alloc.vec.Vec Std.U32), add_with_carry x y ⦃ _ => True ⦄",
+             "an out-of-bounds index after a cast and an overflowing add is refuted by the kernel"),
+            ("AeneasStandalone", "hashmap.HashMap.move_elements_loop",
+             "∀ {T : Type} (ntable : hashmap.HashMap T) (slots : alloc.vec.Vec (hashmap.AList T)) (i : Std.Usize), "
+             "hashmap.HashMap.move_elements_loop ntable slots i ⦃ r => r.1.max_load_factor = ntable.max_load_factor ⦄div",
+             "a ⦄div statement whose call fails is refuted by the kernel")]:
         d = os.path.join(suite, crate)
         if not os.path.isdir(d):
             check(f"{d} exists", False, "not a directory")
             continue
         v = bounded.check_spec(checker, stmt, unit, d)
         check(title, v["status"] == "refuted" and v.get("kernel") is True, str(v)[:400])
+    d = os.path.join(suite, "Loops")
+    if os.path.isdir(d):
+        v = bounded.check_spec(checker, "∀ (max i s : Std.U32), sum_loop max i s ⦃ _ => True ⦄", "sum_loop", d)
+        check("an overflow that needs more loop steps than the evaluation unrolls is evaluation-only, and says so",
+              v["status"] == "refuted" and v.get("kernel") is False
+              and "with the loop still running" in v.get("kernel_why", ""), str(v)[:400])
 
 
 PLANTED_TYPES = """-- hand-written in the shape Aeneas generates, for LSS's tests
