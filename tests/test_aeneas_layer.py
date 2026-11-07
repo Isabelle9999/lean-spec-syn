@@ -548,11 +548,11 @@ def run_static_helpers():
     pc = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lean", "proof_check.lean"),
               encoding="utf-8").read()
     body = pc[pc.index('elab "lss_define_helpers "'):]
-    check("lss_define_helpers takes definitions only, with no modifier, named lss_hp_, kernel-checked, on the "
-          "standard axioms, then tagged simp",
+    check("lss_define_helpers takes definitions only, with no modifier, named lss_hp_, kernel-checked and "
+          "replayed through the kernel, on the standard axioms, then tagged simp",
           all(x in body for x in ["``Parser.Command.definition", "cmd[0].getArgs.all (·.isNone)", '"lss_hp_"',
-                                  "`debug.skipKernelTC false", "lssAxiomProblem", "attribute [simp]", "setEnv env0",
-                                  "m.severity matches .error"]), body[:200])
+                                  "`debug.skipKernelTC false", "lssReplaySince env0", "lssAxiomProblem",
+                                  "attribute [simp]", "setEnv env0", "m.severity matches .error"]), body[:200])
     server = _FakeServer()
     old = (lean_server.get_server, callgraph.for_project)
     lean_server.get_server = lambda *a, **k: server  # type: ignore[assignment]
@@ -750,6 +750,14 @@ def run_full_suite():
          "@[simp] def lss_hp_bad_00000009 : Nat := 0\n  partial def lss_hp_bad_00000010 (n : Nat) : Nat := lss_hp_bad_00000010 n"),
         ("a definition with an attribute of its own among a spec's helpers",
          "@[simp] def lss_hp_bad_00000011 : Nat := 0\n  @[implemented_by lss_hp_bad_00000011] def lss_hp_bad_00000012 : Nat := 1"),
+        # meta code in a helper's body adds a false lemma with the kernel check off for itself
+        ("a helper whose body adds a lemma the kernel never checked",
+         "@[simp] def lss_hp_bad_00000013 : Nat := by\n  run_tac do\n"
+         "    let ty ← Lean.Meta.mkEq (Lean.mkNatLit 1) (Lean.mkNatLit 2)\n"
+         "    let v ← Lean.Meta.mkEqRefl (Lean.mkNatLit 1)\n"
+         "    Lean.withOptions (fun o => o.setBool `debug.skipKernelTC true) do\n"
+         "      Lean.addDecl (.thmDecl (Lean.mkTheoremValEx `lss_hp_bad_00000014 [] ty v []))\n"
+         "  exact 0"),
     ]
     server = lean_server.get_server(lss_config.project_dir("aeneas"))
     for label, text in smuggled:

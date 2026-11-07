@@ -14,7 +14,11 @@
 --                             message log (Lean/Elab/MutualDef.lean:1238 would
 --                             otherwise run a theorem body in a background task);
 --   autoImplicit false        same reading of the statement as the gate.
--- then `Lean.collectAxioms` (what `#print axioms` uses) must find only the three
+-- after elaboration every declaration the text added is replayed through the
+-- kernel from the environment before it (lssReplayOne, ported from Lean/Replay.lean,
+-- what lean4checker runs): meta code inside a proof (`run_tac`, an elaborator) can
+-- add a declaration with debug.skipKernelTC set for itself, and the option above
+-- does not reach that. then `Lean.collectAxioms` (what `#print axioms` uses) must find only the three
 -- standard axioms: sorryAx, `<decl>._native.*` (native_decide, decide +native,
 -- bv_decide) and any declared axiom are rejected.
 --
@@ -73,10 +77,50 @@ def lssProofOpts (opts : Options) (heartbeats : Option Nat) : Options :=
   | some n => o.set `maxHeartbeats n
   | none => o
 
+open Lean in
+/-- add `n` (one of `news`) to the kernel environment again, after the declarations of
+`news` it uses: Lean/Replay.lean's `replayConstant`, which that module's
+`Environment.replay` (what lean4checker runs) calls, ported here because Lean.Replay is
+not imported everywhere this file is (Mathlib does not import it, and importing it as
+well would make a second base environment in a server). definitions, theorems,
+opaques and axioms are re-added; unsafe and partial ones are skipped, as replay skips
+them; an inductive type, constructor, recursor or quotient is an error, since neither
+a theorem nor a helper definition adds one. -/
+partial def lssReplayOne (news : Std.HashMap Name ConstantInfo) (n : Name) :
+    StateT (Kernel.Environment × NameSet) IO Unit := do
+  let some ci := news[n]? | return
+  if (← get).2.contains n then return
+  modify fun (env, seen) => (env, seen.insert n)
+  if ci.isUnsafe || ci.isPartial then return
+  for c in ci.getUsedConstantsAsSet do
+    lssReplayOne news c
+  let decl ← match ci with
+    | .defnInfo v => pure (Declaration.defnDecl v)
+    | .thmInfo v => pure (Declaration.thmDecl v)
+    | .opaqueInfo v => pure (Declaration.opaqueDecl v)
+    | .axiomInfo v => pure (Declaration.axiomDecl v)
+    | _ => throw (IO.userError s!"'{n}' is an inductive type, constructor, recursor or quotient, which no theorem or helper definition adds")
+  match (← get).1.addDeclCore 0 decl (cancelTk? := none) with
+  | .ok env => modify fun (_, seen) => (env, seen)
+  | .error ex => throw (IO.userError s!"while replaying declaration '{n}':\n{← (ex.toMessageData {}).toString}")
+
+open Lean Elab Command in
+/-- `none` when the kernel accepts again every declaration added since `env0`,
+replayed from `env0` (lssReplayOne), else the kernel's error. -/
+def lssReplaySince (env0 : Environment) : CommandElabM (Option String) := do
+  let news := (← getEnv).constants.map₂.foldl
+    (fun m n c => if env0.contains n then m else m.insert n c) ({} : Std.HashMap Name ConstantInfo)
+  try
+    liftCoreM (do
+      let _ ← ((news.toList.map (·.1)).forM (lssReplayOne news) |>.run (env0.toKernelEnv, {}) : IO _)
+      pure ())
+    return none
+  catch e => return some (← e.toMessageData.toString)
+
 open Lean Elab Command in
 /-- elaborate `cmds` (theorem declarations only) under `lssProofOpts` and log one
 LSS_PROOF verdict for `fullName`. stages, in order: not_theorem, elab, missing,
-axioms, ok. the candidate's own messages go back into the log ahead of the
+replay, axioms, ok; a replay rejection also takes the text's declarations back out. the candidate's own messages go back into the log ahead of the
 verdict, so repair prompts still see the error text. -/
 def lssCheckCmds (cmds : Array Syntax) (fullName : Name) (heartbeats : Option Nat) : CommandElabM Unit := do
   let emit (ok : Bool) (stage detail : String) (axioms : Array Name := #[]) : CommandElabM Unit :=
@@ -86,6 +130,7 @@ def lssCheckCmds (cmds : Array Syntax) (fullName : Name) (heartbeats : Option Na
       let kind := if cmd.getKind == ``Parser.Command.declaration then cmd[1].getKind else cmd.getKind
       emit false "not_theorem" s!"only theorem declarations are allowed, got `{kind}`"
       return
+  let env0 ← getEnv
   let before := (← get).messages
   modify fun s => { s with messages := {} }
   withScope (fun sc => { sc with opts := lssProofOpts sc.opts heartbeats }) do
@@ -98,6 +143,10 @@ def lssCheckCmds (cmds : Array Syntax) (fullName : Name) (heartbeats : Option Na
     return
   unless (← getEnv).contains fullName do
     emit false "missing" s!"no theorem `{fullName}` was added"
+    return
+  if let some why ← lssReplaySince env0 then
+    setEnv env0
+    emit false "replay" why
     return
   let axioms ← collectAxioms fullName
   let bad := axioms.filterMap (fun a => (lssAxiomProblem a).map (fun why => s!"{a} ({why})"))
@@ -138,7 +187,8 @@ modifier (no attribute, docstring, `private`, `noncomputable`, `unsafe`, `partia
 and anything else (`set_option`, `attribute`, `axiom`, `#eval`, `run_cmd`, a theorem)
 is rejected before anything elaborates. each definition elaborates with
 debug.skipKernelTC false and Elab.async false (as lssProofOpts sets them; autoImplicit
-stays as the crate has it), so the kernel checks it, may depend only on the standard
+stays as the crate has it), so the kernel checks it, is replayed through the kernel as
+lss_check_proof's text is, may depend only on the standard
 axioms, and is then made a simp lemma, as Aeneas's tutorial tags its toList. every rejection is an
 error and leaves the environment as it was before the command, every helper of the
 text undefined, so a statement that uses a rejected helper never elaborates. only
@@ -172,6 +222,9 @@ elab "lss_define_helpers " src:str : command => do
   if (← lssFirstError log).isSome then
     setEnv env0
     return
+  if let some why ← lssReplaySince env0 then
+    setEnv env0
+    throwError "LSS_HELPERS: the kernel rejects a helper's declarations on replay: {why}"
   for n in names do
     unless (← getEnv).contains n do
       setEnv env0

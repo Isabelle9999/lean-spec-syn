@@ -142,6 +142,17 @@ CHECKER_CASES = [
     ("the same proof passes without the tiny budget",
      "theorem planted_budget2 (xs ys : List Nat) : (xs ++ ys).reverse.length = ys.length + xs.length := by grind",
      "planted_budget2", 0, True, "ok", ""),
+    ("a lemma added inside the proof without the kernel is caught by the replay, and taken back out",
+     "theorem planted_forged : (1 : Nat) = 2 := by\n  run_tac do\n"
+     "    let ty ← Lean.Meta.mkEq (Lean.mkNatLit 1) (Lean.mkNatLit 2)\n"
+     "    let v ← Lean.Meta.mkEqRefl (Lean.mkNatLit 1)\n"
+     "    Lean.withOptions (fun o => o.setBool `debug.skipKernelTC true) do\n"
+     "      Lean.addDecl (.thmDecl (Lean.mkTheoremValEx `planted_forged_lemma [] ty v []))\n"
+     "  exact planted_forged_lemma",
+     "planted_forged", 0, False, "replay", "planted_forged_lemma"),
+    ("a recursive theorem and its auxiliary declarations pass the replay",
+     "theorem planted_rec : ∀ n : Nat, 0 + n = n\n  | 0 => rfl\n  | n + 1 => congrArg Nat.succ (planted_rec n)",
+     "planted_rec", 0, True, "ok", ""),
     ("kernel checking and synchronous elaboration are forced even when set globally",
      "theorem planted_forced : True := by\n  lss_test_forced_opts\n  trivial",
      "planted_forced", 0, True, "ok", ""),
@@ -169,6 +180,13 @@ def run_static():
           not (pc_defs & gate_defs), str(sorted(pc_defs & gate_defs)))
     check("allowed axioms are exactly propext, Classical.choice, Quot.sound",
           "#[``propext, ``Classical.choice, ``Quot.sound]" in lean.proof_check_text())
+    pc = lean.proof_check_text()
+    cmds = pc[pc.index("def lssCheckCmds"):pc.index("def lssParseText")]
+    check("lss_check_proof replays what the text added through the kernel after elaborating, before the axiom audit",
+          "lssReplayOne news" in pc and "addDeclCore 0 decl" in pc and "Lean.Environment.replay" not in pc
+          and "let env0 ← getEnv" in cmds
+          and 0 <= cmds.find("elabCommand cmd") < cmds.find("lssReplaySince env0") < cmds.find("collectAxioms fullName"),
+          cmds[:200])
 
     # native gate: proof_check.lean goes first, then wf_gate.lean, then the call
     fake = _FakeServer()
@@ -454,6 +472,7 @@ def run_full():
     text += "set_option debug.skipKernelTC true\nset_option Elab.async true\n"
     for _, theorems, name, hb, _, _, _ in CHECKER_CASES:
         text += _call(theorems, name, hb) + "\n"
+    text += "#check @planted_forged_lemma\n"
     text += "set_option debug.skipKernelTC false\n"
     text += "".join(f"#print axioms {n}\n" for n in NATIVE_AXIOMS)
     # control: the probe does fire outside the checker
@@ -466,6 +485,9 @@ def run_full():
         v = got.get(name)
         check(desc, v is not None and v.get("ok") is ok and v.get("stage") == stage
               and needle in v.get("detail", "") + name, str(v)[:300])
+    check("the lemma the replay rejected is no longer in the environment",
+          any("planted_forged_lemma" in m["text"] and "unknown" in m["text"].lower() for m in r.messages),
+          out[-300:])
     check("classical proof lists exactly the three standard axioms",
           sorted(got.get("planted_classical", {}).get("axioms", [])) == ["Classical.choice", "Quot.sound", "propext"],
           str(got.get("planted_classical")))
