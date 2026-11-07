@@ -727,6 +727,18 @@ class LeanChecker:
                     todo.append(body)
         return "\n\n".join(body for h, body in known.items() if h in used)
 
+    @staticmethod
+    def _own_step(state, unit):
+        """(hide, restore) commands around a proof of a spec of `unit`: the unit's own
+        step lemma is taken off while the proof runs, so step* goes through the
+        recursive call by the theorem being proved (Aeneas's tutorial pattern,
+        Tutorial/Solutions.lean) and not by a spec proved earlier for the same function
+        (a zero-index list_nth_mut spec left `tl = Cons ?x ?tl` open on every later
+        list_nth_mut spec). put back before a proved spec is registered, so
+        lss_register_step combines or keeps exactly as it would."""
+        own = state["active"].get(unit)
+        return (f"attribute [-step] {own}\n", f"\nattribute [step] {own}") if own else ("", "")
+
     def _aeneas_admit(self, project_dir, state, name, stmt, tactic, unit):
         """extend the crate's env once with the winning proof, @[step]-registered.
         only on success: a failing admit (lower cap, flaky tactic, ...) keeps the
@@ -737,8 +749,9 @@ class LeanChecker:
         aeneas_dir = _lss_config.project_dir("aeneas")
         heartbeats, timeout = _aeneas_budget(tactic)
         server = _lean_server.get_server(aeneas_dir)
-        text = (proof_check_call(f"theorem {name} : {stmt} := by\n  {tactic}", name, heartbeats) +
-                f"\nlss_register_step {name}")
+        hide, restore = self._own_step(state, unit)
+        text = (hide + proof_check_call(f"theorem {name} : {stmt} := by\n  {tactic}", name, heartbeats) +
+                restore + f"\nlss_register_step {name}")
         r = server.check(text, timeout=timeout, env=state["env"])
         self.lean_calls += 1
         combined = (r.stdout or "") + (r.stderr or "")
@@ -802,7 +815,8 @@ class LeanChecker:
         full += (f"\nset_option maxHeartbeats {heartbeats} in\n"
                  f"theorem _aeneas_{label_c} : {candidate_stmt} := by\n  {tactic_c}")
 
-        r = server.check(full, timeout=90 + 30 * (len(proofs) - 2), env=state["env"])
+        hide, _ = self._own_step(state, unit)
+        r = server.check(hide + full, timeout=90 + 30 * (len(proofs) - 2), env=state["env"])
         self.lean_calls += 1
         combined = (r.stdout or "") + (r.stderr or "")
 
@@ -828,8 +842,8 @@ class LeanChecker:
         if _lss_config.proof_cfg()["rust_hammer"]:
             tactic_h = attempts[1][1] + f" | {HAMMER}"
             hb, timeout = _aeneas_budget(tactic_h)
-            r = server.check(proof_check_call(f"theorem _aeneas_h : {candidate_stmt} := by\n  {tactic_h}", "_aeneas_h", hb),
-                             timeout=timeout, env=state["env"])
+            r = server.check(hide + proof_check_call(f"theorem _aeneas_h : {candidate_stmt} := by\n  {tactic_h}",
+                                                     "_aeneas_h", hb), timeout=timeout, env=state["env"])
             self.lean_calls += 1
             v = parse_proof_verdicts((r.stdout or "") + (r.stderr or "")).get("_aeneas_h")
             if v and v.get("ok"):
@@ -875,7 +889,8 @@ class LeanChecker:
                   + AENEAS_CLOSE.replace("\n  ", "\n    ") + "\n  · first | rfl | simp | simp_all")
         heartbeats = _lss_config.proof_cfg()["aeneas_heartbeats"]
         server = _lean_server.get_server(_lss_config.project_dir("aeneas"))
-        r = server.check(proof_check_call(f"theorem _aeneas_loop : {candidate_stmt} := by\n  {tactic}", "_aeneas_loop",
+        r = server.check(self._own_step(state, unit)[0] +
+                         proof_check_call(f"theorem _aeneas_loop : {candidate_stmt} := by\n  {tactic}", "_aeneas_loop",
                                           heartbeats), timeout=120, env=state["env"])
         self.lean_calls += 1
         out = (r.stdout or "") + (r.stderr or "")
@@ -933,7 +948,7 @@ class LeanChecker:
         first, _, rest = tactic.partition("\n")
         flat = first.strip() + ("\n" + textwrap.dedent(rest) if rest else "")
         abs_txt = ", ".join(f"{c} {lemma or '_'}" for c, lemma in abstract)
-        text = (f'lss_modular {tag} unit:{unit} stmt:"{_escape_lean_str(stmt)}" '
+        text = (self._own_step(state, unit)[0] + f'lss_modular {tag} unit:{unit} stmt:"{_escape_lean_str(stmt)}" '
                 f'tactic:"{_escape_lean_str(flat)}" abstract:[{abs_txt}] inline:[{", ".join(inline)}] '
                 f'heartbeats:{heartbeats}')
         r = server.check(text, timeout=timeout, env=state["env"])

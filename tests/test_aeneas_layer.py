@@ -711,6 +711,9 @@ TO_LIST = ("@[simp] def lss_hp_toList_0000beef {T : Type} : NoNestedBorrows.List
 NTH_SPEC = ("∀ {T : Type} (l : NoNestedBorrows.List T) (i : Std.U32), i.val < (lss_hp_toList_0000beef l).length → "
             "list_nth_mut l i ⦃ r => (lss_hp_toList_0000beef l)[i.val]? = some r.1 ∧ "
             "∀ x', lss_hp_toList_0000beef (r.2 x') = (lss_hp_toList_0000beef l).set i.val x' ⦄")
+# a spec of list_nth_mut at index 0 only: proved first, it becomes list_nth_mut's step lemma
+NTH_ZERO = ("∀ {T : Type} (l : NoNestedBorrows.List T) (x : T) (tl : NoNestedBorrows.List T), "
+            "l = NoNestedBorrows.List.Cons x tl → ∀ (lss_a0 : _), lss_a0 = (0#u32) → list_nth_mut l lss_a0 ⦃ r => r.1 = x ⦄")
 REV_SPEC = ("∀ {T : Type} (li lo : NoNestedBorrows.List T), list_rev_aux li lo ⦃ r => "
             "lss_hp_toList_0000beef r = (lss_hp_toList_0000beef li).reverse ++ lss_hp_toList_0000beef lo ⦄")
 REV_FALSE = ("∀ {T : Type} (li lo : NoNestedBorrows.List T), list_rev_aux li lo ⦃ r => "
@@ -776,6 +779,19 @@ def run_full_suite():
     check("the crate's env still proves through the accepted helper after the rejections", pr.proved, pr.error[:300])
     pr = checker.try_aeneas(NTH_SPEC, "list_nth_mut", nnb, candidate_id="suite_nth")
     check("a spec through a helper on a recursive list function is proved", pr.proved, pr.error[:300])
+    # a run's order: the index-0 spec is list_nth_mut's first, so its step lemma (more binders than
+    # the general spec's, so never displaced by one proved before it) is the active one
+    checker._aeneas_env.pop(nnb, None)  # a fresh crate env, with nothing proved yet
+    ok, errs = checker.ensure_helpers(nnb, TO_LIST)
+
+    def nth_step():  # read anew: a server restart rebuilds the state
+        return checker._aeneas_env[nnb]["active"].get("NoNestedBorrows.list_nth_mut")
+    pr = checker.try_aeneas(NTH_ZERO, "list_nth_mut", nnb, candidate_id="suite_nth_zero")
+    check("a spec of list_nth_mut at index 0, proved first, becomes its step lemma",
+          ok and pr.proved and nth_step() is not None, f"{errs} {pr.error[:200]} {nth_step()}")
+    pr = checker.try_aeneas(NTH_SPEC, "list_nth_mut", nnb, candidate_id="suite_nth_after_zero")
+    check("a later spec of list_nth_mut still proves its recursive call by itself, not by the index-0 spec",
+          pr.proved, pr.error[:300])
     pr = checker.try_aeneas(REV_SPEC, "list_rev_aux", nnb, candidate_id="suite_rev")
     check("an accumulator recursion is proved through the induction step* does itself", pr.proved, pr.error[:300])
     pr = checker.try_aeneas(REV_FALSE, "list_rev_aux", nnb, candidate_id="suite_rev_false")

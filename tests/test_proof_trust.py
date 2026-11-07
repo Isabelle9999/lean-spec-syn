@@ -453,6 +453,22 @@ def run_static_modularity():
     _with_fake(fake, lambda: checker._aeneas_admit("/p", st, "lss_admitted_3", "stmt", "step*", "C.swap"))
     check("admit records the unit's active step lemma",
           st["active"] == {"C.swap": "lss_admitted_3.comb"} and st["env"] == 1 and len(st["admitted"]) == 1, str(st))
+    fake = _FakeServer(lambda code: _verdict_line("lss_admitted_4", True))
+    _with_fake(fake, lambda: checker._aeneas_admit("/p", st, "lss_admitted_4", "stmt", "step*", "C.swap"))
+    sent = fake.sent[0] if fake.sent else ""
+    order = [sent.find(x) for x in ["attribute [-step] lss_admitted_3.comb\n", "lss_check_proof",
+                                    "attribute [step] lss_admitted_3.comb", "lss_register_step lss_admitted_4"]]
+    check("a later spec of the same unit is proved with the unit's own step lemma taken off, put back before "
+          "it is registered", sent.startswith("attribute [-step] lss_admitted_3.comb\n") and -1 not in order
+          and order == sorted(order), sent[:300])
+    fake = _FakeServer(modular_reply(lambda code: True))
+    _with_fake(fake, lambda: checker._modularity(g, {"env": 7, "active": {"C.top": "lss_admitted_5.step",
+                                                                           "C.swap": "lss_admitted_0.step"}},
+                                                 "C.top", "stmt", tactic))
+    sent = fake.sent[0] if fake.sent else ""
+    check("modular: the unit's own step lemma is taken off for the check, the callee's kept",
+          sent.startswith("attribute [-step] lss_admitted_5.step\n") and "C.swap lss_admitted_0.step" in sent,
+          sent[:200])
 
 
 def run_full():
