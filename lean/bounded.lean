@@ -389,8 +389,9 @@ def lssPostAt (sh : LssShape) (src dst : Array Expr) : TermElabM (Expr × Expr �
 open Lean Meta in
 /-- the type IR python's samplers, literals and encoders use
 (tools/translation_check.py), read off the type itself: scalars, Bool, Unit,
-tuples, Option, Array, Slice, Vec, and the crate's own structures and
-inductives at their arguments, `["self"]` marking where an inductive contains
+tuples, Option, Array (its length a number, or the name of the binder that gives it),
+Slice, Vec, the crate's own structures and inductives at their arguments, and the
+crate's type aliases as what they stand for, `["self"]` marking where an inductive contains
 itself (through Option or directly). throws on anything else (a function, as in
 a backward function's result). -/
 partial def lssTypeIR (crate : Name) (stack : Array Expr) (ty : Expr) : MetaM Json := do
@@ -421,10 +422,21 @@ partial def lssTypeIR (crate : Name) (stack : Array Expr) (ty : Expr) : MetaM Js
   if c == `Aeneas.Std.Slice then return Json.arr #["slice", ← lssTypeIR crate stack args[0]!]
   if c == `Aeneas.Std.alloc.vec.Vec then return Json.arr #["vec", ← lssTypeIR crate stack args[0]!]
   if c == `Aeneas.Std.Array then
+    -- a const generic length is another binder of the statement, named here: python
+    -- draws the array first and gives that binder its length
+    if args[1]!.isFVar then
+      return Json.arr #["array", ← lssTypeIR crate stack args[0]!,
+        Json.mkObj [("binder", Json.str (toString (← args[1]!.fvarId!.getUserName)))]]
+    if args[1]!.hasFVar then throwError "the array length {args[1]!} depends on a binder"
     -- the length, evaluated: `8#usize` prints differently under different options
     let len ← lssEvalString (← mkAppM ``toString #[← mkAppM ``Aeneas.Std.UScalar.val #[args[1]!]])
     return Json.arr #["array", ← lssTypeIR crate stack args[0]!, Json.str len]
   let env ← getEnv
+  -- a type alias (`Scalar52 := Std.Array U64 5#usize`, `Tuple T1 T2 := T1 × T2`) is read
+  -- as what it stands for
+  if let some (.defnInfo _) := env.find? c then
+    if let some ty' ← unfoldDefinition? ty then
+      return ← lssTypeIR crate stack ty'
   let some (.inductInfo info) := env.find? c | throwError "type {ty} is not supported"
   unless crate.isPrefixOf c && info.numIndices == 0 && args.size == info.numParams do
     throwError "type {ty} is not supported"

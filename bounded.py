@@ -59,12 +59,19 @@ def _int_range(T):
     return (-(1 << (bits - 1)), (1 << (bits - 1)) - 1) if signed else (0, (1 << bits) - 1)
 
 
+def _sized(T):
+    """an array whose length a binder gives (a const generic) is drawn like a Vec: its
+    length is free, and check_spec then gives that binder the array's length."""
+    return ("vec", T[1]) if T[0] == "array" and T[2] is None else T
+
+
 def _named(T):
     return T[0] in ("struct", "enum", "list_enum")
 
 
 def edge_values(T, self_T=None):
     """the values a bug most often hides behind, for one type."""
+    T = _sized(T)
     kind = T[0]
     if kind == "self":
         return [random_value(self_T, random.Random(i), 3, self_T) for i in range(2)]
@@ -101,6 +108,7 @@ def _self_refs(t):
 
 
 def random_value(T, rnd, depth=0, self_T=None):
+    T = _sized(T)
     kind = T[0]
     if kind == "self":
         return random_value(self_T, rnd, depth, self_T)
@@ -179,6 +187,7 @@ def _children(T, v, self_T):
 
 def perturb(T, v, self_T=None):
     """wrong values of type T near v (never v itself)."""
+    T = _sized(T)
     kind = T[0]
     if kind == "self":
         return perturb(self_T, v, self_T)
@@ -253,6 +262,8 @@ _NONE = object()
 
 
 def _shrink(kind, T, v, self_T):
+    T = _sized(T)
+    kind = T[0]
     if kind == "int":
         n = int(v)
         a = abs(n)
@@ -353,7 +364,7 @@ def parse_evals(text):
     return out
 
 
-def type_ir(j):
+def type_ir(j, top=False):
     """lean/bounded.lean's type IR (JSON) as translation_check's tuples; a Nil/Cons(T,
     Self) inductive becomes a list_enum. raises Unsupported on what Lean could not read."""
     if isinstance(j, dict) or not isinstance(j, list) or not j:
@@ -370,6 +381,10 @@ def type_ir(j):
     if k in ("option", "slice", "vec"):
         return (k, type_ir(j[1]))
     if k == "array":
+        if isinstance(j[2], dict):  # a const generic length, named by the binder that gives it
+            if not top:
+                raise tc.Unsupported("an array whose length a binder gives, inside another type")
+            return ("array", type_ir(j[1]), None)
         m = re.match(r"^\(?(\d+)(#usize)?\)?$", j[2].strip())
         if not m:
             raise tc.Unsupported(f"array length {j[2]}")
@@ -717,9 +732,21 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
             return {"status": "not_evaluated", "detail": d[len(NOT_EVALUATED):].strip()[:300]}
         return {"status": "skipped", "detail": d[:300]}
     try:
-        args = [type_ir(f["ir"]) for f in plan["free"]]
+        args = [type_ir(f["ir"], top=True) for f in plan["free"]]
+        # (array, its length's binder): the binder takes the array's length in every row
+        free_names = [f.get("name") for f in plan["free"]]
+        ties = [(j, free_names.index(f["ir"][2]["binder"])) for j, f in enumerate(plan["free"])
+                if f["ir"][0] == "array" and isinstance(f["ir"][2], dict)]
     except tc.Unsupported as e:
         return {"status": "not_evaluated", "detail": f"a sampled binder's type: {e.reason}"}
+    except ValueError:
+        return {"status": "not_evaluated", "detail": "an array's length is a binder the check does not sample"}
+
+    def tie(row):
+        row = list(row)
+        for j, k in ties:
+            row[k] = len(row[j])
+        return row
     try:
         ret = type_ir(plan["ret"])
     except tc.Unsupported:
@@ -730,7 +757,7 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     # success whatever the postcondition says; a succeeding one decides nothing
     decided = plan.get("post_decidable", True)
     # smallest first: a batch that runs out of time then holds the largest inputs only
-    rows = sorted(sample_rows(args, seed=seed), key=lambda r: sum(size(t, x) for t, x in zip(args, r)))
+    rows = sorted((tie(r) for r in sample_rows(args, seed=seed)), key=lambda r: sum(size(t, x) for t, x in zip(args, r)))
     ev, why = lean.eval(stmt, args, ret, rows)
     if ev is None:
         return {"status": "timeout" if why == "timeout" else "skipped", "detail": why}
@@ -747,7 +774,8 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     if bad:
         row, res = rows[bad[0]], outs[bad[0]]
         for _ in range(SHRINK_ROUNDS):
-            cands = _interleave([[row[:j] + [x] + row[j + 1:] for x in shrink(t, row[j])] for j, t in enumerate(args)])
+            cands = [tie(c) for c in _interleave([[row[:j] + [x] + row[j + 1:] for x in shrink(t, row[j])]
+                                                  for j, t in enumerate(args)])]
             cands = cands[:2 * tc.MAX_BATCH]
             if not cands:
                 break

@@ -220,6 +220,14 @@ def run_static_commands():
           tc.lean_literal(usz, 2 ** 32))
 
 
+def _raises(fn):
+    try:
+        fn()
+    except Exception:
+        return True
+    return False
+
+
 def _plan(free=None, ret=None, binders=None, insts=None):
     free = free if free is not None else [{"name": "x", "type": "Aeneas.Std.U32", "ir": ["int", "Std.U32"]}]
     return {"ok": True, "kind": "spec", "free": free, "ret": ret or ["int", "Std.U32"],
@@ -386,6 +394,30 @@ def run_static_check():
     check("with none among them, a check that ran out of time is a timeout that says how far it got, "
           "never a pass or a vacuous spec",
           v["status"] == "timeout" and "of " in v.get("detail", "") and "none refutes" in v.get("detail", ""), str(v))
+    gen_arr = _plan(free=[{"name": "N", "type": "Aeneas.Std.Usize", "ir": ["int", "Std.Usize"]},
+                          {"name": "a", "type": "Aeneas.Std.Array Aeneas.Std.U32 N",
+                           "ir": ["array", ["int", "Std.U32"], {"binder": "N"}]}],
+                    binders=[{"k": "arg", "i": 0}, {"k": "arg", "i": 1}])
+    seen_rows = []
+    fake = FakeLean(lambda r: (seen_rows.append(r), {"outcome": "fail", "value": "Aeneas.Std.Error.integerOverflow"}
+                               if len(r[1]) == 2 else _ok(0))[1], plan=gen_arr)
+    v = _check(fake)
+    ref = fake.sent[0].replace("\\n", "\n") if fake.sent else ""
+    check("an array whose length is a const generic is drawn with that length binder set to its length, in every row "
+          "and every shrink candidate",
+          bool(seen_rows) and all(r[0] == len(r[1]) for r in seen_rows) and v["status"] == "refuted"
+          and len(v["witness"][1]) == 2 and v["witness"][0] == 2
+          and "lss_h (2#usize) ((⟨[" in ref and "] , by decide⟩" not in ref and ": Array Std.U32 2#usize)" in ref,
+          f"{[r for r in seen_rows if r[0] != len(r[1])][:3]} {v.get('witness')} {ref[-300:]}")
+    check("such a length is read only for an array binder of the statement, not one inside another type",
+          bounded.type_ir(["array", ["int", "Std.U32"], {"binder": "N"}], top=True) == ("array", ("int", "Std.U32"), None)
+          and _raises(lambda: bounded.type_ir(["tuple", [["array", ["int", "Std.U32"], {"binder": "N"}]]], top=True)))
+    bl = open(bounded._BOUNDED_PATH, encoding="utf-8").read()
+    tir = bl[bl.index("partial def lssTypeIR"):bl.index("lssTypeIR crate stack ty'") + 30]
+    check("the type reader names a const generic length's binder, never evaluates it, and reads a crate's type alias "
+          "as what it stands for",
+          'args[1]!.isFVar' in tir and '("binder", Json.str' in tir and "unfoldDefinition? ty" in tir
+          and tir.index("args[1]!.isFVar") < tir.index("lssEvalString"), tir[:300])
     lb = bounded._Lean.__new__(bounded._Lean)
     lb.crate, answers = "C", [({"ok": True, "kind": "spec", "rows": [{"outcome": "holds"}] * bounded.tc.MAX_BATCH}, ""),
                                (None, "timeout")]
@@ -848,6 +880,7 @@ def run_full():
 
     run_planted(checker)
     run_suite_refutations(checker)
+    run_suite_types(checker)
 
     # a diverging evaluation: the server times out, restarts, and the next check works
     state = checker._aeneas_env_for(rust_dir)
@@ -913,6 +946,38 @@ def run_suite_refutations(checker):
         check("an overflow that needs more loop steps than the evaluation unrolls is evaluation-only, and says so",
               v["status"] == "refuted" and v.get("kernel") is False
               and "with the loop still running" in v.get("kernel_why", ""), str(v)[:400])
+
+
+def _trivial(def_text, name):
+    """`∀ <the def's binders>, name <its explicit arguments> ⦃ _ => True ⦄` from an
+    Aeneas def `def <name> <binders> : Result <T> :=`."""
+    text = re.sub(r"--[^\n]*", " ", re.sub(r"/-.*?-/", " ", def_text, flags=re.DOTALL))
+    m = re.search(r"\bdef\s+\S+\s*(.*?)\s*:\s*(?:Aeneas\.)?(?:Std\.)?Result\b", text, re.DOTALL)
+    binders = " ".join(m.group(1).split()) if m else ""
+    args = [n for g in re.findall(r"\(([^():]+):", binders) for n in g.split()]
+    return f"∀ {binders}, {' '.join([name] + args)} ⦃ _ => True ⦄"
+
+
+def run_suite_types(checker):
+    """types the sampler reads through: a const generic array's length, a crate's type
+    aliases. on the suite's own crates, read-only."""
+    print("=== full: const generic arrays and type aliases ===")
+    import callgraph
+    suite = os.path.expanduser("~/rust_suite")
+    for crate, unit, title in [
+            ("Loops", "sum_array", "a function over an array of const generic length is evaluated, its length "
+                                   "drawn with the array"),
+            ("AeneasStandalone", "curve25519.mul_internal", "a function over a crate's alias for an array is evaluated"),
+            ("NoNestedBorrows", "read_tuple_struct", "a function over a crate's alias for a pair is evaluated")]:
+        d = os.path.join(suite, crate)
+        if not os.path.isdir(d):
+            check(f"{d} exists", False, "not a directory")
+            continue
+        g = callgraph.for_project(d)
+        q = unit if unit in g.names else f"{g.crate}.{unit}"
+        stmt = _trivial(g.def_text(q) or "", unit)
+        v = bounded.check_spec(checker, stmt, unit, d)
+        check(title, v["status"] in ("pass", "refuted", "vacuous"), f"{stmt} -> {str(v)[:300]}")
 
 
 PLANTED_TYPES = """-- hand-written in the shape Aeneas generates, for LSS's tests

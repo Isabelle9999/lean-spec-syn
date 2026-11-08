@@ -691,7 +691,9 @@ def lean_literal(T, value, self_T=None, short=False):
         inner = ", ".join(lean_literal(T[1], v, self_T, short) for v in value)
         if short:
             return f"[{inner}]"
-        return f"(⟨[{inner}], by decide⟩ : Array {lean_type_str(T[1], self_T)} {T[2]}#usize)"
+        # a length None is a const generic's: the binder that gives it takes this value's length
+        n = len(value) if T[2] is None else T[2]
+        return f"(⟨[{inner}], by decide⟩ : Array {lean_type_str(T[1], self_T)} {n}#usize)"
     if kind in ("slice", "vec"):
         # Vec/Slice's obligation is l.length <= Usize.max, which needs the
         # irreducible Usize.max/numBits unfolded and cased on the platform
@@ -759,6 +761,8 @@ def lean_type_str(T, self_T=None):
     if kind == "tuple":
         return "(" + " × ".join(lean_type_str(e, self_T) for e in T[1]) + ")"
     if kind == "array":
+        if T[2] is None:
+            raise Unsupported("an array whose length a binder gives, as a type on its own")
         return f"(Array {lean_type_str(T[1], self_T)} {T[2]}#usize)"
     if kind == "slice":
         return f"(Slice {lean_type_str(T[1], self_T)})"
