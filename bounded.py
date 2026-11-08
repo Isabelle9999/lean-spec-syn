@@ -541,10 +541,6 @@ def _bounded_text():
 _OPS = {}  # (project_dir, unit) -> the operations its call reaches (_Lean.ops)
 
 
-def _crate_name(project_dir):
-    import callgraph
-    return callgraph.for_project(project_dir).crate
-
 
 class _Lean:
     """the bounded check's own env, built once per crate env on the crate env as
@@ -597,8 +593,8 @@ class _Lean:
         lss_eval_ops), once per crate and unit."""
         key = (self.project_dir, unit)
         if key not in _OPS:
-            out, _ = self.run(f"lss_eval_ops {self.crate or _crate_name(self.project_dir)} " + " ".join(unfold)) \
-                if unfold else (None, "")
+            # asked after an evaluation, which set self.crate
+            out, _ = self.run(f"lss_eval_ops {self.crate} " + " ".join(unfold)) if unfold else (None, "")
             m = re.search(r"LSS_OPS (\[[^\n]*\])", out or "")
             if not m:
                 return []  # not kept: a failed run (a timeout, a lost env) is asked again next time
@@ -691,8 +687,9 @@ def _kernel_refutation(lean, stmt, kind, binders, insts, args, ret, row, res, un
             return True, ""
         whys.append(f"{label}: {why or verdict.get('detail') or 'no verdict'}"[:300])
         text = t if kw.get("split") else text
-    tail = "  all_goals (first | decide | omega)"
-    out, _ = lean.run(text[:text.rindex(tail)] + "  lss_log_goals\n  all_goals sorry") if tail in text else (None, "")
+    # the goals each case's evaluation leaves (a ⦄div statement has two), closed by sorry
+    closer = re.compile(r"^( +)all_goals \(first \| decide \| omega\)$", re.M)
+    out, _ = lean.run(closer.sub(r"\1lss_log_goals\n\1all_goals sorry", text)) if closer.search(text) else (None, "")
     left = [g.get("text", "") for g in _lean_goals(out)]
     if any(re.search(r"\bloop\b", g) for g in left):
         whys.insert(0, f"the evaluation stops after {EVAL_ROUNDS} rounds with the loop still running")
@@ -824,7 +821,10 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     claims_success = discard > 0 or any(r["outcome"] in ("fail", "div") for r in outs)
     checked = 0
     rejects = False
-    for i in (fit[:PERTURB_ROWS] if ret is not None else []):
+    # the smallest, a middle and the largest input that fit (rows run smallest first): a
+    # spec that says nothing on small inputs only is not called vacuous
+    probe = sorted({fit[k * (len(fit) - 1) // (PERTURB_ROWS - 1)] for k in range(PERTURB_ROWS)}) if fit else []
+    for i in (probe if ret is not None else []):
         wrong = perturb(ret, json.loads(outs[i]["value"]))
         if not wrong:
             continue

@@ -633,9 +633,10 @@ class LeanChecker:
                            hammer_available=True)
 
     def _aeneas_build_env(self, project_dir):
-        """fresh env = crate text + the same options/opens the benches' own
-        lean_code + lean_preamble use (so a statement elaborates the same way in
-        every layer) + the aeneas layer, in the pinned aeneas project. LSS's own
+        """fresh env = crate text + the options and Aeneas opens the benches' own
+        lean_code + lean_preamble use + the aeneas layer, then the crate's namespace
+        entered, in the pinned aeneas project (a bench's own `open <crate>` inside it
+        changes nothing: the crate's names already win there). LSS's own
         commands are elaborated before the crate's namespace is entered, so a crate
         defining a name they use (a `List` of its own) cannot change them; that env
         is kept as "env0" for the gate and the bounded check, which send their own

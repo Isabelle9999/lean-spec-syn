@@ -83,8 +83,9 @@ JSON list): what the kernel refutation's evaluation unfolds besides C's own func
 (Slice.index_usize, core.num.Isize.overflowing_div, lift, ...). left out: how a scalar
 is stored (val, bv, the literal constructors, its bounds and bit width: Aeneas's simp
 lemmas rewrite those back, so unfolding them loops), types, instances (lss_eval_*
-above names the arithmetic), auxiliary matchers, internal names, and `loop`, whose
-equation always applies again. -/
+above names the arithmetic), auxiliary matchers, internal names, `loop`, whose
+equation always applies again, and a partial or unsafe definition, which has no
+equation for simp to unfold (one in the list makes that simp call fail). -/
 elab "lss_eval_ops " crate:ident roots:ident* : command => do
   let env ← getEnv
   let stored : _root_.List String := ["val", "bv", "ofNatCore", "ofIntCore", "numBits", "cNumBits", "max", "min",
@@ -101,7 +102,7 @@ elab "lss_eval_ops " crate:ident roots:ident* : command => do
         seen := seen.insert n
         if let some (.defnInfo d) := env.find? n then
           let last := match n with | .str _ s => s | _ => ""
-          if ((`Aeneas.Std).isPrefixOf n && !n.isInternal && n != ``Aeneas.Std.loop &&
+          if ((`Aeneas.Std).isPrefixOf n && !n.isInternal && n != ``Aeneas.Std.loop && d.safety == .safe &&
               !d.type.getForallBody.isSort && !stored.contains last && !last.startsWith "match_" &&
               !last.startsWith "inst" && !n.getPrefix.toString.endsWith "Ty") then
             out := out.push n

@@ -87,7 +87,7 @@ def check_candidate(lean_checker, candidate_text, func_name, lean_code, project_
         manifest_names = sorted(g.names)
         # callgraph keys everything by the crate-qualified name (e.g.
         # "FeatureSuite.search.linear_search"), but callers pass func_name the
-        # same unqualified way Lean source itself writes it under `open <crate>`
+        # same unqualified way Lean source itself writes it inside the crate's namespace
         # (e.g. "search.linear_search", matching unit: below) -- qualify before
         # asking the graph about it.
         qualified_func = func_name if func_name in g.names else f"{g.crate}.{func_name}"

@@ -365,6 +365,12 @@ def run_static_check():
           v["kernel"] is False and v.get("kernel_why", "").startswith(
               f"the evaluation stops after {bounded.EVAL_ROUNDS} rounds with the loop still running")
           and "lss_log_goals" in fake.sent[-1] and "lss_hb" in fake.sent[-1], v.get("kernel_why", "")[:300])
+    fake = FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.integerOverflow"}, kernel=False)
+    _check(fake, stmt="S div")
+    log = fake.sent[-1] if fake.sent else ""
+    check("for a ⦄div statement the goals both cases leave are logged, each case closed by sorry",
+          log.count("lss_log_goals") == 2 and log.count("all_goals sorry") == 2
+          and "decide | omega)" not in log and "\n    lss_log_goals\n    all_goals sorry" in log, log[-400:])
     class Partial(FakeLean):
         """the first `k` rows evaluate, the rest run out of time"""
         def __init__(self, row_outcome, k, **kw):
@@ -437,7 +443,8 @@ def run_static_check():
     body = bl[bl.index('elab "lss_eval_ops "'):]
     check("lss_eval_ops never names how a scalar is stored, a type, an instance, a matcher or loop",
           all(x in body for x in ['"val", "bv", "ofNatCore", "ofIntCore", "numBits"', "``Aeneas.Std.loop",
-                                  "getForallBody.isSort", 'startsWith "match_"', 'startsWith "inst"', "isInternal"]),
+                                  "getForallBody.isSort", 'startsWith "match_"', 'startsWith "inst"', "isInternal",
+                                  "d.safety == .safe"]),
           body[:300])
     fake = FakeLean(lambda r: {"outcome": "violates", "value": '"1"'})
     v = _check(fake)
@@ -473,6 +480,9 @@ def run_static_check():
           v["status"] == "vacuous" and "says nothing" in v.get("feedback", ""), str(v))
     v = _check(FakeLean(same, lambda row, o: "violates" if int(o) != int(row[0]) else "holds"))
     check("an exact spec passes: it rejects the wrong outputs", v["status"] == "pass" and v["warning"] is None, str(v))
+    v = _check(FakeLean(same, lambda row, o: "holds" if int(row[0]) <= 5 else "violates"))
+    check("a spec that says nothing on small inputs only is not vacuous: the largest input is probed too",
+          v["status"] == "pass", str(v))
     v = _check(FakeLean(lambda r: _ok(r[0]) if int(r[0]) < 2 else {"outcome": "discard"}, lambda row, o: "holds"))
     check("a no-fail statement (hypotheses filter, any output accepted) is kept",
           v["status"] == "pass", str(v))
