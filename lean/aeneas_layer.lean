@@ -89,7 +89,8 @@ theorem lss_spec_and {a} {m : Aeneas.Std.Result a} {p q : a → Prop}
 -- own @[step] lemmas are never touched or replaced.
 open Lean Elab Command Meta in
 elab "lss_register_step " id:ident : command => do
-  let declName := id.getId
+  -- resolved, so the theorem is found inside the crate's namespace too
+  let declName ← try resolveGlobalConstNoOverload id catch _ => pure id.getId
   try
     liftTermElabM do
       let ci <- getConstInfo declName
@@ -117,7 +118,7 @@ elab "lss_register_step " id:ident : command => do
             let s := toString n
             s.endsWith ".step" || s.endsWith ".comb")
           let logStep (action : String) (active : Name) (replaced : Option Name) : MetaM Unit := do
-            let fields := #[("call", Lean.Json.str declName.toString),
+            let fields := #[("call", Lean.Json.str id.getId.toString),
                             ("action", Lean.Json.str action),
                             ("active", Lean.Json.str active.toString)]
             let fields := match replaced with
@@ -212,8 +213,10 @@ elab "lss_modular " tagId:ident " unit:" unitId:ident " stmt:" stmtStr:str " tac
   let mabsName := tag ++ `mabs
   let goalName := tag ++ `goal
   let heartbeats := if hb.getNat == 0 then none else some hb.getNat
+  -- the verdict carries the tag as the caller wrote it (lss_check_proof's names likewise)
+  let shown := tagId.getId ++ `proof
   let fail (detail : String) : CommandElabM Unit :=
-    logWarning (lssProofMsg proofName false "setup" detail #[])
+    logWarning (lssProofMsg shown false "setup" detail #[])
   try
     let f ← resolveGlobalConstNoOverload unitId
     let absPairs ← abs.getElems.mapM fun c => do
@@ -276,7 +279,9 @@ elab "lss_modular " tagId:ident " unit:" unitId:ident " stmt:" stmtStr:str " tac
     let names := (List.range absPairs.size).map (s!"lss_g{· + 1}") ++ (List.range nHyps).map (s!"lss_h{· + 1}")
     let intro := if names.isEmpty then "" else "intro " ++ " ".intercalate names ++ "\n"
     let tacLines := (intro ++ tacStr.getString).splitOn "\n" |>.map ("  " ++ ·)
-    let text := s!"theorem {proofName} : {goalName} := by\n" ++ "\n".intercalate tacLines
+    -- `_root_.`: the names are already qualified by the namespace, which a
+    -- declaration inside it would otherwise add a second time
+    let text := s!"theorem _root_.{proofName} : _root_.{goalName} := by\n" ++ "\n".intercalate tacLines
     let (cmds, parseLog) ← lssParseText text
     if let some err ← lssFirstError parseLog then
       fail s!"proof text does not parse: {err}"
@@ -289,6 +294,6 @@ elab "lss_modular " tagId:ident " unit:" unitId:ident " stmt:" stmtStr:str " tac
             return some (mkIdentFrom s mabsName)
         catch _ => pure ()
       return none
-    lssCheckCmds cmds proofName heartbeats
+    lssCheckCmds cmds proofName heartbeats shown
   catch e =>
     fail (← e.toMessageData.toString)

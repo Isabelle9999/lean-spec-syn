@@ -224,6 +224,8 @@ class LLMClient:
                 "- Apply the function only to distinct bound variables; state a case as a hypothesis:\n"
                 "  ∀ (l : CList T) (x : T) (tl : CList T), l = CList.CCons x tl → f l ⦃ r => P r ⦄, never f (CList.CCons x tl)\n"
                 "- Write the crate's own types with the crate name, as in the signature above (e.g. Bst.Ord T)\n"
+                "- The theorem is read inside the crate's namespace: a name the crate defines (its List, Ord,\n"
+                "  max) means the crate's; write Lean's own list as _root_.List\n"
                 "- A generic function's theorem stays generic, over all T. For a trait argument (OrdInst : <Crate>.Ord T),\n"
                 "  assume what the property needs of its methods as a hypothesis, with a Mathlib class for T if needed:\n"
                 "  ∀ {T : Type} (OrdInst : <Crate>.Ord T) [LinearOrder T] (hcmp : ∀ a b, OrdInst.cmp a b = ok (if a < b then\n"
@@ -1256,10 +1258,12 @@ def _try_proof_sketch(llm, lean_code, spec):
 
 
 def _classify_proof_error(error_text, spec_stmt):
-    unknown_match = re.search(r"unknown identifier '([^']+)'", error_text)
+    # Lean 4.31 writes "Unknown identifier `x`", older ones "unknown identifier 'x'"
+    unknown_match = re.search(r"unknown identifier (?:`([^`]+)`|'([^']+)')", error_text, re.IGNORECASE)
     if unknown_match:
-        ident = unknown_match.group(1)
-        if ident in spec_stmt:
+        ident = unknown_match.group(1) or unknown_match.group(2)
+        # the name itself in the statement, not a piece of a longer one (`a` in `r.val`)
+        if re.search(rf"(?<![\w.']){re.escape(ident)}(?![\w'])", spec_stmt):
             return "spec_malformed"
     if "type mismatch" in error_text:
         if "theorem" in error_text.split("type mismatch")[0][-100:]:
@@ -1456,11 +1460,27 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                 preamble = spec.get("preamble", "")
                 if preamble and _gate.is_rust(source):
                     # a Rust spec's helpers: named by their text, @[simp], computable, and
-                    # defined once in the crate's env, after the crate is opened
+                    # defined once in the crate's env, inside the crate's namespace
                     helpers, stmt_h = rust_helpers(preamble, spec["stmt"])
-                    preamble = ""
+                    raw, preamble = preamble, ""
                     if helpers:
                         ok_pre, errs_pre = lean_checker.ensure_helpers(project_dir, helpers)
+                        if not ok_pre and llm:
+                            # one repair from Lean's own error, as a refutation gets one from its
+                            # counterexample: a helper written against another Lean (one that
+                            # calls a function this Lean no longer has) is otherwise lost with
+                            # every statement built on it
+                            fixed = llm._ask(
+                                "These Lean 4 definitions are helpers for theorems about a Rust function "
+                                "(translated by Aeneas), and Lean rejects them:\n"
+                                f"{raw}\n\nLean's error:\n{errs_pre[0][:600] if errs_pre else 'unknown'}\n\n"
+                                "Fix the definitions so this Lean accepts them, keeping each one's name and what it "
+                                "computes. They use only the crate's types and Lean's own functions, never a crate "
+                                "function.\nReturn ONLY the fixed definitions.")
+                            if _DEF_START.search(fixed or ""):
+                                helpers, stmt_h = rust_helpers(fixed, spec["stmt"])
+                                if helpers:
+                                    ok_pre, errs_pre = lean_checker.ensure_helpers(project_dir, helpers)
                         if ok_pre:
                             spec["helpers"], spec["stmt"] = helpers, stmt_h
                         elif verbose:
@@ -1569,7 +1589,8 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                     b = _bounded.check_spec(lean_checker, spec["stmt"], func, project_dir, helpers=spec.get("helpers", ""))
                     spec["bounded"] = b
                     events.emit("bounded", status=b["status"], warning=b.get("warning"),
-                                detail=(b.get("detail") or "")[:300], kernel=b.get("kernel"))
+                                detail=(b.get("detail") or "")[:300], kernel=b.get("kernel"),
+                                kernel_why=(b.get("kernel_why") or "")[:600])
                     if verbose:
                         print(f"  [b] {spec['name']}: {b['status']}"
                               + (f" ({b['warning']})" if b.get("warning") else ""))

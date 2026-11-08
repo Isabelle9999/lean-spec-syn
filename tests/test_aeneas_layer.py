@@ -548,11 +548,11 @@ def run_static_helpers():
     pc = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lean", "proof_check.lean"),
               encoding="utf-8").read()
     body = pc[pc.index('elab "lss_define_helpers "'):]
-    check("lss_define_helpers takes definitions only, with no modifier, named lss_hp_, kernel-checked, on the "
-          "standard axioms, then tagged simp",
+    check("lss_define_helpers takes definitions only, with no modifier, named lss_hp_, kernel-checked and "
+          "replayed through the kernel, on the standard axioms, then tagged simp",
           all(x in body for x in ["``Parser.Command.definition", "cmd[0].getArgs.all (·.isNone)", '"lss_hp_"',
-                                  "`debug.skipKernelTC false", "lssAxiomProblem", "attribute [simp]", "setEnv env0",
-                                  "m.severity matches .error"]), body[:200])
+                                  "`debug.skipKernelTC false", "lssReplaySince env0", "lssAxiomProblem",
+                                  "attribute [simp]", "setEnv env0", "lssOwnErrors log"]), body[:200])
     server = _FakeServer()
     old = (lean_server.get_server, callgraph.for_project)
     lean_server.get_server = lambda *a, **k: server  # type: ignore[assignment]
@@ -572,16 +572,16 @@ def run_static_helpers():
         server.sent.clear()
         gate.check_candidate(checker, "theorem t : S := sorry", "f", "", "/p", "rust-aeneas", helpers=helper)
         text = server.sent[0][0] if server.sent else ""
-        check("the gate elaborates a spec's helpers after opening the crate, before the candidate",
-              "open C\n" + lean.helpers_command(helper) in text
+        check("the gate elaborates a spec's helpers inside the crate's namespace, before the candidate",
+              "namespace C\n" + lean.helpers_command(helper) in text
               and text.index("lss_define_helpers") < text.rindex("lss_wf_gate \""), text[-300:])
         server.sent.clear()
         bl = bounded._Lean(checker, "/p", helper)
         bl.crate = "C"
         bl._env = lambda srv: (9, "")  # type: ignore[method-assign]
         bl.run("lss_eval_plan t crate:C stmt:\"S\"")
-        check("the bounded check runs with a spec's helpers, after opening the crate",
-              bool(server.sent) and server.sent[0][0].startswith("open C\n" + lean.helpers_command(helper)),
+        check("the bounded check runs with a spec's helpers, inside the crate's namespace",
+              bool(server.sent) and server.sent[0][0].startswith("namespace C\n" + lean.helpers_command(helper)),
               str(server.sent)[:300])
         state["admitted"].append(("lss_admitted_0", "∀ l, g l ⦃ r => r = (lss_hp_toList_0123abcd l).length ⦄",
                                   "step*", "C.g"))
@@ -711,6 +711,9 @@ TO_LIST = ("@[simp] def lss_hp_toList_0000beef {T : Type} : NoNestedBorrows.List
 NTH_SPEC = ("∀ {T : Type} (l : NoNestedBorrows.List T) (i : Std.U32), i.val < (lss_hp_toList_0000beef l).length → "
             "list_nth_mut l i ⦃ r => (lss_hp_toList_0000beef l)[i.val]? = some r.1 ∧ "
             "∀ x', lss_hp_toList_0000beef (r.2 x') = (lss_hp_toList_0000beef l).set i.val x' ⦄")
+# a spec of list_nth_mut at index 0 only: proved first, it becomes list_nth_mut's step lemma
+NTH_ZERO = ("∀ {T : Type} (l : NoNestedBorrows.List T) (x : T) (tl : NoNestedBorrows.List T), "
+            "l = NoNestedBorrows.List.Cons x tl → ∀ (lss_a0 : _), lss_a0 = (0#u32) → list_nth_mut l lss_a0 ⦃ r => r.1 = x ⦄")
 REV_SPEC = ("∀ {T : Type} (li lo : NoNestedBorrows.List T), list_rev_aux li lo ⦃ r => "
             "lss_hp_toList_0000beef r = (lss_hp_toList_0000beef li).reverse ++ lss_hp_toList_0000beef lo ⦄")
 REV_FALSE = ("∀ {T : Type} (li lo : NoNestedBorrows.List T), list_rev_aux li lo ⦃ r => "
@@ -733,6 +736,14 @@ def run_full_suite():
         return
     ok, errs = checker.ensure_helpers(nnb, TO_LIST)
     check("the helper is defined in the crate's env", ok, str(errs)[:300])
+    import gate
+    for d, unit, stmt, title in [
+            (nnb, "list_nth_mut", "∀ {T : Type} (l : List T) (i : Std.U32), list_nth_mut l i ⦃ _ => True ⦄",
+             "a statement naming the crate's own List is read as the crate's, not as ambiguous with Lean's"),
+            (tut, "max", "∀ (a b : Std.Usize), max a b ⦃ _ => True ⦄",
+             "a statement calling the crate's own max is read as the crate's, not as ambiguous with Lean's")]:
+        verdicts = gate.check_candidate(checker, f"theorem t : {stmt} := sorry", unit, None, d, "rust-aeneas")
+        check(title, gate.is_well_formed(verdicts, "rust-aeneas"), str(verdicts)[:300])
     smuggled = [
         ("a command indented inside a helper's block",
          "@[simp] def lss_hp_bad_00000001 : Nat := 0\n  attribute [simp] Nat.add_comm"),
@@ -750,6 +761,14 @@ def run_full_suite():
          "@[simp] def lss_hp_bad_00000009 : Nat := 0\n  partial def lss_hp_bad_00000010 (n : Nat) : Nat := lss_hp_bad_00000010 n"),
         ("a definition with an attribute of its own among a spec's helpers",
          "@[simp] def lss_hp_bad_00000011 : Nat := 0\n  @[implemented_by lss_hp_bad_00000011] def lss_hp_bad_00000012 : Nat := 1"),
+        # meta code in a helper's body adds a false lemma with the kernel check off for itself
+        ("a helper whose body adds a lemma the kernel never checked",
+         "@[simp] def lss_hp_bad_00000013 : Nat := by\n  run_tac do\n"
+         "    let ty ← Lean.Meta.mkEq (Lean.mkNatLit 1) (Lean.mkNatLit 2)\n"
+         "    let v ← Lean.Meta.mkEqRefl (Lean.mkNatLit 1)\n"
+         "    Lean.withOptions (fun o => o.setBool `debug.skipKernelTC true) do\n"
+         "      Lean.addDecl (.thmDecl (Lean.mkTheoremValEx `lss_hp_bad_00000014 [] ty v []))\n"
+         "  exact 0"),
     ]
     server = lean_server.get_server(lss_config.project_dir("aeneas"))
     for label, text in smuggled:
@@ -768,6 +787,19 @@ def run_full_suite():
     check("the crate's env still proves through the accepted helper after the rejections", pr.proved, pr.error[:300])
     pr = checker.try_aeneas(NTH_SPEC, "list_nth_mut", nnb, candidate_id="suite_nth")
     check("a spec through a helper on a recursive list function is proved", pr.proved, pr.error[:300])
+    # a run's order: the index-0 spec is list_nth_mut's first, so its step lemma (more binders than
+    # the general spec's, so never displaced by one proved before it) is the active one
+    checker._aeneas_env.pop(nnb, None)  # a fresh crate env, with nothing proved yet
+    ok, errs = checker.ensure_helpers(nnb, TO_LIST)
+
+    def nth_step():  # read anew: a server restart rebuilds the state
+        return checker._aeneas_env[nnb]["active"].get("NoNestedBorrows.list_nth_mut")
+    pr = checker.try_aeneas(NTH_ZERO, "list_nth_mut", nnb, candidate_id="suite_nth_zero")
+    check("a spec of list_nth_mut at index 0, proved first, becomes its step lemma",
+          ok and pr.proved and nth_step() is not None, f"{errs} {pr.error[:200]} {nth_step()}")
+    pr = checker.try_aeneas(NTH_SPEC, "list_nth_mut", nnb, candidate_id="suite_nth_after_zero")
+    check("a later spec of list_nth_mut still proves its recursive call by itself, not by the index-0 spec",
+          pr.proved, pr.error[:300])
     pr = checker.try_aeneas(REV_SPEC, "list_rev_aux", nnb, candidate_id="suite_rev")
     check("an accumulator recursion is proved through the induction step* does itself", pr.proved, pr.error[:300])
     pr = checker.try_aeneas(REV_FALSE, "list_rev_aux", nnb, candidate_id="suite_rev_false")

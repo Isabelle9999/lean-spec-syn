@@ -220,6 +220,14 @@ def run_static_commands():
           tc.lean_literal(usz, 2 ** 32))
 
 
+def _raises(fn):
+    try:
+        fn()
+    except Exception:
+        return True
+    return False
+
+
 def _plan(free=None, ret=None, binders=None, insts=None):
     free = free if free is not None else [{"name": "x", "type": "Aeneas.Std.U32", "ir": ["int", "Std.U32"]}]
     return {"ok": True, "kind": "spec", "free": free, "ret": ret or ["int", "Std.U32"],
@@ -231,11 +239,12 @@ class FakeLean:
     result, `post_outcome(row, out)` one perturbed output's, `plan` the plan."""
     calls = []
 
-    def __init__(self, row_outcome, post_outcome=None, kernel=True, timeout=False, plan=None):
+    def __init__(self, row_outcome, post_outcome=None, kernel=True, timeout=False, plan=None, ops=(), goals=()):
         self.row_outcome, self.post_outcome, self.kernel, self.timeout = row_outcome, post_outcome, kernel, timeout
         self.plan_ = plan or _plan()
         self.n = 0
         self.sent = []
+        self.ops_, self.goals = list(ops), list(goals)
 
     def __call__(self, checker, project_dir):
         return self
@@ -251,8 +260,13 @@ class FakeLean:
     def post(self, stmt, args, ret, row, outs):
         return [self.post_outcome(row, o) for o in outs] if self.post_outcome else None
 
+    def ops(self, unit, unfold):
+        return self.ops_
+
     def run(self, text):
         self.sent.append(text)
+        if " name:" not in text:  # the goals the last evaluation left (lss_log_goals)
+            return "\n".join(f"LSS_GOALS {json.dumps({'head': 'Not', 'text': g})}" for g in self.goals), ""
         name = text.split(" name:")[1].split()[0]
         ok = self.kernel(text) if callable(self.kernel) else self.kernel
         return f'LSS_PROOF {{"name":"{name}","ok":{"true" if ok else "false"},"stage":"ok","detail":"no","axioms":[]}}', ""
@@ -309,9 +323,129 @@ def run_static_check():
           "evaluation: " in v.get("kernel_why", "") and "stated value: " in v.get("kernel_why", ""), str(v))
     fake = FakeLean(lambda r: {"outcome": "violates", "value": '"1"'}, kernel=lambda text: "have hv" in text)
     v = _check(fake)
-    check("when the evaluation is not kernel-checked, the stated value is tried in a theorem of its own",
-          v["kernel"] is True and len(fake.sent) == 2 and "revert y" in fake.sent[0] and "have hv" in fake.sent[1]
-          and "have hv" not in fake.sent[0], str(fake.sent)[:300])
+    check("when no evaluation is kernel-checked, the stated value is tried in a theorem of its own",
+          v["kernel"] is True and len(fake.sent) == 3 and "revert y" in fake.sent[0] and "have hv" in fake.sent[-1]
+          and not any("have hv" in t for t in fake.sent[:-1]), str(fake.sent)[:300])
+    op = "Aeneas.Std.Slice.index_usize"
+    fake = FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.arrayOutOfBounds"}, ops=[op],
+                    kernel=lambda text: op in text)
+    v = _check(fake)
+    check("when the plain evaluation is not kernel-checked, the evaluation also unfolding the operations the call "
+          "reaches is tried next, in a theorem of its own",
+          v["kernel"] is True and len(fake.sent) == 2 and op not in fake.sent[0] and "lss_hb" not in fake.sent[1]
+          and f", {op}" in fake.sent[1].split("simp [", 1)[1].split("]", 1)[0], str(fake.sent)[:300])
+    usize1 = _plan(free=[{"name": "n", "type": "Aeneas.Std.Usize", "ir": ["int", "Std.Usize"]}])
+    fake = FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.integerOverflow"} if r[0] == 2 ** 64 - 1
+                    else _ok(1), plan=usize1,
+                    ops=[op], kernel=lambda text: "with lss_hb | lss_hb" in text)
+    old_rows = bounded.sample_rows
+    bounded.sample_rows = lambda args, seed=0: [[2 ** 64 - 1]]
+    try:
+        v = _check(fake)
+    finally:
+        bounded.sample_rows = old_rows
+    split = fake.sent[-1].replace("\\n", "\n") if fake.sent else ""  # the proof text, as lss_check_proof reads it
+    check("then once per platform bit width, the 64-bit edge witness written as the platform's own constant",
+          v["kernel"] is True and len(fake.sent) == 3
+          and "  revert y\n  rcases System.Platform.numBits_eq with lss_hb | lss_hb\n  all_goals (iterate " in split
+          and "simp [lss_hb, " in split and "Aeneas.Std.Usize.numBits" in split
+          and "lss_h (Aeneas.Std.core.num.Usize.MAX)" in split and "18446744073709551615" not in split
+          and "18446744073709551615" in fake.sent[0], split[-400:])
+    fake = FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.integerOverflow"})
+    v = _check(fake, stmt="S div")
+    ref = fake.sent[0].replace("\\n", "\n") if fake.sent else ""
+    check("a ⦄div statement is refuted through its two cases, a returned value or divergence, each evaluated",
+          v["status"] == "refuted" and v["kernel"] is True and "lss_dspec_cases (@h " in ref
+          and " with ⟨y, hy, hp⟩ | hd\n  · revert y\n    (iterate " in ref and "\n  · revert hd\n    (iterate " in ref
+          and ref.count("all_goals (first | decide | omega)") == 2, ref[-500:])
+    fake = FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.integerOverflow"}, kernel=False,
+                    goals=["∀ (y : U32), ¬loop (fun x => ok (done x)) (16#u32, 9#u32) = ok y"])
+    v = _check(fake)
+    check("a refutation no attempt proves says the evaluation ran out of rounds when the loop is still running",
+          v["kernel"] is False and v.get("kernel_why", "").startswith(
+              f"the evaluation stops after {bounded.EVAL_ROUNDS} rounds with the loop still running")
+          and "lss_log_goals" in fake.sent[-1] and "lss_hb" in fake.sent[-1], v.get("kernel_why", "")[:300])
+    fake = FakeLean(lambda r: {"outcome": "fail", "value": "Aeneas.Std.Error.integerOverflow"}, kernel=False)
+    _check(fake, stmt="S div")
+    log = fake.sent[-1] if fake.sent else ""
+    check("for a ⦄div statement the goals both cases leave are logged, each case closed by sorry",
+          log.count("lss_log_goals") == 2 and log.count("all_goals sorry") == 2
+          and "decide | omega)" not in log and "\n    lss_log_goals\n    all_goals sorry" in log, log[-400:])
+    class Partial(FakeLean):
+        """the first `k` rows evaluate, the rest run out of time"""
+        def __init__(self, row_outcome, k, **kw):
+            super().__init__(row_outcome, **kw)
+            self.k, self.rows_seen = k, []
+
+        def eval(self, stmt, args, ret, rows):
+            self.rows_seen.append(rows)
+            got, _ = super().eval(stmt, args, ret, rows)
+            if len(self.rows_seen) == 1:
+                return {**got, "rows": got["rows"][:self.k], "partial": len(rows) - self.k}, ""
+            return got, ""
+    fake = Partial(lambda r: {"outcome": "violates", "value": '"1"'} if r[0] == 3 else _ok(r[0]), k=8)
+    old_rows = bounded.sample_rows
+    bounded.sample_rows = lambda args, seed=0: [[2 ** 31], [9], [3], [2 ** 32 - 1], [0]] + [[n] for n in range(10, 30)]
+    try:
+        v = _check(fake)
+    finally:
+        bounded.sample_rows = old_rows
+    first = fake.rows_seen[0] if fake.rows_seen else []
+    check("inputs are evaluated smallest first, so the largest are the ones a timeout leaves out",
+          [r[0] for r in first[:5]] == [0, 3, 9, 10, 11] and first[-2:] == [[2 ** 31], [2 ** 32 - 1]], str(first))
+    check("a counterexample among the inputs evaluated before the time ran out still refutes the statement",
+          v["status"] == "refuted" and v.get("witness") == [3], str(v)[:300])
+    fake = Partial(lambda r: _ok(r[0]), k=8)
+    v = _check(fake)
+    check("with none among them, a check that ran out of time is a timeout that says how far it got, "
+          "never a pass or a vacuous spec",
+          v["status"] == "timeout" and "of " in v.get("detail", "") and "none refutes" in v.get("detail", ""), str(v))
+    gen_arr = _plan(free=[{"name": "N", "type": "Aeneas.Std.Usize", "ir": ["int", "Std.Usize"]},
+                          {"name": "a", "type": "Aeneas.Std.Array Aeneas.Std.U32 N",
+                           "ir": ["array", ["int", "Std.U32"], {"binder": "N"}]}],
+                    binders=[{"k": "arg", "i": 0}, {"k": "arg", "i": 1}])
+    seen_rows = []
+    fake = FakeLean(lambda r: (seen_rows.append(r), {"outcome": "fail", "value": "Aeneas.Std.Error.integerOverflow"}
+                               if len(r[1]) == 2 else _ok(0))[1], plan=gen_arr)
+    v = _check(fake)
+    ref = fake.sent[0].replace("\\n", "\n") if fake.sent else ""
+    check("an array whose length is a const generic is drawn with that length binder set to its length, in every row "
+          "and every shrink candidate",
+          bool(seen_rows) and all(r[0] == len(r[1]) for r in seen_rows) and v["status"] == "refuted"
+          and len(v["witness"][1]) == 2 and v["witness"][0] == 2
+          and "lss_h (2#usize) ((⟨[" in ref and "] , by decide⟩" not in ref and ": Array Std.U32 2#usize)" in ref,
+          f"{[r for r in seen_rows if r[0] != len(r[1])][:3]} {v.get('witness')} {ref[-300:]}")
+    check("such a length is read only for an array binder of the statement, not one inside another type",
+          bounded.type_ir(["array", ["int", "Std.U32"], {"binder": "N"}], top=True) == ("array", ("int", "Std.U32"), None)
+          and _raises(lambda: bounded.type_ir(["tuple", [["array", ["int", "Std.U32"], {"binder": "N"}]]], top=True)))
+    bl = open(bounded._BOUNDED_PATH, encoding="utf-8").read()
+    tir = bl[bl.index("partial def lssTypeIR"):bl.index("lssTypeIR crate stack ty'") + 30]
+    check("the type reader names a const generic length's binder, never evaluates it, and reads a crate's type alias "
+          "as what it stands for",
+          'args[1]!.isFVar' in tir and '("binder", Json.str' in tir and "unfoldDefinition? ty" in tir
+          and tir.index("args[1]!.isFVar") < tir.index("lssEvalString"), tir[:300])
+    lb = bounded._Lean.__new__(bounded._Lean)
+    lb.crate, answers = "C", [({"ok": True, "kind": "spec", "rows": [{"outcome": "holds"}] * bounded.tc.MAX_BATCH}, ""),
+                               (None, "timeout")]
+    lb._one = lambda make: answers.pop(0)
+    got, why = lb.eval("S", [U32], U32, [[n] for n in range(3 * bounded.tc.MAX_BATCH)])
+    check("a batch that runs out of time ends the evaluation, and the batches before it are kept",
+          got is not None and len(got["rows"]) == bounded.tc.MAX_BATCH and got["partial"] == 2 * bounded.tc.MAX_BATCH,
+          f"{got} {why}")
+    lb = bounded._Lean.__new__(bounded._Lean)
+    lb.project_dir, lb.crate, runs = "/p-ops", "C", []
+    lb.run = lambda text: (runs.append(text) or ('x:1:0: warning: LSS_OPS ["Aeneas.Std.Slice.index_usize",'
+                                                 '"Aeneas.Std.UScalar.add"]', ""))
+    got = [lb.ops("C.f", ["C.f", "C.g"]), lb.ops("C.f", ["C.f", "C.g"])]
+    check("the operations a call reaches come from lss_eval_ops, past EVAL_DEFS, asked once per unit",
+          got == [[op], [op]] and runs == ["lss_eval_ops C C.f C.g"], f"{got} {runs}")
+    bl = open(bounded._BOUNDED_PATH, encoding="utf-8").read()
+    body = bl[bl.index('elab "lss_eval_ops "'):]
+    check("lss_eval_ops never names how a scalar is stored, a type, an instance, a matcher or loop",
+          all(x in body for x in ['"val", "bv", "ofNatCore", "ofIntCore", "numBits"', "``Aeneas.Std.loop",
+                                  "getForallBody.isSort", 'startsWith "match_"', 'startsWith "inst"', "isInternal",
+                                  "d.safety == .safe"]),
+          body[:300])
     fake = FakeLean(lambda r: {"outcome": "violates", "value": '"1"'})
     v = _check(fake)
     check("a refutation the evaluation proves is not tried again", v["kernel"] is True and len(fake.sent) == 1,
@@ -346,6 +480,9 @@ def run_static_check():
           v["status"] == "vacuous" and "says nothing" in v.get("feedback", ""), str(v))
     v = _check(FakeLean(same, lambda row, o: "violates" if int(o) != int(row[0]) else "holds"))
     check("an exact spec passes: it rejects the wrong outputs", v["status"] == "pass" and v["warning"] is None, str(v))
+    v = _check(FakeLean(same, lambda row, o: "holds" if int(row[0]) <= 5 else "violates"))
+    check("a spec that says nothing on small inputs only is not vacuous: the largest input is probed too",
+          v["status"] == "pass", str(v))
     v = _check(FakeLean(lambda r: _ok(r[0]) if int(r[0]) < 2 else {"outcome": "discard"}, lambda row, o: "holds"))
     check("a no-fail statement (hypotheses filter, any output accepted) is kept",
           v["status"] == "pass", str(v))
@@ -439,8 +576,8 @@ def run_static_run():
     check("it holds the gate's Decidable instances, then bounded.lean, then DecidableEq for the crate's types",
           code.index("lssSubtypeDecEq") < code.index("deriving instance DecidableEq for Aeneas.Std.Result")
           < code.index("elab \"lss_eval_plan ") < code.index("lss_derive_deceq crate:C"), code[-200:])
-    check("it is built once per crate env, every command then runs in it, after opening the crate",
-          [e for _, e in server.sent[1:4]] == [77, 77, 77] and server.sent[1][0] == "open C\nlss_eval_spec x",
+    check("it is built once per crate env, every command then runs in it, inside the crate's namespace",
+          [e for _, e in server.sent[1:4]] == [77, 77, 77] and server.sent[1][0] == "namespace C\nlss_eval_spec x",
           str([(c[:30], e) for c, e in server.sent]))
     check("a rebuilt crate env gets a new check env", server.sent[4][1] == 51 and server.sent[5][1] == 77,
           str([(c[:30], e) for c, e in server.sent[4:]]))
@@ -653,6 +790,48 @@ def run_static_preamble():
     check("a helper that does not elaborate is dropped and the spec goes on without it",
           "helpers" not in spec and spec["stmt"] == stmt, str(spec))
 
+    class AskLLM:
+        def __init__(self):
+            self.asked = []
+
+        def _ask(self, prompt):
+            self.asked.append(prompt)
+            return "def toList (l : C.List) : List Nat := []"
+
+    class FixedOnly(Checker):
+        def ensure_helpers(self, project_dir, text):
+            # this Lean rejects the first helpers and accepts the repaired ones
+            return ("List Nat := []" in text), ([] if "List Nat := []" in text else ["error: unknown identifier"])
+    llm = AskLLM()
+    gated = []
+    synth._gate.check_candidate = lambda *a, **k: gated.append(k.get("helpers", "")) or (
+        _ for _ in ()).throw(StopIteration)
+    spec = {"name": "s", "stmt": stmt, "preamble": pre}
+    try:
+        synth.validate([spec], "import Aeneas\n", [], FixedOnly(), llm=llm, func_name="f", project_dir="/p",
+                       source="rust-aeneas")
+    except StopIteration:
+        pass
+    finally:
+        synth._gate.check_candidate = old_gate
+    check("a helper Lean rejects gets one repair from Lean's own error, and the statement goes on to the gate "
+          "with the fixed helpers",
+          len(llm.asked) == 1 and "error: unknown identifier" in llm.asked[0] and pre.strip() in llm.asked[0]
+          and len(gated) == 1 and "List Nat := []" in gated[0] and "lss_hp_toList_" in spec.get("stmt", ""),
+          str(gated)[:300] + str(spec)[-300:])
+    llm = AskLLM()
+    spec = {"name": "s", "stmt": stmt, "preamble": pre}
+    synth._gate.check_candidate = lambda *a, **k: (_ for _ in ()).throw(StopIteration)
+    try:
+        synth.validate([spec], "import Aeneas\n", [], Bad(), llm=llm, func_name="f", project_dir="/p",
+                       source="rust-aeneas")
+    except StopIteration:
+        pass
+    finally:
+        synth._gate.check_candidate = old_gate
+    check("a repair Lean still rejects is asked once only, and the spec goes on without helpers",
+          len(llm.asked) == 1 and "helpers" not in spec and spec["stmt"] == stmt, str(spec))
+
 
 def run_static_with_proof():
     print("=== static: a statement the LLM proved itself ===")
@@ -731,6 +910,7 @@ def run_full():
 
     run_planted(checker)
     run_suite_refutations(checker)
+    run_suite_types(checker)
 
     # a diverging evaluation: the server times out, restarts, and the next check works
     state = checker._aeneas_env_for(rust_dir)
@@ -766,13 +946,68 @@ def run_suite_refutations(checker):
              "hashmap.HashMap.move_elements_loop ntable slots i ⦃ _ => True ⦄",
              "a loop's failing call is refuted by the kernel"),
             ("Tutorial", "mul2_add1", "∀ (x : Std.U32), mul2_add1 x ⦃ _ => True ⦄",
-             "an arithmetic overflow is refuted by the kernel")]:
+             "an arithmetic overflow is refuted by the kernel"),
+            ("AeneasStandalone", "arrays.sum", "∀ (s : Slice Std.U32), arrays.sum s ⦃ _ => True ⦄",
+             "a loop over a slice that overflows is refuted by the kernel, through Slice.index_usize and the platform "
+             "split"),
+            ("AeneasStandalone", "overflowing_ops.isize_overflowing_div",
+             "∀ (x y : Std.Isize), overflowing_ops.isize_overflowing_div x y ⦃ _ => True ⦄",
+             "a division by zero in a library operation is refuted by the kernel"),
+            ("AeneasStandalone", "scalars.match_isize", "∀ (x : Std.Isize), scalars.match_isize x ⦃ _ => True ⦄",
+             "an overflow at Isize's 64-bit maximum is refuted by the kernel, at the platform's own maximum"),
+            ("Tutorial", "Usize.Insts.TutorialCounter.incr",
+             "∀ (self : Std.Usize), Usize.Insts.TutorialCounter.incr self ⦃ _ => True ⦄",
+             "an overflow at Usize's 64-bit maximum is refuted by the kernel, at the platform's own maximum"),
+            ("Tutorial", "add_with_carry", "∀ (x y : alloc.vec.Vec Std.U32), add_with_carry x y ⦃ _ => True ⦄",
+             "an out-of-bounds index after a cast and an overflowing add is refuted by the kernel"),
+            ("AeneasStandalone", "hashmap.HashMap.move_elements_loop",
+             "∀ {T : Type} (ntable : hashmap.HashMap T) (slots : alloc.vec.Vec (hashmap.AList T)) (i : Std.Usize), "
+             "hashmap.HashMap.move_elements_loop ntable slots i ⦃ r => r.1.max_load_factor = ntable.max_load_factor ⦄div",
+             "a ⦄div statement whose call fails is refuted by the kernel")]:
         d = os.path.join(suite, crate)
         if not os.path.isdir(d):
             check(f"{d} exists", False, "not a directory")
             continue
         v = bounded.check_spec(checker, stmt, unit, d)
         check(title, v["status"] == "refuted" and v.get("kernel") is True, str(v)[:400])
+    d = os.path.join(suite, "Loops")
+    if os.path.isdir(d):
+        v = bounded.check_spec(checker, "∀ (max i s : Std.U32), sum_loop max i s ⦃ _ => True ⦄", "sum_loop", d)
+        check("an overflow that needs more loop steps than the evaluation unrolls is evaluation-only, and says so",
+              v["status"] == "refuted" and v.get("kernel") is False
+              and "with the loop still running" in v.get("kernel_why", ""), str(v)[:400])
+
+
+def _trivial(def_text, name):
+    """`∀ <the def's binders>, name <its explicit arguments> ⦃ _ => True ⦄` from an
+    Aeneas def `def <name> <binders> : Result <T> :=`."""
+    text = re.sub(r"--[^\n]*", " ", re.sub(r"/-.*?-/", " ", def_text, flags=re.DOTALL))
+    m = re.search(r"\bdef\s+\S+\s*(.*?)\s*:\s*(?:Aeneas\.)?(?:Std\.)?Result\b", text, re.DOTALL)
+    binders = " ".join(m.group(1).split()) if m else ""
+    args = [n for g in re.findall(r"\(([^():]+):", binders) for n in g.split()]
+    return f"∀ {binders}, {' '.join([name] + args)} ⦃ _ => True ⦄"
+
+
+def run_suite_types(checker):
+    """types the sampler reads through: a const generic array's length, a crate's type
+    aliases. on the suite's own crates, read-only."""
+    print("=== full: const generic arrays and type aliases ===")
+    import callgraph
+    suite = os.path.expanduser("~/rust_suite")
+    for crate, unit, title in [
+            ("Loops", "sum_array", "a function over an array of const generic length is evaluated, its length "
+                                   "drawn with the array"),
+            ("AeneasStandalone", "curve25519.mul_internal", "a function over a crate's alias for an array is evaluated"),
+            ("NoNestedBorrows", "read_tuple_struct", "a function over a crate's alias for a pair is evaluated")]:
+        d = os.path.join(suite, crate)
+        if not os.path.isdir(d):
+            check(f"{d} exists", False, "not a directory")
+            continue
+        g = callgraph.for_project(d)
+        q = unit if unit in g.names else f"{g.crate}.{unit}"
+        stmt = _trivial(g.def_text(q) or "", unit)
+        v = bounded.check_spec(checker, stmt, unit, d)
+        check(title, v["status"] in ("pass", "refuted", "vacuous"), f"{stmt} -> {str(v)[:300]}")
 
 
 PLANTED_TYPES = """-- hand-written in the shape Aeneas generates, for LSS's tests

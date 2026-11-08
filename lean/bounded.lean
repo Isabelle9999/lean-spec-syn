@@ -4,7 +4,7 @@
 -- env as built before the crate is opened ("env0", lean._aeneas_build_env); the
 -- env this gives is the bounded check's own, never the one proofs run in, so the
 -- instances below never change what a proof can use. every command is then sent
--- after `open <crate>`. no top-level open: each declaration opens only what it
+-- inside the crate's namespace. no top-level open: each declaration opens only what it
 -- needs, scoped to itself.
 --
 -- a candidate is read the way the gate reads it (autoImplicit off), so its
@@ -50,7 +50,10 @@
 --   the handler does not cover) decided by its derived structural BEq at
 --   evaluation time (lssDecEqViaBEq), which the kernel cannot reduce: such a
 --   refutation can only be evaluation-only unless another tactic closes it.
--- every message is one LSS_EVAL warning (warning, as LSS_PROOF/LSS_WF).
+-- `lss_eval_ops <C> <f> ...` names the Aeneas operations a call reaches, for the
+--   kernel refutation's evaluation (bounded.py's refutation_text).
+-- every message is one LSS_EVAL warning (warning, as LSS_PROOF/LSS_WF), except
+-- lss_eval_ops's one LSS_OPS warning.
 
 -- a scalar operator is an unnamed instance whose field is the named operation, so
 -- `simp [UScalar.add]` never matches `x + y`; these say so for scalars only (as
@@ -66,6 +69,46 @@ theorem lss_eval_isub {ty} (x y : Aeneas.Std.IScalar ty) : x - y = Aeneas.Std.IS
 theorem lss_eval_imul {ty} (x y : Aeneas.Std.IScalar ty) : x * y = Aeneas.Std.IScalar.mul x y := rfl
 theorem lss_eval_idiv {ty} (x y : Aeneas.Std.IScalar ty) : x / y = Aeneas.Std.IScalar.div x y := rfl
 theorem lss_eval_irem {ty} (x y : Aeneas.Std.IScalar ty) : x % y = Aeneas.Std.IScalar.rem x y := rfl
+
+-- a ⦄div statement's two ways to hold: the call returns a value the postcondition
+-- holds of, or it diverges. a refutation evaluates the call in both cases.
+theorem lss_dspec_cases {α : Type} {m : Aeneas.Std.Result α} {P : α → Prop}
+    (h : Aeneas.Std.WP.dspec m P) : (∃ y, m = Aeneas.Std.Result.ok y ∧ P y) ∨ m = Aeneas.Std.Result.div := by
+  cases m <;> simp_all [Aeneas.Std.WP.dspec]
+
+open Lean Elab Command in
+/-- `lss_eval_ops <C> <f> <g> ...`: the Aeneas operations the definitions of f, g, ...
+reach, followed through C's definitions and Aeneas.Std's, as one LSS_OPS warning (a
+JSON list): what the kernel refutation's evaluation unfolds besides C's own functions
+(Slice.index_usize, core.num.Isize.overflowing_div, lift, ...). left out: how a scalar
+is stored (val, bv, the literal constructors, its bounds and bit width: Aeneas's simp
+lemmas rewrite those back, so unfolding them loops), types, instances (lss_eval_*
+above names the arithmetic), auxiliary matchers, internal names, `loop`, whose
+equation always applies again, and a partial or unsafe definition, which has no
+equation for simp to unfold (one in the list makes that simp call fail). -/
+elab "lss_eval_ops " crate:ident roots:ident* : command => do
+  let env ← getEnv
+  let stored : _root_.List String := ["val", "bv", "ofNatCore", "ofIntCore", "numBits", "cNumBits", "max", "min",
+    "rMax", "cMax", "rMin", "cMin", "ctorIdx", "casesOn", "recOn", "rec"]
+  let mut todo : Array Name := roots.map (·.getId)
+  let mut seen : NameSet := {}
+  let mut out : Array Name := #[]
+  for _ in [0:20000] do
+    match todo.back? with
+    | none => break
+    | some n =>
+      todo := todo.pop
+      unless seen.contains n do
+        seen := seen.insert n
+        if let some (.defnInfo d) := env.find? n then
+          let last := match n with | .str _ s => s | _ => ""
+          if ((`Aeneas.Std).isPrefixOf n && !n.isInternal && n != ``Aeneas.Std.loop && d.safety == .safe &&
+              !d.type.getForallBody.isSort && !stored.contains last && !last.startsWith "match_" &&
+              !last.startsWith "inst" && !n.getPrefix.toString.endsWith "Ty") then
+            out := out.push n
+          for c in d.value.getUsedConstants do
+            if (`Aeneas.Std).isPrefixOf c || crate.getId.isPrefixOf c then todo := todo.push c
+  logWarning m!"LSS_OPS {Json.compress (Json.arr (out.map (Json.str ∘ toString)))}"
 
 /-- one evaluated run, as text python splits on the first tab: the outcome, then
 the encoded `ok` value or the `fail` error. -/
@@ -347,8 +390,9 @@ def lssPostAt (sh : LssShape) (src dst : Array Expr) : TermElabM (Expr × Expr �
 open Lean Meta in
 /-- the type IR python's samplers, literals and encoders use
 (tools/translation_check.py), read off the type itself: scalars, Bool, Unit,
-tuples, Option, Array, Slice, Vec, and the crate's own structures and
-inductives at their arguments, `["self"]` marking where an inductive contains
+tuples, Option, Array (its length a number, or the name of the binder that gives it),
+Slice, Vec, the crate's own structures and inductives at their arguments, and the
+crate's type aliases as what they stand for, `["self"]` marking where an inductive contains
 itself (through Option or directly). throws on anything else (a function, as in
 a backward function's result). -/
 partial def lssTypeIR (crate : Name) (stack : Array Expr) (ty : Expr) : MetaM Json := do
@@ -379,10 +423,21 @@ partial def lssTypeIR (crate : Name) (stack : Array Expr) (ty : Expr) : MetaM Js
   if c == `Aeneas.Std.Slice then return Json.arr #["slice", ← lssTypeIR crate stack args[0]!]
   if c == `Aeneas.Std.alloc.vec.Vec then return Json.arr #["vec", ← lssTypeIR crate stack args[0]!]
   if c == `Aeneas.Std.Array then
+    -- a const generic length is another binder of the statement, named here: python
+    -- draws the array first and gives that binder its length
+    if args[1]!.isFVar then
+      return Json.arr #["array", ← lssTypeIR crate stack args[0]!,
+        Json.mkObj [("binder", Json.str (toString (← args[1]!.fvarId!.getUserName)))]]
+    if args[1]!.hasFVar then throwError "the array length {args[1]!} depends on a binder"
     -- the length, evaluated: `8#usize` prints differently under different options
     let len ← lssEvalString (← mkAppM ``toString #[← mkAppM ``Aeneas.Std.UScalar.val #[args[1]!]])
     return Json.arr #["array", ← lssTypeIR crate stack args[0]!, Json.str len]
   let env ← getEnv
+  -- a type alias (`Scalar52 := Std.Array U64 5#usize`, `Tuple T1 T2 := T1 × T2`) is read
+  -- as what it stands for
+  if let some (.defnInfo _) := env.find? c then
+    if let some ty' ← unfoldDefinition? ty then
+      return ← lssTypeIR crate stack ty'
   let some (.inductInfo info) := env.find? c | throwError "type {ty} is not supported"
   unless crate.isPrefixOf c && info.numIndices == 0 && args.size == info.numParams do
     throwError "type {ty} is not supported"

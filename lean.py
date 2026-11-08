@@ -285,14 +285,16 @@ def helpers_command(text):
 
 
 def parse_proof_verdicts(text):
-    """every LSS_PROOF verdict in `text`, keyed by theorem name."""
+    """every LSS_PROOF verdict in `text`, keyed by theorem name: the first one for a
+    name, which lss_check_proof logs ahead of anything later in the text (try_aeneas's
+    goal-logging attempt c is elaborated as it is, after every verdict)."""
     out = {}
     for m in re.finditer(r"LSS_PROOF (\{[^\n]*\})", text or ""):
         try:
             v = json.loads(m.group(1))
         except json.JSONDecodeError:
             continue
-        out[v.get("name")] = v
+        out.setdefault(v.get("name"), v)
     return out
 
 
@@ -631,13 +633,14 @@ class LeanChecker:
                            hammer_available=True)
 
     def _aeneas_build_env(self, project_dir):
-        """fresh env = crate text + the same options/opens the benches' own
-        lean_code + lean_preamble use (so a statement elaborates the same way in
-        every layer) + the aeneas layer, in the pinned aeneas project. LSS's own
-        commands are elaborated before `open <crate>`, so a crate defining a name
-        they use (a `List` of its own) cannot make them ambiguous; that env is kept
-        as "env0" for the gate and the bounded check, which send their own Lean
-        text and open the crate after it. maxHeartbeats is left out here on
+        """fresh env = crate text + the options and Aeneas opens the benches' own
+        lean_code + lean_preamble use + the aeneas layer, then the crate's namespace
+        entered, in the pinned aeneas project (a bench's own `open <crate>` inside it
+        changes nothing: the crate's names already win there). LSS's own
+        commands are elaborated before the crate's namespace is entered, so a crate
+        defining a name they use (a `List` of its own) cannot change them; that env
+        is kept as "env0" for the gate and the bounded check, which send their own
+        Lean text and enter the namespace after it. maxHeartbeats is left out here on
         purpose: each attempt sets its own cap. printed once per crate since cost
         grows with crate size."""
         aeneas_dir = _lss_config.project_dir("aeneas")
@@ -655,7 +658,10 @@ class LeanChecker:
         t0 = time.time()
         r0 = r = server.check(text, timeout=600)
         if r0.rc == 0 and r0.new_env is not None:
-            r = server.check(f"open {g.crate}\n" + selector, timeout=120, env=r0.new_env)
+            # inside the crate's namespace, not after `open`: a name the crate defines
+            # (its List, Ord, max) is then the crate's, as in its own code, where `open`
+            # left it ambiguous with Lean's and the statement did not elaborate
+            r = server.check(f"namespace {g.crate}\n" + selector, timeout=120, env=r0.new_env)
         elapsed = time.time() - t0
         print(f"  aeneas env build: {project_dir} {elapsed:.1f}s")
         self.lean_calls += 1
@@ -727,6 +733,18 @@ class LeanChecker:
                     todo.append(body)
         return "\n\n".join(body for h, body in known.items() if h in used)
 
+    @staticmethod
+    def _own_step(state, unit):
+        """(hide, restore) commands around a proof of a spec of `unit`: the unit's own
+        step lemma is taken off while the proof runs, so step* goes through the
+        recursive call by the theorem being proved (Aeneas's tutorial pattern,
+        Tutorial/Solutions.lean) and not by a spec proved earlier for the same function
+        (a zero-index list_nth_mut spec left `tl = Cons ?x ?tl` open on every later
+        list_nth_mut spec). put back before a proved spec is registered, so
+        lss_register_step combines or keeps exactly as it would."""
+        own = state["active"].get(unit)
+        return (f"attribute [-step] {own}\n", f"\nattribute [step] {own}") if own else ("", "")
+
     def _aeneas_admit(self, project_dir, state, name, stmt, tactic, unit):
         """extend the crate's env once with the winning proof, @[step]-registered.
         only on success: a failing admit (lower cap, flaky tactic, ...) keeps the
@@ -737,8 +755,9 @@ class LeanChecker:
         aeneas_dir = _lss_config.project_dir("aeneas")
         heartbeats, timeout = _aeneas_budget(tactic)
         server = _lean_server.get_server(aeneas_dir)
-        text = (proof_check_call(f"theorem {name} : {stmt} := by\n  {tactic}", name, heartbeats) +
-                f"\nlss_register_step {name}")
+        hide, restore = self._own_step(state, unit)
+        text = (hide + proof_check_call(f"theorem {name} : {stmt} := by\n  {tactic}", name, heartbeats) +
+                restore + f"\nlss_register_step {name}")
         r = server.check(text, timeout=timeout, env=state["env"])
         self.lean_calls += 1
         combined = (r.stdout or "") + (r.stderr or "")
@@ -802,7 +821,8 @@ class LeanChecker:
         full += (f"\nset_option maxHeartbeats {heartbeats} in\n"
                  f"theorem _aeneas_{label_c} : {candidate_stmt} := by\n  {tactic_c}")
 
-        r = server.check(full, timeout=90 + 30 * (len(proofs) - 2), env=state["env"])
+        hide, _ = self._own_step(state, unit)
+        r = server.check(hide + full, timeout=90 + 30 * (len(proofs) - 2), env=state["env"])
         self.lean_calls += 1
         combined = (r.stdout or "") + (r.stderr or "")
 
@@ -828,8 +848,8 @@ class LeanChecker:
         if _lss_config.proof_cfg()["rust_hammer"]:
             tactic_h = attempts[1][1] + f" | {HAMMER}"
             hb, timeout = _aeneas_budget(tactic_h)
-            r = server.check(proof_check_call(f"theorem _aeneas_h : {candidate_stmt} := by\n  {tactic_h}", "_aeneas_h", hb),
-                             timeout=timeout, env=state["env"])
+            r = server.check(hide + proof_check_call(f"theorem _aeneas_h : {candidate_stmt} := by\n  {tactic_h}",
+                                                     "_aeneas_h", hb), timeout=timeout, env=state["env"])
             self.lean_calls += 1
             v = parse_proof_verdicts((r.stdout or "") + (r.stderr or "")).get("_aeneas_h")
             if v and v.get("ok"):
@@ -875,7 +895,8 @@ class LeanChecker:
                   + AENEAS_CLOSE.replace("\n  ", "\n    ") + "\n  · first | rfl | simp | simp_all")
         heartbeats = _lss_config.proof_cfg()["aeneas_heartbeats"]
         server = _lean_server.get_server(_lss_config.project_dir("aeneas"))
-        r = server.check(proof_check_call(f"theorem _aeneas_loop : {candidate_stmt} := by\n  {tactic}", "_aeneas_loop",
+        r = server.check(self._own_step(state, unit)[0] +
+                         proof_check_call(f"theorem _aeneas_loop : {candidate_stmt} := by\n  {tactic}", "_aeneas_loop",
                                           heartbeats), timeout=120, env=state["env"])
         self.lean_calls += 1
         out = (r.stdout or "") + (r.stderr or "")
@@ -933,7 +954,7 @@ class LeanChecker:
         first, _, rest = tactic.partition("\n")
         flat = first.strip() + ("\n" + textwrap.dedent(rest) if rest else "")
         abs_txt = ", ".join(f"{c} {lemma or '_'}" for c, lemma in abstract)
-        text = (f'lss_modular {tag} unit:{unit} stmt:"{_escape_lean_str(stmt)}" '
+        text = (self._own_step(state, unit)[0] + f'lss_modular {tag} unit:{unit} stmt:"{_escape_lean_str(stmt)}" '
                 f'tactic:"{_escape_lean_str(flat)}" abstract:[{abs_txt}] inline:[{", ".join(inline)}] '
                 f'heartbeats:{heartbeats}')
         r = server.check(text, timeout=timeout, env=state["env"])
