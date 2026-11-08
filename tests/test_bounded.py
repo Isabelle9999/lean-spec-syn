@@ -711,6 +711,28 @@ def run_static_preamble():
     check("a helper that does not elaborate is dropped and the spec goes on without it",
           "helpers" not in spec and spec["stmt"] == stmt, str(spec))
 
+    class AskLLM:
+        def __init__(self):
+            self.asked = []
+
+        def _ask(self, prompt):
+            self.asked.append(prompt)
+            return "def toList (l : C.List) : List Nat := []"
+    llm = AskLLM()
+    synth._gate.check_candidate = lambda *a, **k: (_ for _ in ()).throw(StopIteration)
+    specs = [{"name": "s", "stmt": stmt, "preamble": pre}]
+    try:
+        synth.validate(specs, "import Aeneas\n", [], Bad(), llm=llm, func_name="f", project_dir="/p",
+                       source="rust-aeneas")
+    except StopIteration:
+        pass
+    finally:
+        synth._gate.check_candidate = old_gate
+    check("a helper Lean rejects gets one repair from Lean's own error: the same statement with the fixed helpers",
+          len(llm.asked) == 1 and "error: unknown identifier" in llm.asked[0] and pre.strip() in llm.asked[0]
+          and len(specs) == 2 and specs[1]["name"] == "s_h" and specs[1]["stmt"] == stmt
+          and specs[1]["preamble"].startswith("def toList") and specs[1].get("_h_repaired"), str(specs)[-300:])
+
 
 def run_static_with_proof():
     print("=== static: a statement the LLM proved itself ===")

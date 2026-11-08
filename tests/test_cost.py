@@ -557,6 +557,12 @@ def run_static_context():
     check("the Rust prompt shows a helper definition and says it calls no crate function",
           bool(sent) and "def toList {T : Type}" in sent[0] and "never a crate\n  function" in sent[0]
           and "(toList l)[i.val]?" in sent[0], (sent or [""])[0][-1500:])
+    import synth
+    check("a proof error naming an unknown identifier the statement uses marks the statement malformed, "
+          "in this Lean's wording and the older one",
+          synth._classify_proof_error("error: Unknown identifier `lss_hp_x`", "∀ l, f l ⦃ r => lss_hp_x l ⦄")
+          == "spec_malformed" == synth._classify_proof_error("error: unknown identifier 'lss_hp_x'", "lss_hp_x")
+          and synth._classify_proof_error("error: Unknown identifier `h2`", "∀ l, f l ⦃ _ => True ⦄") != "spec_malformed")
     check("the Rust prompt says the theorem is read inside the crate's namespace, Lean's list being _root_.List",
           bool(sent) and "read inside the crate's namespace" in sent[0] and "write Lean's own list as _root_.List" in sent[0],
           (sent or [""])[0][-1500:])
