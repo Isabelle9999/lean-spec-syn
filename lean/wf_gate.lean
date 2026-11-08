@@ -225,10 +225,14 @@ elab "lss_wf_gate " src:str " unit:" unitId:ident " manifest:" "[" names:ident,*
   -- name is an error rather than a new universally quantified variable.
   let before := (← get).messages
   modify fun s => { s with messages := {} }
-  withScope (fun sc => { sc with opts := sc.opts.setBool `autoImplicit false }) (elabCommand cmd)
+  -- Elab.async off: a proof elaborated in a background task would log after the filter below
+  withScope (fun sc => { sc with opts := (sc.opts.setBool `autoImplicit false).setBool `Elab.async false }) (elabCommand cmd)
   let candLog := (← get).messages
-  modify fun s => { s with messages := before ++ candLog }
-  if let some err ← lssFirstError candLog then
+  -- only its errors go back, defused (proof_check.lean's lssOwnErrors): a warning the
+  -- candidate's meta code logs could otherwise pass for one of the gate's verdicts
+  let candErrs ← lssOwnErrors candLog
+  modify fun s => { s with messages := before ++ candErrs }
+  if let some err ← lssFirstError candErrs then
     emit "conclusion_shape" false s!"statement does not elaborate: {err}"
     return
   let ci? <- try some <$> getConstInfo fullName

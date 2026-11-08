@@ -552,7 +552,7 @@ def run_static_helpers():
           "replayed through the kernel, on the standard axioms, then tagged simp",
           all(x in body for x in ["``Parser.Command.definition", "cmd[0].getArgs.all (·.isNone)", '"lss_hp_"',
                                   "`debug.skipKernelTC false", "lssReplaySince env0", "lssAxiomProblem",
-                                  "attribute [simp]", "setEnv env0", "m.severity matches .error"]), body[:200])
+                                  "attribute [simp]", "setEnv env0", "lssOwnErrors log"]), body[:200])
     server = _FakeServer()
     old = (lean_server.get_server, callgraph.for_project)
     lean_server.get_server = lambda *a, **k: server  # type: ignore[assignment]

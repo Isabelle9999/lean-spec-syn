@@ -52,6 +52,16 @@ def lssFirstError (log : MessageLog) : IO (Option String) := do
   | none => return none
 
 open Lean in
+/-- the error messages of `log`, any `LSS_` in their text written `LSS-`: a verdict
+(LSS_PROOF, LSS_WF) is logged by LSS's own commands only, never by the text they
+check, whose meta code can log anything, and its warnings are dropped. -/
+def lssOwnErrors (log : MessageLog) : IO MessageLog :=
+  log.toList.foldlM (init := {}) fun l m => do
+    unless m.severity matches .error do return l
+    let s ← m.data.toString
+    return l.add (if (s.splitOn "LSS_").length > 1 then { m with data := s.replace "LSS_" "LSS-" } else m)
+
+open Lean in
 /-- the axioms an accepted proof may depend on (`Classical.em` alone needs all three). -/
 def lssAllowedAxioms : Array Name := #[``propext, ``Classical.choice, ``Quot.sound]
 
@@ -121,8 +131,8 @@ open Lean Elab Command in
 /-- elaborate `cmds` (theorem declarations only) under `lssProofOpts` and log one
 LSS_PROOF verdict for `fullName`, named `shown` (the name as the caller wrote it:
 inside the crate's namespace `fullName` carries the crate's name). stages, in order: not_theorem, elab, missing,
-replay, axioms, ok; a replay rejection also takes the text's declarations back out. the candidate's own messages go back into the log ahead of the
-verdict, so repair prompts still see the error text. -/
+replay, axioms, ok; a text that fails at any stage is taken back out of the environment. the candidate's own errors go back into the log ahead of
+the verdict (lssOwnErrors), so repair prompts still see the error text. -/
 def lssCheckCmds (cmds : Array Syntax) (fullName : Name) (heartbeats : Option Nat) (shown : Name := fullName) :
     CommandElabM Unit := do
   let emit (ok : Bool) (stage detail : String) (axioms : Array Name := #[]) : CommandElabM Unit :=
@@ -139,21 +149,26 @@ def lssCheckCmds (cmds : Array Syntax) (fullName : Name) (heartbeats : Option Na
     for cmd in cmds do
       elabCommand cmd
   let log := (← get).messages
-  modify fun s => { s with messages := before ++ log }
-  if let some err ← lssFirstError log then
-    emit false "elab" err
+  let errs ← lssOwnErrors log
+  modify fun s => { s with messages := before ++ errs }
+  -- a text that fails adds nothing: what its meta code added would otherwise be in
+  -- the environment the next check starts from, which the replay never revisits
+  let fail (stage detail : String) (axioms : Array Name := #[]) : CommandElabM Unit := do
+    setEnv env0
+    emit false stage detail axioms
+  if let some err ← lssFirstError errs then
+    fail "elab" err
     return
   unless (← getEnv).contains fullName do
-    emit false "missing" s!"no theorem `{fullName}` was added"
+    fail "missing" s!"no theorem `{fullName}` was added"
     return
   if let some why ← lssReplaySince env0 then
-    setEnv env0
-    emit false "replay" why
+    fail "replay" why
     return
   let axioms ← collectAxioms fullName
   let bad := axioms.filterMap (fun a => (lssAxiomProblem a).map (fun why => s!"{a} ({why})"))
   if bad.size > 0 then
-    emit false "axioms" s!"not allowed: {bad.toList}" axioms
+    fail "axioms" s!"not allowed: {bad.toList}" axioms
   else
     emit true "ok" "" axioms
 
@@ -217,9 +232,9 @@ elab "lss_define_helpers " src:str : command => do
     for cmd in cmds do
       elabCommand cmd
   let log := (← get).messages
-  -- only the errors go back into the log: a warning a helper's body logs could
-  -- otherwise pass for a verdict (LSS_WF, LSS_PROOF) of the command after it
-  let errs := log.toList.foldl (fun l m => if m.severity matches .error then l.add m else l) ({} : MessageLog)
+  -- only the errors go back into the log, defused: a helper's body logging a verdict
+  -- (LSS_WF, LSS_PROOF) would otherwise pass for one of the command after it
+  let errs ← lssOwnErrors log
   modify fun s => { s with messages := before ++ errs }
   if (← lssFirstError log).isSome then
     setEnv env0

@@ -285,14 +285,16 @@ def helpers_command(text):
 
 
 def parse_proof_verdicts(text):
-    """every LSS_PROOF verdict in `text`, keyed by theorem name."""
+    """every LSS_PROOF verdict in `text`, keyed by theorem name: the first one for a
+    name, which lss_check_proof logs ahead of anything later in the text (try_aeneas's
+    goal-logging attempt c is elaborated as it is, after every verdict)."""
     out = {}
     for m in re.finditer(r"LSS_PROOF (\{[^\n]*\})", text or ""):
         try:
             v = json.loads(m.group(1))
         except json.JSONDecodeError:
             continue
-        out[v.get("name")] = v
+        out.setdefault(v.get("name"), v)
     return out
 
 

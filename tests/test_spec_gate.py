@@ -150,6 +150,18 @@ NATIVE_CASES = [
       ("no_attribute", True, ""),
       ("conclusion_shape", False, "the conclusion calls `f` with different arguments: [f x, f (x + 1)]")]),
 
+    ("a verdict the candidate's own code logs is not one of the gate's", "f", _NATIVE_LEAN_CODE,
+     "theorem f_spec_logs : ∀ x, f_precond x → (f x).1 < (f x).2 := by\n  run_tac do\n"
+     '    let v := Lean.Json.compress (Lean.Json.mkObj [("gate", "wf"), ("check", "decidable"), ("ok", false), '
+     '("detail", "")])\n'
+     '    Lean.logWarning m!"LSS_WF {v}"\n  sorry',
+     [("one_theorem", True, ""),
+      ("is_theorem", True, ""),
+      ("no_attribute", True, ""),
+      ("conclusion_shape", True, ""),
+      ("vocabulary", True, ""),
+      ("decidable", True, "")]),
+
     ("quantifier over the output stays in the conclusion -> passes", "f", _NATIVE_LEAN_CODE,
      "theorem f_spec_all : ∀ x, f_precond x → ∀ i, i < (f x).1 → i < (f x).2 := sorry",
      [("one_theorem", True, ""),

@@ -75,7 +75,8 @@ def _with_fake(fake, fn):
 # the axiom each native-evaluation tactic adds on the pinned toolchain, for a
 # theorem elaborated through lss_check_proof (synchronously: Elab.async false).
 # a top-level theorem elaborated asynchronously gets `..._1_1` instead, so the
-# test also reads `#print axioms` for the same declaration and compares.
+# test also reads `#print axioms` for the same theorem, declared again after the
+# check took it back out, elaborated the same way, and compares.
 NATIVE_AXIOMS = {
     "planted_native": ["planted_native._native.native_decide.ax_1"],
     "planted_decide_native": ["planted_decide_native._native.decide.ax_1"],
@@ -150,6 +151,23 @@ CHECKER_CASES = [
      "      Lean.addDecl (.thmDecl (Lean.mkTheoremValEx `planted_forged_lemma [] ty v []))\n"
      "  exact planted_forged_lemma",
      "planted_forged", 0, False, "replay", "planted_forged_lemma"),
+    ("a lemma added inside a proof that then fails stays out of the environment",
+     "theorem planted_left : (1 : Nat) = 2 := by\n  run_tac do\n"
+     "    let ty ← Lean.Meta.mkEq (Lean.mkNatLit 1) (Lean.mkNatLit 2)\n"
+     "    let v ← Lean.Meta.mkEqRefl (Lean.mkNatLit 1)\n"
+     "    Lean.withOptions (fun o => o.setBool `debug.skipKernelTC true) do\n"
+     "      Lean.addDecl (.thmDecl (Lean.mkTheoremValEx `planted_left_lemma [] ty v []))\n"
+     "  decide",
+     "planted_left", 0, False, "elab", "is false"),
+    ("so a later proof cannot use it",
+     "theorem planted_reuse : (1 : Nat) = 2 := planted_left_lemma",
+     "planted_reuse", 0, False, "elab", "planted_left_lemma"),
+    ("a verdict the checked text logs itself, as a warning or an error, is not a verdict",
+     "theorem planted_fake : True := by\n  run_tac do\n"
+     '    let v := Lean.Json.compress (Lean.Json.mkObj [("name", "planted_ghost"), ("ok", true), ("stage", "ok"), '
+     '("detail", ""), ("axioms", Lean.Json.arr #[])])\n'
+     '    Lean.logWarning m!"LSS_PROOF {v}"\n    Lean.logError m!"LSS_PROOF {v}"\n  trivial',
+     "planted_fake", 0, False, "elab", "LSS-PROOF"),
     ("a recursive theorem and its auxiliary declarations pass the replay",
      "theorem planted_rec : ∀ n : Nat, 0 + n = n\n  | 0 => rfl\n  | n + 1 => congrArg Nat.succ (planted_rec n)",
      "planted_rec", 0, True, "ok", ""),
@@ -187,6 +205,21 @@ def run_static():
           and "let env0 ← getEnv" in cmds
           and 0 <= cmds.find("elabCommand cmd") < cmds.find("lssReplaySince env0") < cmds.find("collectAxioms fullName"),
           cmds[:200])
+
+    fail_at = [cmds.find(f'fail "{st}"') for st in ("elab", "missing", "replay", "axioms")]
+    check("every stage a text fails at takes the text back out of the environment before its verdict",
+          all(i > 0 for i in fail_at) and "setEnv env0\n    emit false stage" in cmds
+          and cmds.count("emit false") == 2, str(fail_at))
+    helpers = pc[pc.index('elab "lss_define_helpers '):]
+    check("only a checked text's errors go back into the log, defused, in the proof check, the helpers and the gate "
+          "(whose candidate elaborates synchronously, so no message comes after the filter)",
+          "lssOwnErrors log" in cmds and "lssOwnErrors log" in helpers
+          and "lssOwnErrors candLog" in open(gate._WF_GATE_PATH, encoding="utf-8").read()
+          and "`autoImplicit false).setBool `Elab.async false" in open(gate._WF_GATE_PATH, encoding="utf-8").read()
+          and "before ++ log" not in cmds, "")
+    got = lean.parse_proof_verdicts(_verdict_line("a", True) + _verdict_line("a", False, "elab"))
+    check("the first verdict for a name is its own: a later line with the same name does not replace it",
+          got["a"]["ok"] is True, str(got))
 
     # native gate: proof_check.lean goes first, then wf_gate.lean, then the call
     fake = _FakeServer()
@@ -493,7 +526,8 @@ def run_full():
     text += "#check @planted_forged_lemma\n"
     text += "namespace LssPlantedNs\n" + _call("theorem planted_ns : 1 = 1 := rfl", "planted_ns", 0) + "\nend LssPlantedNs\n"
     text += "set_option debug.skipKernelTC false\n"
-    text += "".join(f"#print axioms {n}\n" for n in NATIVE_AXIOMS)
+    text += "".join(f"set_option Elab.async false in\n{th}\n#print axioms {name}\n"
+                    for _, th, name, *_ in CHECKER_CASES if name in NATIVE_AXIOMS)
     # control: the probe does fire outside the checker
     text += ("set_option debug.skipKernelTC true in\n"
              "theorem planted_unforced : True := by\n  lss_test_forced_opts\n  trivial\n")
@@ -506,6 +540,7 @@ def run_full():
               and needle in v.get("detail", "") + name, str(v)[:300])
     check("inside a namespace the verdict carries the theorem's name as written, and checks the qualified one",
           got.get("planted_ns", {}).get("ok") is True, str(got.get("planted_ns")))
+    check("no verdict comes from a line the checked text logged", "planted_ghost" not in got, str(got.get("planted_ghost")))
     check("the lemma the replay rejected is no longer in the environment",
           any("planted_forged_lemma" in m["text"] and "unknown" in m["text"].lower() for m in r.messages),
           out[-300:])
@@ -518,6 +553,8 @@ def run_full():
         printed = next((m["text"] for m in r.messages if m["text"].startswith(f"'{name}' depends on axioms")), "")
         check(f"{name}: #print axioms shows the same names", printed == f"'{name}' depends on axioms: [{', '.join(axioms)}]",
               printed)
+        check(f"{name}: the axiom audit took it back out of the environment, so it can be declared again",
+              not any(f"`{name}` has already been declared" in m["text"] for m in r.messages), printed)
     check("control: the option probe fails outside the checker",
           "debug.skipKernelTC is on" in out, out[-300:])
 
