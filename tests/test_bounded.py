@@ -787,20 +787,40 @@ def run_static_preamble():
         def _ask(self, prompt):
             self.asked.append(prompt)
             return "def toList (l : C.List) : List Nat := []"
+
+    class FixedOnly(Checker):
+        def ensure_helpers(self, project_dir, text):
+            # this Lean rejects the first helpers and accepts the repaired ones
+            return ("List Nat := []" in text), ([] if "List Nat := []" in text else ["error: unknown identifier"])
     llm = AskLLM()
-    synth._gate.check_candidate = lambda *a, **k: (_ for _ in ()).throw(StopIteration)
-    specs = [{"name": "s", "stmt": stmt, "preamble": pre}]
+    gated = []
+    synth._gate.check_candidate = lambda *a, **k: gated.append(k.get("helpers", "")) or (
+        _ for _ in ()).throw(StopIteration)
+    spec = {"name": "s", "stmt": stmt, "preamble": pre}
     try:
-        synth.validate(specs, "import Aeneas\n", [], Bad(), llm=llm, func_name="f", project_dir="/p",
+        synth.validate([spec], "import Aeneas\n", [], FixedOnly(), llm=llm, func_name="f", project_dir="/p",
                        source="rust-aeneas")
     except StopIteration:
         pass
     finally:
         synth._gate.check_candidate = old_gate
-    check("a helper Lean rejects gets one repair from Lean's own error: the same statement with the fixed helpers",
+    check("a helper Lean rejects gets one repair from Lean's own error, and the statement goes on to the gate "
+          "with the fixed helpers",
           len(llm.asked) == 1 and "error: unknown identifier" in llm.asked[0] and pre.strip() in llm.asked[0]
-          and len(specs) == 2 and specs[1]["name"] == "s_h" and specs[1]["stmt"] == stmt
-          and specs[1]["preamble"].startswith("def toList") and specs[1].get("_h_repaired"), str(specs)[-300:])
+          and len(gated) == 1 and "List Nat := []" in gated[0] and "lss_hp_toList_" in spec.get("stmt", ""),
+          str(gated)[:300] + str(spec)[-300:])
+    llm = AskLLM()
+    spec = {"name": "s", "stmt": stmt, "preamble": pre}
+    synth._gate.check_candidate = lambda *a, **k: (_ for _ in ()).throw(StopIteration)
+    try:
+        synth.validate([spec], "import Aeneas\n", [], Bad(), llm=llm, func_name="f", project_dir="/p",
+                       source="rust-aeneas")
+    except StopIteration:
+        pass
+    finally:
+        synth._gate.check_candidate = old_gate
+    check("a repair Lean still rejects is asked once only, and the spec goes on without helpers",
+          len(llm.asked) == 1 and "helpers" not in spec and spec["stmt"] == stmt, str(spec))
 
 
 def run_static_with_proof():

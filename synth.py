@@ -1259,10 +1259,11 @@ def _try_proof_sketch(llm, lean_code, spec):
 
 def _classify_proof_error(error_text, spec_stmt):
     # Lean 4.31 writes "Unknown identifier `x`", older ones "unknown identifier 'x'"
-    unknown_match = re.search(r"unknown identifier [`']([^`']+)[`']", error_text, re.IGNORECASE)
+    unknown_match = re.search(r"unknown identifier (?:`([^`]+)`|'([^']+)')", error_text, re.IGNORECASE)
     if unknown_match:
-        ident = unknown_match.group(1)
-        if ident in spec_stmt:
+        ident = unknown_match.group(1) or unknown_match.group(2)
+        # the name itself in the statement, not a piece of a longer one (`a` in `r.val`)
+        if re.search(rf"(?<![\w.']){re.escape(ident)}(?![\w'])", spec_stmt):
             return "spec_malformed"
     if "type mismatch" in error_text:
         if "theorem" in error_text.split("type mismatch")[0][-100:]:
@@ -1464,26 +1465,26 @@ def validate(specs, lean_code, test_inputs, lean_checker, llm=None, func_name=No
                     raw, preamble = preamble, ""
                     if helpers:
                         ok_pre, errs_pre = lean_checker.ensure_helpers(project_dir, helpers)
+                        if not ok_pre and llm:
+                            # one repair from Lean's own error, as a refutation gets one from its
+                            # counterexample: a helper written against another Lean (one that
+                            # calls a function this Lean no longer has) is otherwise lost with
+                            # every statement built on it
+                            fixed = llm._ask(
+                                "These Lean 4 definitions are helpers for theorems about a Rust function "
+                                "(translated by Aeneas), and Lean rejects them:\n"
+                                f"{raw}\n\nLean's error:\n{errs_pre[0][:600] if errs_pre else 'unknown'}\n\n"
+                                "Fix the definitions so this Lean accepts them, keeping each one's name and what it "
+                                "computes. They use only the crate's types and Lean's own functions, never a crate "
+                                "function.\nReturn ONLY the fixed definitions.")
+                            if _DEF_START.search(fixed or ""):
+                                helpers, stmt_h = rust_helpers(fixed, spec["stmt"])
+                                if helpers:
+                                    ok_pre, errs_pre = lean_checker.ensure_helpers(project_dir, helpers)
                         if ok_pre:
                             spec["helpers"], spec["stmt"] = helpers, stmt_h
-                        else:
-                            if verbose:
-                                print(f"  [pre] {spec['name']}: helper typecheck FAIL: {errs_pre[0][:80] if errs_pre else 'unknown'}")
-                            if llm and not spec.get("_h_repaired"):
-                                # one repair from Lean's own error, as a refutation gets one from its
-                                # counterexample: a helper written against another Lean (one that
-                                # calls a function this Lean no longer has) is otherwise lost with
-                                # every statement built on it
-                                fixed = llm._ask(
-                                    "These Lean 4 definitions are helpers for theorems about a Rust function "
-                                    "(translated by Aeneas), and Lean rejects them:\n"
-                                    f"{raw}\n\nLean's error:\n{errs_pre[0][:600] if errs_pre else 'unknown'}\n\n"
-                                    "Fix the definitions so this Lean accepts them, keeping each one's name and what it "
-                                    "computes. They use only the crate's types and Lean's own functions, never a crate "
-                                    "function.\nReturn ONLY the fixed definitions.")
-                                if _DEF_START.search(fixed or ""):
-                                    specs.append({"name": spec["name"] + "_h", "stmt": spec["stmt"], "preamble": fixed,
-                                                  "_h_repaired": True})
+                        elif verbose:
+                            print(f"  [pre] {spec['name']}: helper typecheck FAIL: {errs_pre[0][:80] if errs_pre else 'unknown'}")
                 if _gate.is_rust(source) and hasattr(lean_checker, "known_helpers"):
                     # helpers a callee's proved spec defined and this statement reuses (its
                     # prompt shows them): the gate and the bounded check start from the crate
