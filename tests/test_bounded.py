@@ -357,6 +357,43 @@ def run_static_check():
           v["kernel"] is False and v.get("kernel_why", "").startswith(
               f"the evaluation stops after {bounded.EVAL_ROUNDS} rounds with the loop still running")
           and "lss_log_goals" in fake.sent[-1] and "lss_hb" in fake.sent[-1], v.get("kernel_why", "")[:300])
+    class Partial(FakeLean):
+        """the first `k` rows evaluate, the rest run out of time"""
+        def __init__(self, row_outcome, k, **kw):
+            super().__init__(row_outcome, **kw)
+            self.k, self.rows_seen = k, []
+
+        def eval(self, stmt, args, ret, rows):
+            self.rows_seen.append(rows)
+            got, _ = super().eval(stmt, args, ret, rows)
+            if len(self.rows_seen) == 1:
+                return {**got, "rows": got["rows"][:self.k], "partial": len(rows) - self.k}, ""
+            return got, ""
+    fake = Partial(lambda r: {"outcome": "violates", "value": '"1"'} if r[0] == 3 else _ok(r[0]), k=8)
+    old_rows = bounded.sample_rows
+    bounded.sample_rows = lambda args, seed=0: [[2 ** 31], [9], [3], [2 ** 32 - 1], [0]] + [[n] for n in range(10, 30)]
+    try:
+        v = _check(fake)
+    finally:
+        bounded.sample_rows = old_rows
+    first = fake.rows_seen[0] if fake.rows_seen else []
+    check("inputs are evaluated smallest first, so the largest are the ones a timeout leaves out",
+          [r[0] for r in first[:5]] == [0, 3, 9, 10, 11] and first[-2:] == [[2 ** 31], [2 ** 32 - 1]], str(first))
+    check("a counterexample among the inputs evaluated before the time ran out still refutes the statement",
+          v["status"] == "refuted" and v.get("witness") == [3], str(v)[:300])
+    fake = Partial(lambda r: _ok(r[0]), k=8)
+    v = _check(fake)
+    check("with none among them, a check that ran out of time is a timeout that says how far it got, "
+          "never a pass or a vacuous spec",
+          v["status"] == "timeout" and "of " in v.get("detail", "") and "none refutes" in v.get("detail", ""), str(v))
+    lb = bounded._Lean.__new__(bounded._Lean)
+    lb.crate, answers = "C", [({"ok": True, "kind": "spec", "rows": [{"outcome": "holds"}] * bounded.tc.MAX_BATCH}, ""),
+                               (None, "timeout")]
+    lb._one = lambda make: answers.pop(0)
+    got, why = lb.eval("S", [U32], U32, [[n] for n in range(3 * bounded.tc.MAX_BATCH)])
+    check("a batch that runs out of time ends the evaluation, and the batches before it are kept",
+          got is not None and len(got["rows"]) == bounded.tc.MAX_BATCH and got["partial"] == 2 * bounded.tc.MAX_BATCH,
+          f"{got} {why}")
     lb = bounded._Lean.__new__(bounded._Lean)
     lb.project_dir, lb.crate, runs = "/p-ops", "C", []
     lb.run = lambda text: (runs.append(text) or ('x:1:0: warning: LSS_OPS ["Aeneas.Std.Slice.index_usize",'

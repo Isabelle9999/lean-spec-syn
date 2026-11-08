@@ -610,10 +610,18 @@ class _Lean:
         return self._one(lambda tag: plan_command(tag, self.crate, stmt))
 
     def eval(self, stmt, args, ret, rows):
+        """the rows' results, batch by batch in the order given. a batch that runs out of
+        time ends the evaluation; the batches before it are kept, with `partial` the
+        number of rows left unevaluated (check_spec orders rows smallest first, so one
+        input too large to evaluate in time, such as a recursion as deep as its
+        argument, no longer costs the verdict on the small ones)."""
         results = []
         for i in range(0, max(len(rows), 1), tc.MAX_BATCH):
             v, why = self._one(lambda tag: eval_command(tag, self.crate, stmt, args, ret, rows[i:i + tc.MAX_BATCH]))
             if v is None or not v.get("ok"):
+                if v is None and why == "timeout" and results:
+                    return {"kind": results[0]["kind"], "rows": [r for v in results for r in v["rows"]],
+                            "partial": len(rows) - i}, ""
                 return None, why if v is None else v.get("detail", "")
             results.append(v)
         return {"kind": results[0]["kind"], "rows": [r for v in results for r in v["rows"]]}, ""
@@ -721,11 +729,13 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     # input) still lets the call run: a failing call refutes the statement, which claims
     # success whatever the postcondition says; a succeeding one decides nothing
     decided = plan.get("post_decidable", True)
-    rows = sample_rows(args, seed=seed)
+    # smallest first: a batch that runs out of time then holds the largest inputs only
+    rows = sorted(sample_rows(args, seed=seed), key=lambda r: sum(size(t, x) for t, x in zip(args, r)))
     ev, why = lean.eval(stmt, args, ret, rows)
     if ev is None:
         return {"status": "timeout" if why == "timeout" else "skipped", "detail": why}
     kind, outs = ev["kind"], ev["rows"]
+    rows = rows[:len(outs)]  # the rows evaluated before the time ran out
     # the plan decided the postcondition, so a row whose value it cannot decide is an
     # error, never a row that neither fits nor fails (which would pass with no witness)
     outs = [{"outcome": "error", "detail": "the postcondition is not decided at this input"}
@@ -768,6 +778,11 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
                                 "value whose fields break what its type is for, such as a table with no slots), state "
                                 "the condition that excludes it, on the input's fields, as a hypothesis."
                                 if res["outcome"] in ("fail", "div") else ""))}
+    if ev.get("partial"):
+        # no counterexample among the inputs evaluated, and the larger ones were never run:
+        # neither a pass nor a vacuous spec (an unevaluated input could fail)
+        return {"status": "timeout", "detail": f"{len(outs)} of {len(outs) + ev['partial']} inputs evaluated "
+                                               "before the time ran out, smallest first; none refutes the statement"}
     if not decided:
         return {"status": "not_evaluated", "detail": f"postcondition: {plan.get('post_why', '')}"[:300]}
     fit = [i for i, r in enumerate(outs) if r["outcome"] == "holds"]
