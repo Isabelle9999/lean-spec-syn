@@ -92,9 +92,10 @@ def check_candidate(lean_checker, candidate_text, func_name, lean_code, project_
         # asking the graph about it.
         qualified_func = func_name if func_name in g.names else f"{g.crate}.{func_name}"
         allow_div = g.can_diverge(qualified_func) or g.recursive(qualified_func)
-        # the gate's own commands are elaborated before `open <crate>` (lean._aeneas_build_env)
+        # the gate's own commands are elaborated before the crate's namespace is
+        # entered (lean._aeneas_build_env), the candidate inside it
         env = state["env0"]
-        gate_src = (_wf_gate_text() + "\n" + _wf_gate_aeneas_text() + f"\nopen {state['crate']}\n"
+        gate_src = (_wf_gate_text() + "\n" + _wf_gate_aeneas_text() + f"\nnamespace {state['crate']}\n"
                     + _lean.helpers_command(helpers))
         track_tok = "rust"
     else:

@@ -224,6 +224,8 @@ class LLMClient:
                 "- Apply the function only to distinct bound variables; state a case as a hypothesis:\n"
                 "  ∀ (l : CList T) (x : T) (tl : CList T), l = CList.CCons x tl → f l ⦃ r => P r ⦄, never f (CList.CCons x tl)\n"
                 "- Write the crate's own types with the crate name, as in the signature above (e.g. Bst.Ord T)\n"
+                "- The theorem is read inside the crate's namespace: a name the crate defines (its List, Ord,\n"
+                "  max) means the crate's; write Lean's own list as _root_.List\n"
                 "- A generic function's theorem stays generic, over all T. For a trait argument (OrdInst : <Crate>.Ord T),\n"
                 "  assume what the property needs of its methods as a hypothesis, with a Mathlib class for T if needed:\n"
                 "  ∀ {T : Type} (OrdInst : <Crate>.Ord T) [LinearOrder T] (hcmp : ∀ a b, OrdInst.cmp a b = ok (if a < b then\n"

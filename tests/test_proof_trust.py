@@ -222,8 +222,10 @@ def run_static():
     sent = "\n".join(fake.sent)
     i_pc, i_layer = sent.find('elab "lss_check_proof '), sent.find("macro \"lss_spec_form\"")
     check("crate env holds proof_check.lean before aeneas_layer.lean", 0 <= i_pc < i_layer, f"{i_pc} {i_layer}")
-    check("LSS's own commands are elaborated before the crate is opened, so no crate name can shadow theirs",
-          0 <= i_layer < sent.find("open Crate\n"), f"{i_layer} {sent.find('open Crate')}")
+    check("LSS's own commands are elaborated before the crate's namespace is entered, so no crate name can shadow "
+          "theirs, and the crate's names are the crate's after it (no `open`, which left List ambiguous)",
+          0 <= i_layer < sent.find("namespace Crate\n") and "open Crate" not in sent,
+          f"{i_layer} {sent.find('namespace Crate')}")
 
 
 class _FakeGraph:
@@ -489,6 +491,7 @@ def run_full():
     for _, theorems, name, hb, _, _, _ in CHECKER_CASES:
         text += _call(theorems, name, hb) + "\n"
     text += "#check @planted_forged_lemma\n"
+    text += "namespace LssPlantedNs\n" + _call("theorem planted_ns : 1 = 1 := rfl", "planted_ns", 0) + "\nend LssPlantedNs\n"
     text += "set_option debug.skipKernelTC false\n"
     text += "".join(f"#print axioms {n}\n" for n in NATIVE_AXIOMS)
     # control: the probe does fire outside the checker
@@ -501,6 +504,8 @@ def run_full():
         v = got.get(name)
         check(desc, v is not None and v.get("ok") is ok and v.get("stage") == stage
               and needle in v.get("detail", "") + name, str(v)[:300])
+    check("inside a namespace the verdict carries the theorem's name as written, and checks the qualified one",
+          got.get("planted_ns", {}).get("ok") is True, str(got.get("planted_ns")))
     check("the lemma the replay rejected is no longer in the environment",
           any("planted_forged_lemma" in m["text"] and "unknown" in m["text"].lower() for m in r.messages),
           out[-300:])

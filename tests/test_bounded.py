@@ -497,8 +497,8 @@ def run_static_run():
     check("it holds the gate's Decidable instances, then bounded.lean, then DecidableEq for the crate's types",
           code.index("lssSubtypeDecEq") < code.index("deriving instance DecidableEq for Aeneas.Std.Result")
           < code.index("elab \"lss_eval_plan ") < code.index("lss_derive_deceq crate:C"), code[-200:])
-    check("it is built once per crate env, every command then runs in it, after opening the crate",
-          [e for _, e in server.sent[1:4]] == [77, 77, 77] and server.sent[1][0] == "open C\nlss_eval_spec x",
+    check("it is built once per crate env, every command then runs in it, inside the crate's namespace",
+          [e for _, e in server.sent[1:4]] == [77, 77, 77] and server.sent[1][0] == "namespace C\nlss_eval_spec x",
           str([(c[:30], e) for c, e in server.sent]))
     check("a rebuilt crate env gets a new check env", server.sent[4][1] == 51 and server.sent[5][1] == 77,
           str([(c[:30], e) for c, e in server.sent[4:]]))

@@ -119,12 +119,14 @@ def lssReplaySince (env0 : Environment) : CommandElabM (Option String) := do
 
 open Lean Elab Command in
 /-- elaborate `cmds` (theorem declarations only) under `lssProofOpts` and log one
-LSS_PROOF verdict for `fullName`. stages, in order: not_theorem, elab, missing,
+LSS_PROOF verdict for `fullName`, named `shown` (the name as the caller wrote it:
+inside the crate's namespace `fullName` carries the crate's name). stages, in order: not_theorem, elab, missing,
 replay, axioms, ok; a replay rejection also takes the text's declarations back out. the candidate's own messages go back into the log ahead of the
 verdict, so repair prompts still see the error text. -/
-def lssCheckCmds (cmds : Array Syntax) (fullName : Name) (heartbeats : Option Nat) : CommandElabM Unit := do
+def lssCheckCmds (cmds : Array Syntax) (fullName : Name) (heartbeats : Option Nat) (shown : Name := fullName) :
+    CommandElabM Unit := do
   let emit (ok : Bool) (stage detail : String) (axioms : Array Name := #[]) : CommandElabM Unit :=
-    logWarning (lssProofMsg fullName ok stage detail axioms)
+    logWarning (lssProofMsg shown ok stage detail axioms)
   for cmd in cmds do
     unless cmd.getKind == ``Parser.Command.declaration && cmd[1].getKind == ``Parser.Command.theorem do
       let kind := if cmd.getKind == ``Parser.Command.declaration then cmd[1].getKind else cmd.getKind
@@ -174,9 +176,9 @@ elab "lss_check_proof " src:str " name:" nmId:ident " heartbeats:" hb:num : comm
   let heartbeats := if hb.getNat == 0 then none else some hb.getNat
   let (cmds, parseLog) ← lssParseText src.getString
   if let some err ← lssFirstError parseLog then
-    logWarning (lssProofMsg fullName false "parse" s!"proof text does not parse: {err}" #[])
+    logWarning (lssProofMsg nmId.getId false "parse" s!"proof text does not parse: {err}" #[])
     return
-  lssCheckCmds cmds fullName heartbeats
+  lssCheckCmds cmds fullName heartbeats nmId.getId
 
 open Lean Elab Command in
 /-- `lss_define_helpers "<defs>"`: a Rust spec's helper definitions (synth.rust_helpers'

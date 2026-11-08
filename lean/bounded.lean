@@ -4,7 +4,7 @@
 -- env as built before the crate is opened ("env0", lean._aeneas_build_env); the
 -- env this gives is the bounded check's own, never the one proofs run in, so the
 -- instances below never change what a proof can use. every command is then sent
--- after `open <crate>`. no top-level open: each declaration opens only what it
+-- inside the crate's namespace. no top-level open: each declaration opens only what it
 -- needs, scoped to itself.
 --
 -- a candidate is read the way the gate reads it (autoImplicit off), so its

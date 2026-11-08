@@ -634,10 +634,10 @@ class LeanChecker:
         """fresh env = crate text + the same options/opens the benches' own
         lean_code + lean_preamble use (so a statement elaborates the same way in
         every layer) + the aeneas layer, in the pinned aeneas project. LSS's own
-        commands are elaborated before `open <crate>`, so a crate defining a name
-        they use (a `List` of its own) cannot make them ambiguous; that env is kept
-        as "env0" for the gate and the bounded check, which send their own Lean
-        text and open the crate after it. maxHeartbeats is left out here on
+        commands are elaborated before the crate's namespace is entered, so a crate
+        defining a name they use (a `List` of its own) cannot change them; that env
+        is kept as "env0" for the gate and the bounded check, which send their own
+        Lean text and enter the namespace after it. maxHeartbeats is left out here on
         purpose: each attempt sets its own cap. printed once per crate since cost
         grows with crate size."""
         aeneas_dir = _lss_config.project_dir("aeneas")
@@ -655,7 +655,10 @@ class LeanChecker:
         t0 = time.time()
         r0 = r = server.check(text, timeout=600)
         if r0.rc == 0 and r0.new_env is not None:
-            r = server.check(f"open {g.crate}\n" + selector, timeout=120, env=r0.new_env)
+            # inside the crate's namespace, not after `open`: a name the crate defines
+            # (its List, Ord, max) is then the crate's, as in its own code, where `open`
+            # left it ambiguous with Lean's and the statement did not elaborate
+            r = server.check(f"namespace {g.crate}\n" + selector, timeout=120, env=r0.new_env)
         elapsed = time.time() - t0
         print(f"  aeneas env build: {project_dir} {elapsed:.1f}s")
         self.lean_calls += 1

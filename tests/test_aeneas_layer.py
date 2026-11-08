@@ -572,16 +572,16 @@ def run_static_helpers():
         server.sent.clear()
         gate.check_candidate(checker, "theorem t : S := sorry", "f", "", "/p", "rust-aeneas", helpers=helper)
         text = server.sent[0][0] if server.sent else ""
-        check("the gate elaborates a spec's helpers after opening the crate, before the candidate",
-              "open C\n" + lean.helpers_command(helper) in text
+        check("the gate elaborates a spec's helpers inside the crate's namespace, before the candidate",
+              "namespace C\n" + lean.helpers_command(helper) in text
               and text.index("lss_define_helpers") < text.rindex("lss_wf_gate \""), text[-300:])
         server.sent.clear()
         bl = bounded._Lean(checker, "/p", helper)
         bl.crate = "C"
         bl._env = lambda srv: (9, "")  # type: ignore[method-assign]
         bl.run("lss_eval_plan t crate:C stmt:\"S\"")
-        check("the bounded check runs with a spec's helpers, after opening the crate",
-              bool(server.sent) and server.sent[0][0].startswith("open C\n" + lean.helpers_command(helper)),
+        check("the bounded check runs with a spec's helpers, inside the crate's namespace",
+              bool(server.sent) and server.sent[0][0].startswith("namespace C\n" + lean.helpers_command(helper)),
               str(server.sent)[:300])
         state["admitted"].append(("lss_admitted_0", "∀ l, g l ⦃ r => r = (lss_hp_toList_0123abcd l).length ⦄",
                                   "step*", "C.g"))
@@ -736,6 +736,14 @@ def run_full_suite():
         return
     ok, errs = checker.ensure_helpers(nnb, TO_LIST)
     check("the helper is defined in the crate's env", ok, str(errs)[:300])
+    import gate
+    for d, unit, stmt, title in [
+            (nnb, "list_nth_mut", "∀ {T : Type} (l : List T) (i : Std.U32), list_nth_mut l i ⦃ _ => True ⦄",
+             "a statement naming the crate's own List is read as the crate's, not as ambiguous with Lean's"),
+            (tut, "max", "∀ (a b : Std.Usize), max a b ⦃ _ => True ⦄",
+             "a statement calling the crate's own max is read as the crate's, not as ambiguous with Lean's")]:
+        verdicts = gate.check_candidate(checker, f"theorem t : {stmt} := sorry", unit, None, d, "rust-aeneas")
+        check(title, gate.is_well_formed(verdicts, "rust-aeneas"), str(verdicts)[:300])
     smuggled = [
         ("a command indented inside a helper's block",
          "@[simp] def lss_hp_bad_00000001 : Nat := 0\n  attribute [simp] Nat.add_comm"),

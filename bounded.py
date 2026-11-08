@@ -571,7 +571,7 @@ class _Lean:
         env, why = self._env(server)
         if env is None:
             return None, why
-        r = server.check(f"open {self.crate}\n" + self.helpers + text, timeout=EVAL_TIMEOUT, env=env)
+        r = server.check(f"namespace {self.crate}\n" + self.helpers + text, timeout=EVAL_TIMEOUT, env=env)
         self.checker.lean_calls += 1
         if r.timed_out:
             return None, "timeout"
