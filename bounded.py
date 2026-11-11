@@ -107,52 +107,76 @@ def _self_refs(t):
     return 0
 
 
-def random_value(T, rnd, depth=0, self_T=None):
+SMALL_BITS = 4  # the smallest rows' numbers are below 2^4
+
+
+def random_int(T, rnd, size=1.0):
+    """a number of T whose bit length is uniform up to a bound that `size` (0 to 1)
+    moves from SMALL_BITS to the type's width: at size 0 every number is below 16, at
+    size 1 every bit length is as likely as any other. a number drawn uniformly over
+    the type's range is almost always near its top (a U32 above 2^28 nine times in
+    ten), and a loop or recursion it bounds runs for billions of steps; the sizes grow
+    over the rows instead (QuickCheck and Hypothesis draw this way), so every
+    magnitude is tried and the small rows, most of them, finish. the range's own ends
+    are edge values (edge_values)."""
+    lo, hi = _int_range(T)
+    width = (hi - min(lo, 0)).bit_length() - (1 if lo < 0 else 0)
+    k = rnd.randint(0, round(SMALL_BITS + min(max(size, 0.0), 1.0) * max(width - SMALL_BITS, 0)))
+    v = rnd.randint(1 << (k - 1), (1 << k) - 1) if k else 0
+    v = -v if lo < 0 and rnd.random() < 0.5 else v
+    return min(max(v, lo), hi)
+
+
+def random_value(T, rnd, depth=0, self_T=None, size=1.0):
+    """a random value of T, its numbers drawn by random_int at `size`."""
     T = _sized(T)
     kind = T[0]
+
+    def sub(t, d=depth + 1, st=None):
+        return random_value(t, rnd, d, st or self_T, size)
     if kind == "self":
-        return random_value(self_T, rnd, depth, self_T)
+        return random_value(self_T, rnd, depth, self_T, size)
     if _named(T):
         self_T = T
     if kind == "bool":
         return rnd.random() < 0.5
     if kind == "int":
-        lo, hi = _int_range(T)
-        # small values half the time: preconditions and loop bounds live there
-        return rnd.randint(max(lo, -16), min(hi, 16)) if rnd.random() < 0.5 else rnd.randint(lo, hi)
+        return random_int(T, rnd, size)
     if kind == "tuple":
-        return [random_value(e, rnd, depth, self_T) for e in T[1]]
+        return [sub(e, depth) for e in T[1]]
     if kind == "array":
-        return [random_value(T[1], rnd, depth + 1, self_T) for _ in range(T[2])]
+        return [sub(T[1]) for _ in range(T[2])]
     if kind in ("slice", "vec"):
         n = 0 if depth >= 3 and _self_refs(T[1]) else rnd.randint(0, 4 if depth == 0 else 2)
-        xs = [random_value(T[1], rnd, depth + 1, self_T) for _ in range(n)]
+        xs = [sub(T[1]) for _ in range(n)]
         if T[1][0] == "int" and rnd.random() < 0.3:
             xs.sort()  # sorted inputs are rare at random but a common precondition
         return xs
     if kind == "struct":
-        return {fn: random_value(ft, rnd, depth + 1, self_T) for fn, ft in T[2]}
+        return {fn: sub(ft) for fn, ft in T[2]}
     if kind == "enum":
         # past depth 3, the variant with the fewest references to itself ends the value
         vname, arg_types = rnd.choice(T[2]) if depth < 3 else \
             min(T[2], key=lambda v: (sum(_self_refs(a) for a in v[1]), len(v[1])))
-        return {"tag": vname, "args": [random_value(a, rnd, depth + 1, self_T) for a in arg_types]}
+        return {"tag": vname, "args": [sub(a) for a in arg_types]}
     if kind == "list_enum":
         nil_v, cons_v, elem_T = T[2], T[3], T[4]
         out = {"tag": nil_v, "args": []}
         for _ in range(rnd.randint(0, 3 if depth < 2 else 0)):
-            out = {"tag": cons_v, "args": [random_value(elem_T, rnd, depth + 1), out]}
+            out = {"tag": cons_v, "args": [random_value(elem_T, rnd, depth + 1, None, size), out]}
         return out
     if kind == "option":
         if depth >= 3 and _self_refs(T[1]):
             return None
-        return None if rnd.random() < 0.3 else random_value(T[1], rnd, depth + 1, self_T)
+        return None if rnd.random() < 0.3 else sub(T[1])
     raise tc.Unsupported(f"no generator for {T!r}")
 
 
 def sample_rows(arg_types, n=ROWS, seed=0):
     """edge-value rows first (each argument cycling through its own edge
-    values), then seeded random rows, without duplicates."""
+    values), then seeded random rows, without duplicates, their numbers' size
+    growing from the first random row (below 2^SMALL_BITS) to the last (any
+    bit length, random_int)."""
     rnd = random.Random(seed)
     edges = [edge_values(t) for t in arg_types]
     rows, seen = [], set()
@@ -164,10 +188,11 @@ def sample_rows(arg_types, n=ROWS, seed=0):
             rows.append(row)
     for i in range(max((len(e) for e in edges), default=1)):
         add([e[i % len(e)] for e in edges])
-    tries = 0
+    tries, first = 0, len(rows)
     while len(rows) < n and tries < 20 * n:
         tries += 1
-        add([random_value(t, rnd) for t in arg_types])
+        size = (len(rows) - first) / max(n - first - 1, 1)
+        add([random_value(t, rnd, size=size) for t in arg_types])
     return rows[:n]
 
 

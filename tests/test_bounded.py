@@ -38,6 +38,22 @@ def run_static_values():
     check("edge values come first: 0, 1, max, max-1 for U32",
           [r[0] for r in rows[:4]] == [0, 1, 4294967295, 4294967294], str([r[0] for r in rows[:4]]))
     check("signed edges include min and -1", {-128, -1, 127} <= set(bounded.edge_values(I8)))
+    u32_rows = bounded.sample_rows([U32], seed=0)
+    random_rows = u32_rows[len(dict.fromkeys(bounded.edge_values(U32))):]
+    check("the first random rows' numbers are small and the sizes grow: most rows of a U32 stay under 10^6 "
+          "(a loop it bounds finishes), every bit length is tried",
+          all(r[0] < 16 for r in random_rows[:3]) and sum(r[0] > 10 ** 6 for r in u32_rows) <= 6
+          and len({r[0].bit_length() for r in u32_rows}) >= 20,
+          str([r[0] for r in u32_rows]))
+    pairs = bounded.sample_rows([U32, U32], seed=0)
+    check("two U32 bounds of a nested loop: most rows run under 10^6 steps",
+          sum(a * b > 10 ** 6 for a, b in pairs) <= len(pairs) // 2, str(pairs))
+    ranged = [("int", t) for t in ("Std.U8", "Std.I8", "Std.I16", "Std.Usize", "Std.I64", "Std.U128")]
+    drawn = [v for sd in range(5) for r in bounded.sample_rows(ranged, seed=sd) for v in r]
+    check("every drawn number is in its type's range, and signed ones take both signs",
+          all(bounded._int_range(t)[0] <= v <= bounded._int_range(t)[1]
+              for sd in range(5) for r in bounded.sample_rows(ranged, seed=sd) for t, v in zip(ranged, r))
+          and any(v < -16 for v in drawn) and any(v > 16 for v in drawn))
     check("every sampled value renders as a Lean literal",
           all(tc.lean_literal(t, v) for r in rows for t, v in zip([U32, VEC], r)))
     check("the short literal of every sampled value names no proof",
