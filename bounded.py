@@ -113,19 +113,21 @@ def _self_refs(t):
     return 0
 
 
-SMALL_BITS = 4  # the smallest rows' numbers are below 2^4
+SMALL_BITS = 4  # the smallest rows' sized numbers are below 2^4
 
 
 def random_int(T, rnd, size=1.0):
-    """a number of T whose bit length is uniform up to a bound that `size` (0 to 1)
-    moves from SMALL_BITS to the type's width: at size 0 every number is below 16, at
-    size 1 every bit length is as likely as any other. a number drawn uniformly over
-    the type's range is almost always near its top (a U32 above 2^28 nine times in
-    ten), and a loop or recursion it bounds runs for billions of steps; the sizes grow
-    over the rows instead (QuickCheck and Hypothesis draw this way), so every
-    magnitude is tried and the small rows, most of them, finish. the range's own ends
-    are edge values (edge_values)."""
+    """a number of T: half the time a small one (-16 to 16), where indices,
+    preconditions and loop bounds live; otherwise one whose bit length is uniform up to
+    a bound that `size` (0 to 1) moves from SMALL_BITS to the type's width, so at size
+    1 every bit length is as likely as any other. a number drawn uniformly over the
+    type's range is almost always near its top (a U32 above 2^28 nine times in ten),
+    and a loop or recursion it bounds runs for billions of steps; the sizes grow over
+    the rows instead (QuickCheck and Hypothesis draw this way), so every magnitude is
+    tried and most rows finish. the range's own ends are edge values (edge_values)."""
     lo, hi = _int_range(T)
+    if rnd.random() < 0.5:
+        return rnd.randint(max(lo, -16), min(hi, 16))
     width = (hi - min(lo, 0)).bit_length() - (1 if lo < 0 else 0)
     k = rnd.randint(0, round(SMALL_BITS + min(max(size, 0.0), 1.0) * max(width - SMALL_BITS, 0)))
     v = rnd.randint(1 << (k - 1), (1 << k) - 1) if k else 0

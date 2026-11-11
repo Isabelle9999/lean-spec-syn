@@ -1,4 +1,5 @@
 import json
+import random
 import re
 import os
 import sys
@@ -42,9 +43,13 @@ def run_static_values():
     random_rows = u32_rows[len(dict.fromkeys(bounded.edge_values(U32))):]
     check("the first random rows' numbers are small and the sizes grow: most rows of a U32 stay under 10^6 "
           "(a loop it bounds finishes), every bit length is tried",
-          all(r[0] < 16 for r in random_rows[:3]) and sum(r[0] > 10 ** 6 for r in u32_rows) <= 6
+          all(r[0] <= 16 for r in random_rows[:3]) and sum(r[0] > 10 ** 6 for r in u32_rows) <= 6
           and len({r[0].bit_length() for r in u32_rows}) >= 20,
           str([r[0] for r in u32_rows]))
+    rnd = random.Random(0)
+    small = sum(bounded.random_int(U32, rnd, 1.0) <= 16 for _ in range(1000))
+    check("half the random numbers are small, where indices, preconditions and loop bounds live, even at full size",
+          450 <= small <= 700, f"{small} of 1000 at most 16")
     pairs = bounded.sample_rows([U32, U32], seed=0)
     check("two U32 bounds of a nested loop: most rows run under 10^6 steps",
           sum(a * b > 10 ** 6 for a, b in pairs) <= len(pairs) // 2, str(pairs))
