@@ -329,8 +329,30 @@ def _q(s):
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
 
 
+def eval_literal(T, v):
+    """the Lean term for an evaluated input: an array, vector or slice of numbers as
+    text read in compiled code (lean/bounded.lean's lssU/lssI and lssArr/lssVec/
+    lssSlice), whose elaboration costs the same at any length; a tuple part by part;
+    everything else as tc.lean_literal. a literal of 256 numbers takes elaboration
+    about a second (each n#u8 also runs its bound tactic), so a check of 48 such
+    inputs spent most of its time limit building them. evaluation only: a kernel
+    refutation writes its witness as literals (refutation_text)."""
+    kind = T[0]
+    if kind in ("array", "vec", "slice") and T[1][0] == "int" and T[1][1] in tc.LEAN_SCALAR_SUFFIX:
+        ty = T[1][1].split(".")[-1]
+        nums = '"' + " ".join(str(int(x)) for x in v) + '"'
+        dec = f"({'lssI' if ty.startswith('I') else 'lssU'} .{ty} {nums})"
+        if kind == "array":
+            n = len(v) if T[2] is None else T[2]
+            return f"(lssArr (⟨0⟩ : {tc.lean_type_str(T[1])}) {n}#usize {dec})"
+        return f"({'lssVec' if kind == 'vec' else 'lssSlice'} {dec})"
+    if kind == "tuple":
+        return "(" + ", ".join(eval_literal(e, x) for e, x in zip(T[1], v)) + ")"
+    return tc.lean_literal(T, v)
+
+
 def _lits(arg_types, row):
-    return "[" + ", ".join(_q(tc.lean_literal(t, v)) for t, v in zip(arg_types, row)) + "]"
+    return "[" + ", ".join(_q(eval_literal(t, v)) for t, v in zip(arg_types, row)) + "]"
 
 
 def plan_command(tag, crate, stmt):
@@ -349,7 +371,7 @@ def eval_command(tag, crate, stmt, arg_types, ret_type, rows):
 
 def post_command(tag, crate, stmt, arg_types, ret_type, row, outs):
     return (f"lss_eval_post {tag} crate:{crate} stmt:{_q(stmt)} row:{_lits(arg_types, row)} outs:["
-            + ", ".join(_q(tc.lean_literal(ret_type, o)) for o in outs) + "]")
+            + ", ".join(_q(eval_literal(ret_type, o)) for o in outs) + "]")
 
 
 def parse_evals(text):

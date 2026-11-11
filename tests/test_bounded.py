@@ -148,6 +148,33 @@ def run_static_commands():
     check("post command carries the row and the wrong outputs",
           post.startswith("lss_eval_post t2 crate:C ") and post.endswith('row:["5#u32"] outs:["6#u32", "7#u32"]'),
           post[-60:])
+    u8, i16, usz = ("int", "Std.U8"), ("int", "Std.I16"), ("int", "Std.Usize")
+    check("an evaluated array of numbers is text read in compiled code, its length as the type gives it",
+          bounded.eval_literal(("array", u8, 3), [1, 2, 255]) == '(lssArr (⟨0⟩ : Std.U8) 3#usize (lssU .U8 "1 2 255"))',
+          bounded.eval_literal(("array", u8, 3), [1, 2, 255]))
+    check("a const generic array's length is its value's",
+          bounded.eval_literal(("array", u8, None), [7, 8]) == '(lssArr (⟨0⟩ : Std.U8) 2#usize (lssU .U8 "7 8"))',
+          bounded.eval_literal(("array", u8, None), [7, 8]))
+    check("a vector of signed numbers keeps their signs; an empty slice is empty text",
+          bounded.eval_literal(("vec", i16), [-5, 7, -32768]) == '(lssVec (lssI .I16 "-5 7 -32768"))'
+          and bounded.eval_literal(("slice", usz), []) == '(lssSlice (lssU .Usize ""))',
+          bounded.eval_literal(("vec", i16), [-5, 7, -32768]))
+    check("a tuple's arrays are text too; an array of anything else is written as today",
+          bounded.eval_literal(("tuple", [("array", u8, 1), U32]), [[4], 9]) == '((lssArr (⟨0⟩ : Std.U8) 1#usize '
+          '(lssU .U8 "4")), 9#u32)' and bounded.eval_literal(("array", ("bool",), 1), [True])
+          == tc.lean_literal(("array", ("bool",), 1), [True]),
+          bounded.eval_literal(("tuple", [("array", u8, 1), U32]), [[4], 9]))
+    arr = [("array", u8, 2)]
+    cmd = bounded.eval_command("t1", "C", stmt, arr, U32, [[[1, 2]]])
+    post = bounded.post_command("t2", "C", stmt, arr, arr[0], [[1, 2]], [[3, 4]])
+    check("eval and post commands carry an array input, and a wrong array output, as text", cmd.endswith(
+        'rows:[["(lssArr (⟨0⟩ : Std.U8) 2#usize (lssU .U8 \\"1 2\\"))"]]')
+          and 'row:["(lssArr ' in post and 'outs:["(lssArr (⟨0⟩ : Std.U8) 2#usize (lssU .U8 \\"3 4\\"))"]' in post,
+          cmd[-90:] + " " + post[-120:])
+    ref = bounded.refutation_text("rf", "S", [{"k": "arg", "i": 0}], [], arr, U32, [[1, 2]], "fail",
+                                  "Aeneas.Std.Error.panic", stated=True)
+    check("a kernel refutation writes an array witness as a literal, never as text the kernel would have to "
+          "parse", "(⟨[1#u8, 2#u8], by decide⟩ : Array Std.U8 2#usize)" in ref and "lssArr" not in ref, ref)
     text = ('x.lean:1:0: warning: LSS_EVAL {"tag":"a","ok":true,"kind":"spec","rows":[]}\n'
             'LSS_EVAL {broken\nLSS_EVAL {"tag":"b","ok":false,"detail":"no"}')
     got = bounded.parse_evals(text)
@@ -909,6 +936,7 @@ def run_full():
           v["status"] == "refuted" and len(v.get("witness", [[]])[0]) == 2, str(v))
 
     run_planted(checker)
+    run_eval_inputs(checker, rust_dir)
     run_suite_refutations(checker)
     run_suite_types(checker)
 
@@ -930,6 +958,54 @@ def run_full():
         v = bounded.check_spec(checker, "∀ (value : Std.U32), identity value ⦃ r => r = value ⦄", "identity", rust_dir)
         check("after the timeout the crate env is rebuilt and checks still run", v["status"] == "pass", str(v))
     lean_server.shutdown_all()
+
+
+def run_eval_inputs(checker, rust_dir):
+    """arrays, vectors and slices of numbers given to an evaluation as text: every
+    number comes back exactly (signs, each type's edges, the empty one), as from
+    today's literals; on the suite, a function over two 256-byte arrays is evaluated
+    on all its inputs where building them as literals ran out of time."""
+    print("=== full: number arrays given to the evaluation as text ===")
+    import lean_server
+    import lss_config
+    state = checker._aeneas_env_for(rust_dir)
+    server = lean_server.get_server(lss_config.project_dir("aeneas"))
+    r = server.check("def lss_echo_vi (v : alloc.vec.Vec Std.I64) : Result (alloc.vec.Vec Std.I64) := .ok v\n"
+                     "def lss_echo_au (a : Array Std.U64 3#usize) : Result (Array Std.U64 3#usize) := .ok a\n"
+                     "def lss_echo_su (s : Slice Std.Usize) : Result (Slice Std.Usize) := .ok s",
+                     env=state["env0"], timeout=60)
+    check("echo functions added", r.rc == 0 and r.new_env is not None, (r.stderr or r.stdout or "")[:200])
+    if r.new_env is None:
+        return
+    state["env0"] = r.new_env
+    i64, u64, usz = ("int", "Std.I64"), ("int", "Std.U64"), ("int", "Std.Usize")
+    for fn, T, rows in [
+            ("lss_echo_vi", ("vec", i64), [[[]], [[-2 ** 63, 2 ** 63 - 1, 0, -1]], [[5] * 64]]),
+            ("lss_echo_au", ("array", u64, 3), [[[0, 2 ** 64 - 1, 7]], [[1, 1, 1]]]),
+            ("lss_echo_su", ("slice", usz), [[[]], [[2 ** 64 - 1, 2 ** 32, 3]]])]:
+        stmt = f"∀ (x : {tc.lean_type_str(T)}), {fn} x ⦃ _ => True ⦄"
+        got = {}
+        for form in ("text", "literal"):
+            old = bounded.eval_literal
+            if form == "literal":
+                bounded.eval_literal = lambda t, v: tc.lean_literal(t, v)
+            try:
+                ev, why = bounded._Lean(checker, rust_dir).eval(stmt, [T], T, rows)
+            finally:
+                bounded.eval_literal = old
+            got[form] = [json.loads(o["value"]) if o.get("outcome") == "holds" else o for o in ev["rows"]] \
+                if ev else why
+        want = [[str(x) for x in row[0]] for row in rows]
+        check(f"{fn}: every number comes back exactly from text, as from literals",
+              got["text"] == want and got["literal"] == want, str(got)[:400])
+    suite = os.path.expanduser("~/rust_suite/AeneasStandalone")
+    if not os.path.isdir(suite):
+        check(f"{suite} exists", False, "not a directory")
+        return
+    v = bounded.check_spec(checker, "∀ (src : Array Std.U8 256#usize) (dst : Array Std.U8 256#usize), "
+                           "iterators.copy_arrays src dst ⦃ _ => True ⦄", "iterators.copy_arrays", suite)
+    check("a function over two 256-byte arrays is evaluated on every input, none cut short",
+          v["status"] in ("pass", "vacuous", "refuted"), str(v)[:300])
 
 
 def run_suite_refutations(checker):
