@@ -550,13 +550,18 @@ class LeanServer:
             self._worker = None
 
 
-_servers = {}
+_servers = {}  # (project_dir, role) -> LeanServer
 
 
-def get_server(project_dir, cfg=None):
-    if project_dir not in _servers:
-        _servers[project_dir] = LeanServer(project_dir, cfg or _get_cfg())
-    return _servers[project_dir]
+def get_server(project_dir, cfg=None, role="main"):
+    """the Lean server for a project. role "eval" is a second server of the same
+    project that only the bounded check uses: an input that runs away there (an
+    endless loop, a stack overflow, a memory blow-up) restarts that server alone, and
+    the gate's and the provers' envs in the main one are never lost to it."""
+    key = (project_dir, role)
+    if key not in _servers:
+        _servers[key] = LeanServer(project_dir, cfg or _get_cfg())
+    return _servers[key]
 
 
 def _get_cfg():
@@ -569,9 +574,7 @@ def _get_cfg():
 
 def _get_repl(project_dir):
     """compatibility shim for diag tools."""
-    if project_dir not in _servers:
-        get_server(project_dir)
-    return _servers[project_dir]._worker
+    return get_server(project_dir)._worker
 
 
 def shutdown_all():
@@ -581,7 +584,7 @@ def shutdown_all():
 
 
 def all_stats():
-    return {pd: s.stats() for pd, s in _servers.items()}
+    return {pd if role == "main" else f"{pd} ({role})": s.stats() for (pd, role), s in _servers.items()}
 
 
 _atexit.register(shutdown_all)
