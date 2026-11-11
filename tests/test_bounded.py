@@ -1,4 +1,5 @@
 import json
+import random
 import re
 import os
 import sys
@@ -38,6 +39,26 @@ def run_static_values():
     check("edge values come first: 0, 1, max, max-1 for U32",
           [r[0] for r in rows[:4]] == [0, 1, 4294967295, 4294967294], str([r[0] for r in rows[:4]]))
     check("signed edges include min and -1", {-128, -1, 127} <= set(bounded.edge_values(I8)))
+    u32_rows = bounded.sample_rows([U32], seed=0)
+    random_rows = u32_rows[len(dict.fromkeys(bounded.edge_values(U32))):]
+    check("the first random rows' numbers are small and the sizes grow: most rows of a U32 stay under 10^6 "
+          "(a loop it bounds finishes), every bit length is tried",
+          all(r[0] <= 16 for r in random_rows[:3]) and sum(r[0] > 10 ** 6 for r in u32_rows) <= 6
+          and len({r[0].bit_length() for r in u32_rows}) >= 20,
+          str([r[0] for r in u32_rows]))
+    rnd = random.Random(0)
+    small = sum(bounded.random_int(U32, rnd, 1.0) <= 16 for _ in range(1000))
+    check("half the random numbers are small, where indices, preconditions and loop bounds live, even at full size",
+          450 <= small <= 700, f"{small} of 1000 at most 16")
+    pairs = bounded.sample_rows([U32, U32], seed=0)
+    check("two U32 bounds of a nested loop: most rows run under 10^6 steps",
+          sum(a * b > 10 ** 6 for a, b in pairs) <= len(pairs) // 2, str(pairs))
+    ranged = [("int", t) for t in ("Std.U8", "Std.I8", "Std.I16", "Std.Usize", "Std.I64", "Std.U128")]
+    drawn = [v for sd in range(5) for r in bounded.sample_rows(ranged, seed=sd) for v in r]
+    check("every drawn number is in its type's range, and signed ones take both signs",
+          all(bounded._int_range(t)[0] <= v <= bounded._int_range(t)[1]
+              for sd in range(5) for r in bounded.sample_rows(ranged, seed=sd) for t, v in zip(ranged, r))
+          and any(v < -16 for v in drawn) and any(v > 16 for v in drawn))
     check("every sampled value renders as a Lean literal",
           all(tc.lean_literal(t, v) for r in rows for t, v in zip([U32, VEC], r)))
     check("the short literal of every sampled value names no proof",
@@ -148,6 +169,33 @@ def run_static_commands():
     check("post command carries the row and the wrong outputs",
           post.startswith("lss_eval_post t2 crate:C ") and post.endswith('row:["5#u32"] outs:["6#u32", "7#u32"]'),
           post[-60:])
+    u8, i16, usz = ("int", "Std.U8"), ("int", "Std.I16"), ("int", "Std.Usize")
+    check("an evaluated array of numbers is text read in compiled code, its length as the type gives it",
+          bounded.eval_literal(("array", u8, 3), [1, 2, 255]) == '(lssArr (⟨0⟩ : Std.U8) 3#usize (lssU .U8 "1 2 255"))',
+          bounded.eval_literal(("array", u8, 3), [1, 2, 255]))
+    check("a const generic array's length is its value's",
+          bounded.eval_literal(("array", u8, None), [7, 8]) == '(lssArr (⟨0⟩ : Std.U8) 2#usize (lssU .U8 "7 8"))',
+          bounded.eval_literal(("array", u8, None), [7, 8]))
+    check("a vector of signed numbers keeps their signs; an empty slice is empty text",
+          bounded.eval_literal(("vec", i16), [-5, 7, -32768]) == '(lssVec (lssI .I16 "-5 7 -32768"))'
+          and bounded.eval_literal(("slice", usz), []) == '(lssSlice (lssU .Usize ""))',
+          bounded.eval_literal(("vec", i16), [-5, 7, -32768]))
+    check("a tuple's arrays are text too; an array of anything else is written as today",
+          bounded.eval_literal(("tuple", [("array", u8, 1), U32]), [[4], 9]) == '((lssArr (⟨0⟩ : Std.U8) 1#usize '
+          '(lssU .U8 "4")), 9#u32)' and bounded.eval_literal(("array", ("bool",), 1), [True])
+          == tc.lean_literal(("array", ("bool",), 1), [True]),
+          bounded.eval_literal(("tuple", [("array", u8, 1), U32]), [[4], 9]))
+    arr = [("array", u8, 2)]
+    cmd = bounded.eval_command("t1", "C", stmt, arr, U32, [[[1, 2]]])
+    post = bounded.post_command("t2", "C", stmt, arr, arr[0], [[1, 2]], [[3, 4]])
+    check("eval and post commands carry an array input, and a wrong array output, as text", cmd.endswith(
+        'rows:[["(lssArr (⟨0⟩ : Std.U8) 2#usize (lssU .U8 \\"1 2\\"))"]]')
+          and 'row:["(lssArr ' in post and 'outs:["(lssArr (⟨0⟩ : Std.U8) 2#usize (lssU .U8 \\"3 4\\"))"]' in post,
+          cmd[-90:] + " " + post[-120:])
+    ref = bounded.refutation_text("rf", "S", [{"k": "arg", "i": 0}], [], arr, U32, [[1, 2]], "fail",
+                                  "Aeneas.Std.Error.panic", stated=True)
+    check("a kernel refutation writes an array witness as a literal, never as text the kernel would have to "
+          "parse", "(⟨[1#u8, 2#u8], by decide⟩ : Array Std.U8 2#usize)" in ref and "lssArr" not in ref, ref)
     text = ('x.lean:1:0: warning: LSS_EVAL {"tag":"a","ok":true,"kind":"spec","rows":[]}\n'
             'LSS_EVAL {broken\nLSS_EVAL {"tag":"b","ok":false,"detail":"no"}')
     got = bounded.parse_evals(text)
@@ -252,7 +300,7 @@ class FakeLean:
     def plan(self, stmt):
         return (None, "timeout") if self.timeout == "plan" else (self.plan_, "")
 
-    def eval(self, stmt, args, ret, rows):
+    def eval(self, stmt, args, ret, rows, alone=True):
         if self.timeout:
             return None, "timeout"
         return {"kind": "dspec" if "div" in stmt else "spec", "rows": [self.row_outcome(r) for r in rows]}, ""
@@ -377,7 +425,7 @@ def run_static_check():
             super().__init__(row_outcome, **kw)
             self.k, self.rows_seen = k, []
 
-        def eval(self, stmt, args, ret, rows):
+        def eval(self, stmt, args, ret, rows, alone=True):
             self.rows_seen.append(rows)
             got, _ = super().eval(stmt, args, ret, rows)
             if len(self.rows_seen) == 1:
@@ -424,14 +472,64 @@ def run_static_check():
           "as what it stands for",
           'args[1]!.isFVar' in tir and '("binder", Json.str' in tir and "unfoldDefinition? ty" in tir
           and tir.index("args[1]!.isFVar") < tir.index("lssEvalString"), tir[:300])
+    G = bounded.EVAL_GROUP
+    ok = lambda k: ({"ok": True, "kind": "spec", "rows": [{"outcome": "holds"}] * k}, "")  # noqa: E731
+    for why in ("timeout", "memory"):
+        lb = bounded._Lean.__new__(bounded._Lean)
+        lb.crate, answers, sent = "C", [ok(G), (None, why), ok(1), ok(1), (None, why)], []
+        lb._one = lambda make, timeout=None: (sent.append((make("t"), timeout)), answers.pop(0))[1]
+        got, _ = lb.eval("S", [U32], U32, [[n] for n in range(3 * G)])
+        check(f"inputs go {G} to a command, each with {bounded.EVAL_GROUP_TIMEOUT}s; a group that runs out of "
+              f"{'time' if why == 'timeout' else 'memory'} goes again one input to a command, up to the first that "
+              "runs out: the inputs before it are kept, it and the larger ones get no result",
+              got is not None and len(got["rows"]) == G + 2 and got["partial"] == 2 * G - 2 and got["why"] == why
+              and [t for _, t in sent] == [bounded.EVAL_GROUP_TIMEOUT] * 5
+              and sent[0][0].count("#u32") == G and [c.count("#u32") for c, _ in sent[2:]] == [1, 1, 1]
+              and f'"{G}#u32"' in sent[1][0] and f'"{G + 2}#u32"' in sent[4][0],
+              f"{got} {[(c[-60:], t) for c, t in sent]}")
     lb = bounded._Lean.__new__(bounded._Lean)
-    lb.crate, answers = "C", [({"ok": True, "kind": "spec", "rows": [{"outcome": "holds"}] * bounded.tc.MAX_BATCH}, ""),
-                               (None, "timeout")]
-    lb._one = lambda make: answers.pop(0)
-    got, why = lb.eval("S", [U32], U32, [[n] for n in range(3 * bounded.tc.MAX_BATCH)])
-    check("a batch that runs out of time ends the evaluation, and the batches before it are kept",
-          got is not None and len(got["rows"]) == bounded.tc.MAX_BATCH and got["partial"] == 2 * bounded.tc.MAX_BATCH,
-          f"{got} {why}")
+    lb.crate, answers = "C", [(None, "timeout")] + [ok(1)] * G + [ok(G)]
+    lb._one = lambda make, timeout=None: answers.pop(0)
+    got, _ = lb.eval("S", [U32], U32, [[n] for n in range(2 * G)])
+    check("a group that runs out only as a whole, every input finishing alone, is kept and the evaluation goes on",
+          got is not None and len(got["rows"]) == 2 * G and "partial" not in got and not answers, str(got)[:200])
+    lb = bounded._Lean.__new__(bounded._Lean)
+    lb.crate, answers = "C", [ok(G), (None, "timeout"), ok(1)]
+    lb._one = lambda make, timeout=None: answers.pop(0)
+    got, _ = lb.eval("S", [U32], U32, [[n] for n in range(3 * G)], alone=False)
+    check("shrinking's evaluation ends at a group that runs out, trying none of its inputs alone",
+          got is not None and len(got["rows"]) == G and got["partial"] == 2 * G and answers == [ok(1)], str(got)[:200])
+    lb = bounded._Lean.__new__(bounded._Lean)
+    lb.crate, answers = "C", [ok(G), (None, "timeout"), ok(1)]
+    lb._one = lambda make, timeout=None: answers.pop(0)
+    got, _ = lb.eval("S", [U32], U32, [[n] for n in range(G + 1)])
+    check("a group of one input that runs out is not run alone again: it already was",
+          got is not None and len(got["rows"]) == G and got["partial"] == 1 and answers == [ok(1)], str(got)[:200])
+    lb = bounded._Lean.__new__(bounded._Lean)
+    lb.crate = "C"
+    lb._one = lambda make, timeout=None: (None, "timeout")
+    got, _ = lb.eval("S", [U32], U32, [[n] for n in range(G)])
+    check("an input that never ends among the smallest is still a result: every input from it on left without one",
+          got == {"kind": None, "rows": [], "partial": G, "why": "timeout"}, str(got))
+
+    class Alone(FakeLean):
+        seen = []
+
+        def eval(self, stmt, args, ret, rows, alone=True):
+            self.seen.append(alone)
+            return super().eval(stmt, args, ret, rows, alone)
+    fake = Alone(lambda r: {"outcome": "violates", "value": '"1"'} if r[0] >= 3 else _ok(r[0]))
+    v = _check(fake)
+    check("the sampled inputs are tried alone after a group runs out; shrink candidates are not",
+          v["status"] == "refuted" and fake.seen[0] is True and len(fake.seen) > 1 and not any(fake.seen[1:]),
+          f"{v['status']} {fake.seen}")
+    class NoneFinish(FakeLean):
+        def eval(self, stmt, args, ret, rows, alone=True):
+            return {"kind": None, "rows": [], "partial": len(rows), "why": "timeout"}, ""
+    v = _check(NoneFinish(lambda r: _ok(r[0])))
+    check("when no input finishes the check is a timeout naming the one that ran past the limit",
+          v["status"] == "timeout" and "0 of " in v["detail"] and "(x := 0#u32) ran past" in v["detail"]
+          and v.get("unevaluated", 0) > 0, str(v))
     lb = bounded._Lean.__new__(bounded._Lean)
     lb.project_dir, lb.crate, runs = "/p-ops", "C", []
     lb.run = lambda text: (runs.append(text) or ('x:1:0: warning: LSS_OPS ["Aeneas.Std.Slice.index_usize",'
@@ -540,7 +638,7 @@ def run_static_run():
           str(sorted(mine & others)))
 
     class Server:
-        sent = []
+        sent, roles, restarts = [], [], 0
 
         def check(self, code, timeout=None, env=None):
             self.sent.append((code, env))
@@ -548,8 +646,11 @@ def run_static_run():
             class R:
                 timed_out = False
                 stdout, stderr = 'LSS_EVAL {"tag":"derive","ok":true,"derived":["C.T"],"via_beq":[],"none":[]}', ""
-                new_env = 77
+                new_env = 70 if code == "CRATE TEXT" else 77
             return R()
+
+        def stats(self):
+            return {"restarts": self.restarts}
 
     class Checker:
         lean_calls = 0
@@ -558,29 +659,53 @@ def run_static_run():
         def _aeneas_env_for(self, project_dir):
             return self.state
 
+        def _aeneas_env_text(self, project_dir):
+            return "CRATE TEXT", ""
+
     server = Server()
     old = bounded._lean_server.get_server
-    bounded._lean_server.get_server = lambda *a, **k: server  # type: ignore[assignment]
+
+    def fake_get_server(*a, **k):
+        server.roles.append(k.get("role", "main"))
+        return server
+    bounded._lean_server.get_server = fake_get_server  # type: ignore[assignment]
+    bounded._EVAL_ENVS.clear()
     try:
         ck = Checker()
         lean_ = bounded._Lean(ck, "/p")
         lean_.run("lss_eval_spec x")
         lean_.run("lss_eval_spec y")
         bounded._Lean(ck, "/p").run("lss_eval_spec z")
-        ck.state = {"ok": True, "env": 52, "env0": 51, "crate": "C"}  # the crate env was rebuilt
+        ck.state = {"ok": True, "env": 52, "env0": 51, "crate": "C"}  # the main server's crate env was rebuilt
+        bounded._Lean(ck, "/p").run("lss_eval_spec v")
+        server.restarts = 1  # the evaluation server restarted
         bounded._Lean(ck, "/p").run("lss_eval_spec w")
+        n_before = len(server.sent)
+        server2 = Server()
+        server2.sent, server2.restarts = [], 1  # the same restart count as the old one
+        bounded._lean_server.get_server = lambda *a, **k: server2  # type: ignore[assignment]
+        bounded._Lean(ck, "/p").run("lss_eval_spec u")  # a new server (shutdown_all), its restart count 0 again
     finally:
         bounded._lean_server.get_server = old
-    code, env = server.sent[0]
-    check("the check's env is built on the crate env as built before the crate is opened", env == 41, str(env))
+    check("every command of the check goes to the evaluation server, none to the main one",
+          server.roles and set(server.roles) == {"eval"}, str(server.roles))
+    code, env = server.sent[1]
+    check("the check's env is built in the evaluation server on the crate env, from the main server's text, as "
+          "built before the crate is opened", server.sent[0] == ("CRATE TEXT", None) and env == 70,
+          str([(c[:30], e) for c, e in server.sent[:2]]))
     check("it holds the gate's Decidable instances, then bounded.lean, then DecidableEq for the crate's types",
           code.index("lssSubtypeDecEq") < code.index("deriving instance DecidableEq for Aeneas.Std.Result")
           < code.index("elab \"lss_eval_plan ") < code.index("lss_derive_deceq crate:C"), code[-200:])
-    check("it is built once per crate env, every command then runs in it, inside the crate's namespace",
-          [e for _, e in server.sent[1:4]] == [77, 77, 77] and server.sent[1][0] == "namespace C\nlss_eval_spec x",
+    check("it is built once per evaluation server start, every command then runs in it, inside the crate's "
+          "namespace, whatever happens to the main server's envs",
+          [e for _, e in server.sent[2:6]] == [77, 77, 77, 77] and server.sent[2][0] == "namespace C\nlss_eval_spec x",
           str([(c[:30], e) for c, e in server.sent]))
-    check("a rebuilt crate env gets a new check env", server.sent[4][1] == 51 and server.sent[5][1] == 77,
-          str([(c[:30], e) for c, e in server.sent[4:]]))
+    check("a restarted evaluation server gets its crate env and check env built again",
+          [(c[:10], e) for c, e in server.sent[6:]] == [("CRATE TEXT", None), (code[:10], 70), ("namespace ", 77)],
+          str([(c[:30], e) for c, e in server.sent[6:]]))
+    check("a new evaluation server (after shutdown_all) builds its own envs, never reusing another process's ids",
+          len(server.sent) == n_before and [c[:10] for c, _ in server2.sent] == ["CRATE TEXT", code[:10], "namespace "],
+          str([(c[:30], e) for c, e in server2.sent]))
     check("what was derived is kept with the crate env", ck.state.get("check_derive", {}).get("derived") == ["C.T"],
           str(ck.state.get("check_derive")))
 
@@ -588,10 +713,12 @@ def run_static_run():
         def check(self, code, timeout=None, env=None):
             class R:
                 timed_out = False
-                stdout, stderr = ":778:30: error: unexpected token ':='; expected '}'", ""
+                stdout, stderr = ("", "") if code == "CRATE TEXT" else (":778:30: error: unexpected token ':='; "
+                                                                        "expected '}'", "")
                 new_env = 78
             return R()
     bounded._lean_server.get_server = lambda *a, **k: Broken()  # type: ignore[assignment]
+    bounded._EVAL_ENVS.clear()
     try:
         fresh = Checker()
         fresh.state = {"ok": True, "env": 62, "env0": 61, "crate": "C"}
@@ -612,6 +739,7 @@ def run_static_run():
                 new_env = None
             return R()
     bounded._lean_server.get_server = lambda *a, **k: Lost()  # type: ignore[assignment]
+    bounded._EVAL_ENVS.clear()
     try:
         fresh = Checker()
         fresh.state = {"ok": True, "env": 72, "env0": 71, "crate": "C"}
@@ -909,27 +1037,119 @@ def run_full():
           v["status"] == "refuted" and len(v.get("witness", [[]])[0]) == 2, str(v))
 
     run_planted(checker)
+    run_eval_inputs(checker, rust_dir)
     run_suite_refutations(checker)
     run_suite_types(checker)
+    run_suite_runaways(checker)
 
-    # a diverging evaluation: the server times out, restarts, and the next check works
-    state = checker._aeneas_env_for(rust_dir)
-    server = lean_server.get_server(lss_config.project_dir("aeneas"))
-    r = server.check("partial def lss_spin (x : Std.U32) : Result Std.U32 := lss_spin x", env=state["env0"], timeout=60)
+    # a diverging evaluation: the evaluation server times out and restarts, the main one does not, and the
+    # next check works
+    main = lean_server.get_server(lss_config.project_dir("aeneas"))
+    ev_server = lean_server.get_server(lss_config.project_dir("aeneas"), role="eval")
+    st = _eval_env0(checker, rust_dir)
+    r = ev_server.check("partial def lss_spin (x : Std.U32) : Result Std.U32 := lss_spin x", env=st.get("env0"),
+                        timeout=60)
     check("diverging helper added", r.rc == 0 and r.new_env is not None, (r.stderr or "")[:200])
     if r.new_env is not None:
-        state["env0"] = r.new_env
-        old = bounded.EVAL_TIMEOUT
-        bounded.EVAL_TIMEOUT = 20
-        try:
-            ev, why = bounded._Lean(checker, rust_dir).eval("∀ (x : Std.U32), lss_spin x ⦃ _ => True ⦄",
-                                                            [U32], U32, [[0]])
-        finally:
-            bounded.EVAL_TIMEOUT = old
-        check("a diverging evaluation is reported as a timeout", ev is None and why == "timeout", f"{ev} {why}")
+        st["env0"] = r.new_env
+        before = (main.stats()["restarts"], ev_server.stats()["restarts"])
+        ev, why = bounded._Lean(checker, rust_dir).eval("∀ (x : Std.U32), lss_spin x ⦃ _ => True ⦄",
+                                                        [U32], U32, [[0]])
+        check("a diverging evaluation leaves its input without a result, as running out of time",
+              ev == {"kind": None, "rows": [], "partial": 1, "why": "timeout"}, f"{ev} {why}")
+        after = (main.stats()["restarts"], ev_server.stats()["restarts"])
+        check("only the evaluation server restarted", after[0] == before[0] and after[1] > before[1],
+              f"{before} -> {after}")
         v = bounded.check_spec(checker, "∀ (value : Std.U32), identity value ⦃ r => r = value ⦄", "identity", rust_dir)
-        check("after the timeout the crate env is rebuilt and checks still run", v["status"] == "pass", str(v))
+        check("after the timeout the evaluation env is rebuilt and checks still run", v["status"] == "pass", str(v))
     lean_server.shutdown_all()
+
+
+def _eval_env0(checker, project_dir):
+    """the bounded check's envs for a crate in the evaluation server, built now; a
+    test's own function added to "env0" is in the next check env."""
+    bounded._Lean(checker, project_dir)._env()
+    return bounded.eval_state(project_dir)
+
+
+def run_suite_runaways(checker):
+    """inputs that run away, on the suite's own crates, read-only: each costs only
+    itself and the larger inputs, is named, and restarts only the evaluation server."""
+    print("=== full: inputs that never end, or run too long ===")
+    import lean_server
+    import lss_config
+    suite = os.path.expanduser("~/rust_suite")
+    main = lean_server.get_server(lss_config.project_dir("aeneas"))
+    for crate, unit, stmt, title, want in [
+            ("Tutorial", "i32_id", "∀ (i : Std.I32), i32_id i ⦃ _ => True ⦄",
+             "a recursion that never ends on a negative number: the inputs before it are evaluated, it is named",
+             lambda v: v["status"] == "timeout" and "(i := (-1)#i32) ran past" in v.get("detail", "")
+             and v["detail"].startswith("2 of ")),
+            ("AeneasStandalone", "loops_nested.iter", "∀ (m : Std.U32) (n : Std.U32), loops_nested.iter m n ⦃ _ => True ⦄",
+             "a nested loop over two U32 bounds: the inputs that finish in time are evaluated, the larger ones are not",
+             lambda v: v["status"] in ("pass", "vacuous", "refuted")
+             or (v["status"] == "timeout" and v.get("unevaluated", 99) <= 24 and "ran past" in v.get("detail", ""))),
+            ("Tutorial", "even", "∀ (i : Std.U32), even i ⦃ _ => True ⦄",
+             "a recursion as deep as its argument: the inputs that finish in time are evaluated",
+             lambda v: v["status"] in ("pass", "vacuous", "refuted")
+             or (v["status"] == "timeout" and v.get("unevaluated", 99) <= 24))]:
+        d = os.path.join(suite, crate)
+        if not os.path.isdir(d):
+            check(f"{d} exists", False, "not a directory")
+            continue
+        before = main.stats()["restarts"]
+        v = bounded.check_spec(checker, stmt, unit, d)
+        check(title, want(v), str(v)[:400])
+        check(f"{unit}: the main server did not restart", main.stats()["restarts"] == before,
+              f"{before} -> {main.stats()['restarts']}")
+
+
+def run_eval_inputs(checker, rust_dir):
+    """arrays, vectors and slices of numbers given to an evaluation as text: every
+    number comes back exactly (signs, each type's edges, the empty one), as from
+    today's literals; on the suite, a function over two 256-byte arrays is evaluated
+    on all its inputs where building them as literals ran out of time."""
+    print("=== full: number arrays given to the evaluation as text ===")
+    import lean_server
+    import lss_config
+    state = _eval_env0(checker, rust_dir)
+    server = lean_server.get_server(lss_config.project_dir("aeneas"), role="eval")
+    r = server.check("def lss_echo_vi (v : alloc.vec.Vec Std.I64) : Result (alloc.vec.Vec Std.I64) := .ok v\n"
+                     "def lss_echo_au (a : Array Std.U64 3#usize) : Result (Array Std.U64 3#usize) := .ok a\n"
+                     "def lss_echo_su (s : Slice Std.Usize) : Result (Slice Std.Usize) := .ok s",
+                     env=state.get("env0"), timeout=60)
+    check("echo functions added", r.rc == 0 and r.new_env is not None, (r.stderr or r.stdout or "")[:200])
+    if r.new_env is None:
+        return
+    state["env0"] = r.new_env
+    i64, u64, usz = ("int", "Std.I64"), ("int", "Std.U64"), ("int", "Std.Usize")
+    for fn, T, rows in [
+            ("lss_echo_vi", ("vec", i64), [[[]], [[-2 ** 63, 2 ** 63 - 1, 0, -1]], [[5] * 64]]),
+            ("lss_echo_au", ("array", u64, 3), [[[0, 2 ** 64 - 1, 7]], [[1, 1, 1]]]),
+            ("lss_echo_su", ("slice", usz), [[[]], [[2 ** 64 - 1, 2 ** 32, 3]]])]:
+        stmt = f"∀ (x : {tc.lean_type_str(T)}), {fn} x ⦃ _ => True ⦄"
+        got = {}
+        for form in ("text", "literal"):
+            old = bounded.eval_literal
+            if form == "literal":
+                bounded.eval_literal = lambda t, v: tc.lean_literal(t, v)
+            try:
+                ev, why = bounded._Lean(checker, rust_dir).eval(stmt, [T], T, rows)
+            finally:
+                bounded.eval_literal = old
+            got[form] = [json.loads(o["value"]) if o.get("outcome") == "holds" else o for o in ev["rows"]] \
+                if ev else why
+        want = [[str(x) for x in row[0]] for row in rows]
+        check(f"{fn}: every number comes back exactly from text, as from literals",
+              got["text"] == want and got["literal"] == want, str(got)[:400])
+    suite = os.path.expanduser("~/rust_suite/AeneasStandalone")
+    if not os.path.isdir(suite):
+        check(f"{suite} exists", False, "not a directory")
+        return
+    v = bounded.check_spec(checker, "∀ (src : Array Std.U8 256#usize) (dst : Array Std.U8 256#usize), "
+                           "iterators.copy_arrays src dst ⦃ _ => True ⦄", "iterators.copy_arrays", suite)
+    check("a function over two 256-byte arrays is evaluated on every input, none cut short",
+          v["status"] in ("pass", "vacuous", "refuted"), str(v)[:300])
 
 
 def run_suite_refutations(checker):

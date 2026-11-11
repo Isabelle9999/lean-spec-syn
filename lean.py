@@ -632,6 +632,21 @@ class LeanChecker:
         return ProofResult(proved=False, method='', error=out.strip()[:200],
                            hammer_available=True)
 
+    def _aeneas_env_text(self, project_dir):
+        """(the crate env's text up to the crate's namespace, the premise selector
+        command to run inside it): the crate, the options and opens, LSS's own commands
+        and the aeneas layer (_aeneas_build_env). the bounded check builds its own env
+        from the same text in a Lean server of its own (bounded._Lean._env)."""
+        g = _callgraph.for_project(project_dir)
+        crate, selector = g.crate_text, ""
+        if _lss_config.proof_cfg()["rust_hammer"]:
+            crate = crate.replace("import Aeneas", "import Aeneas\nimport Hammer", 1)
+            selector = _hammer_selector()
+        return (crate +
+                "\nset_option maxRecDepth 2048\n"
+                "open Aeneas Aeneas.Std Result ControlFlow Error\n" +
+                proof_check_text() + "\n" + _aeneas_layer_text()), selector
+
     def _aeneas_build_env(self, project_dir):
         """fresh env = crate text + the options and Aeneas opens the benches' own
         lean_code + lean_preamble use + the aeneas layer, then the crate's namespace
@@ -646,14 +661,7 @@ class LeanChecker:
         aeneas_dir = _lss_config.project_dir("aeneas")
         server = _lean_server.get_server(aeneas_dir)
         g = _callgraph.for_project(project_dir)
-        crate, selector = g.crate_text, ""
-        if _lss_config.proof_cfg()["rust_hammer"]:
-            crate = crate.replace("import Aeneas", "import Aeneas\nimport Hammer", 1)
-            selector = _hammer_selector()
-        text = (crate +
-                "\nset_option maxRecDepth 2048\n"
-                "open Aeneas Aeneas.Std Result ControlFlow Error\n" +
-                proof_check_text() + "\n" + _aeneas_layer_text())
+        text, selector = self._aeneas_env_text(project_dir)
         _CRATE_ENVS[g.crate] = (self, project_dir, hashlib.sha256(g.crate_text.encode("utf-8")).hexdigest()[:16])
         t0 = time.time()
         r0 = r = server.check(text, timeout=600)

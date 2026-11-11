@@ -50,6 +50,12 @@ MAX_DISCARD_RATIO = 10
 PERTURB_ROWS = 3
 SHRINK_ROUNDS = 6
 EVAL_TIMEOUT = 120
+# the inputs go to Lean EVAL_GROUP at a time, smallest first, each command with
+# EVAL_GROUP_TIMEOUT seconds (about 28 million loop steps at the 1.4 million a second
+# compiled evaluation runs): an input that runs away costs only itself and the larger
+# inputs after it, never the inputs before it (_Lean.eval)
+EVAL_GROUP = 8
+EVAL_GROUP_TIMEOUT = 20
 
 
 # ====================== values (the shape lean_literal and lean_encode_expr share) ======================
@@ -107,52 +113,78 @@ def _self_refs(t):
     return 0
 
 
-def random_value(T, rnd, depth=0, self_T=None):
+SMALL_BITS = 4  # the smallest rows' sized numbers are below 2^4
+
+
+def random_int(T, rnd, size=1.0):
+    """a number of T: half the time a small one (-16 to 16), where indices,
+    preconditions and loop bounds live; otherwise one whose bit length is uniform up to
+    a bound that `size` (0 to 1) moves from SMALL_BITS to the type's width, so at size
+    1 every bit length is as likely as any other. a number drawn uniformly over the
+    type's range is almost always near its top (a U32 above 2^28 nine times in ten),
+    and a loop or recursion it bounds runs for billions of steps; the sizes grow over
+    the rows instead (QuickCheck and Hypothesis draw this way), so every magnitude is
+    tried and most rows finish. the range's own ends are edge values (edge_values)."""
+    lo, hi = _int_range(T)
+    if rnd.random() < 0.5:
+        return rnd.randint(max(lo, -16), min(hi, 16))
+    width = (hi - min(lo, 0)).bit_length() - (1 if lo < 0 else 0)
+    k = rnd.randint(0, round(SMALL_BITS + min(max(size, 0.0), 1.0) * max(width - SMALL_BITS, 0)))
+    v = rnd.randint(1 << (k - 1), (1 << k) - 1) if k else 0
+    v = -v if lo < 0 and rnd.random() < 0.5 else v
+    return min(max(v, lo), hi)
+
+
+def random_value(T, rnd, depth=0, self_T=None, size=1.0):
+    """a random value of T, its numbers drawn by random_int at `size`."""
     T = _sized(T)
     kind = T[0]
+
+    def sub(t, d=depth + 1, st=None):
+        return random_value(t, rnd, d, st or self_T, size)
     if kind == "self":
-        return random_value(self_T, rnd, depth, self_T)
+        return random_value(self_T, rnd, depth, self_T, size)
     if _named(T):
         self_T = T
     if kind == "bool":
         return rnd.random() < 0.5
     if kind == "int":
-        lo, hi = _int_range(T)
-        # small values half the time: preconditions and loop bounds live there
-        return rnd.randint(max(lo, -16), min(hi, 16)) if rnd.random() < 0.5 else rnd.randint(lo, hi)
+        return random_int(T, rnd, size)
     if kind == "tuple":
-        return [random_value(e, rnd, depth, self_T) for e in T[1]]
+        return [sub(e, depth) for e in T[1]]
     if kind == "array":
-        return [random_value(T[1], rnd, depth + 1, self_T) for _ in range(T[2])]
+        return [sub(T[1]) for _ in range(T[2])]
     if kind in ("slice", "vec"):
         n = 0 if depth >= 3 and _self_refs(T[1]) else rnd.randint(0, 4 if depth == 0 else 2)
-        xs = [random_value(T[1], rnd, depth + 1, self_T) for _ in range(n)]
+        xs = [sub(T[1]) for _ in range(n)]
         if T[1][0] == "int" and rnd.random() < 0.3:
             xs.sort()  # sorted inputs are rare at random but a common precondition
         return xs
     if kind == "struct":
-        return {fn: random_value(ft, rnd, depth + 1, self_T) for fn, ft in T[2]}
+        return {fn: sub(ft) for fn, ft in T[2]}
     if kind == "enum":
         # past depth 3, the variant with the fewest references to itself ends the value
         vname, arg_types = rnd.choice(T[2]) if depth < 3 else \
             min(T[2], key=lambda v: (sum(_self_refs(a) for a in v[1]), len(v[1])))
-        return {"tag": vname, "args": [random_value(a, rnd, depth + 1, self_T) for a in arg_types]}
+        return {"tag": vname, "args": [sub(a) for a in arg_types]}
     if kind == "list_enum":
         nil_v, cons_v, elem_T = T[2], T[3], T[4]
         out = {"tag": nil_v, "args": []}
         for _ in range(rnd.randint(0, 3 if depth < 2 else 0)):
-            out = {"tag": cons_v, "args": [random_value(elem_T, rnd, depth + 1), out]}
+            out = {"tag": cons_v, "args": [random_value(elem_T, rnd, depth + 1, None, size), out]}
         return out
     if kind == "option":
         if depth >= 3 and _self_refs(T[1]):
             return None
-        return None if rnd.random() < 0.3 else random_value(T[1], rnd, depth + 1, self_T)
+        return None if rnd.random() < 0.3 else sub(T[1])
     raise tc.Unsupported(f"no generator for {T!r}")
 
 
 def sample_rows(arg_types, n=ROWS, seed=0):
     """edge-value rows first (each argument cycling through its own edge
-    values), then seeded random rows, without duplicates."""
+    values), then seeded random rows, without duplicates, their numbers' size
+    growing from the first random row (below 2^SMALL_BITS) to the last (any
+    bit length, random_int)."""
     rnd = random.Random(seed)
     edges = [edge_values(t) for t in arg_types]
     rows, seen = [], set()
@@ -164,10 +196,11 @@ def sample_rows(arg_types, n=ROWS, seed=0):
             rows.append(row)
     for i in range(max((len(e) for e in edges), default=1)):
         add([e[i % len(e)] for e in edges])
-    tries = 0
+    tries, first = 0, len(rows)
     while len(rows) < n and tries < 20 * n:
         tries += 1
-        add([random_value(t, rnd) for t in arg_types])
+        size = (len(rows) - first) / max(n - first - 1, 1)
+        add([random_value(t, rnd, size=size) for t in arg_types])
     return rows[:n]
 
 
@@ -329,8 +362,30 @@ def _q(s):
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
 
 
+def eval_literal(T, v):
+    """the Lean term for an evaluated input: an array, vector or slice of numbers as
+    text read in compiled code (lean/bounded.lean's lssU/lssI and lssArr/lssVec/
+    lssSlice), whose elaboration costs the same at any length; a tuple part by part;
+    everything else as tc.lean_literal. a literal of 256 numbers takes elaboration
+    about a second (each n#u8 also runs its bound tactic), so a check of 48 such
+    inputs spent most of its time limit building them. evaluation only: a kernel
+    refutation writes its witness as literals (refutation_text)."""
+    kind = T[0]
+    if kind in ("array", "vec", "slice") and T[1][0] == "int" and T[1][1] in tc.LEAN_SCALAR_SUFFIX:
+        ty = T[1][1].split(".")[-1]
+        nums = '"' + " ".join(str(int(x)) for x in v) + '"'
+        dec = f"({'lssI' if ty.startswith('I') else 'lssU'} .{ty} {nums})"
+        if kind == "array":
+            n = len(v) if T[2] is None else T[2]
+            return f"(lssArr (⟨0⟩ : {tc.lean_type_str(T[1])}) {n}#usize {dec})"
+        return f"({'lssVec' if kind == 'vec' else 'lssSlice'} {dec})"
+    if kind == "tuple":
+        return "(" + ", ".join(eval_literal(e, x) for e, x in zip(T[1], v)) + ")"
+    return tc.lean_literal(T, v)
+
+
 def _lits(arg_types, row):
-    return "[" + ", ".join(_q(tc.lean_literal(t, v)) for t, v in zip(arg_types, row)) + "]"
+    return "[" + ", ".join(_q(eval_literal(t, v)) for t, v in zip(arg_types, row)) + "]"
 
 
 def plan_command(tag, crate, stmt):
@@ -349,7 +404,7 @@ def eval_command(tag, crate, stmt, arg_types, ret_type, rows):
 
 def post_command(tag, crate, stmt, arg_types, ret_type, row, outs):
     return (f"lss_eval_post {tag} crate:{crate} stmt:{_q(stmt)} row:{_lits(arg_types, row)} outs:["
-            + ", ".join(_q(tc.lean_literal(ret_type, o)) for o in outs) + "]")
+            + ", ".join(_q(eval_literal(ret_type, o)) for o in outs) + "]")
 
 
 def parse_evals(text):
@@ -539,14 +594,30 @@ def _bounded_text():
 
 
 _OPS = {}  # (project_dir, unit) -> the operations its call reaches (_Lean.ops)
+_EVAL_ENVS = {}  # project_dir -> the bounded check's envs in the evaluation server (eval_state)
 
+
+def _eval_server():
+    return _lean_server.get_server(_lss_config.project_dir("aeneas"), role="eval")
+
+
+def eval_state(project_dir):
+    """the bounded check's envs for a crate, in the evaluation server: "env0", the
+    crate env as built before the crate is opened (from the same text as the main
+    server's, lean.LeanChecker._aeneas_env_text), "check_env" on top of it, and the
+    server and its restart count they were built at. a definition added to env0 (a test's
+    own function) is in the next check env."""
+    return _EVAL_ENVS.setdefault(project_dir, {})
 
 
 class _Lean:
-    """the bounded check's own env, built once per crate env on the crate env as
-    built before the crate is opened ("env0"): the gate's Decidable instances
-    (wf_gate.lean, wf_gate_aeneas.lean), lean/bounded.lean, and DecidableEq for
-    the crate's types. proofs never run in it."""
+    """the bounded check's own env, built in a Lean server of its own (role "eval")
+    once per crate and server start: the crate env as built before the crate is
+    opened ("env0"), then the gate's Decidable instances (wf_gate.lean,
+    wf_gate_aeneas.lean), lean/bounded.lean, and DecidableEq for the crate's types.
+    every command of the check runs there, so an input that runs away restarts that
+    server alone and the main server's envs (the gate's, the provers') stay. proofs
+    never run in it."""
 
     def __init__(self, checker, project_dir, helpers=""):
         self.checker, self.project_dir, self.n = checker, project_dir, 0
@@ -554,14 +625,30 @@ class _Lean:
         self.prefix = _gate._wf_gate_text() + "\n" + _gate._wf_gate_aeneas_text() + "\n"
         self.crate = None
 
-    def _env(self, server):
-        state = self.checker._aeneas_env_for(self.project_dir)
+    def _env(self, server=None):
+        server = server or _eval_server()
+        state = self.checker._aeneas_env_for(self.project_dir)  # the gate built it: the crate elaborates
         if not state["ok"]:
             return None, "env"
         self.crate = state["crate"]
-        if state.get("check_env") is None or state.get("check_env_of") != state["env0"]:
+        ev = eval_state(self.project_dir)
+        # built again in a new server (shutdown_all) or after a restart: env ids are per process
+        if ev.get("env0") is None or ev.get("server") is not server or ev.get("restarts") != server.stats()["restarts"]:
+            ev.clear()
+            text, _ = self.checker._aeneas_env_text(self.project_dir)
+            r = server.check(text, timeout=600)
+            self.checker.lean_calls += 1
+            if r.timed_out:
+                return None, "timeout"
+            if r.new_env is None:
+                return None, "check env lost" + (" (memory cap)" if getattr(r, "mem_killed", False) else "")
+            errors = [ln for ln in ((r.stdout or "") + (r.stderr or "")).splitlines() if ": error" in ln]
+            if errors:  # the same text built in the main server: a server's trouble, not the crate's
+                return None, "the evaluation server's crate env: " + errors[0][:300]
+            ev.update(env0=r.new_env, server=server, restarts=server.stats()["restarts"])
+        if ev.get("check_env") is None or ev.get("check_env_of") != ev["env0"]:
             text = self.prefix + _bounded_text() + f"\nlss_derive_deceq crate:{state['crate']}\n"
-            r = server.check(text, timeout=EVAL_TIMEOUT, env=state["env0"])
+            r = server.check(text, timeout=EVAL_TIMEOUT, env=ev["env0"])
             self.checker.lean_calls += 1
             if r.timed_out:
                 return None, "timeout"
@@ -573,19 +660,23 @@ class _Lean:
                 raise RuntimeError("the bounded check's Lean code does not build: " + errors[0][:300])
             if r.new_env is None:  # the server lost it (a memory kill): this candidate goes on unchecked
                 return None, "check env lost" + (" (memory cap)" if getattr(r, "mem_killed", False) else "")
-            state["check_env"], state["check_env_of"] = r.new_env, state["env0"]
-            state["check_derive"] = parse_evals((r.stdout or "") + (r.stderr or "")).get("derive")
-        return state["check_env"], ""
+            ev["check_env"], ev["check_env_of"] = r.new_env, ev["env0"]
+            ev["derive"] = state["check_derive"] = parse_evals((r.stdout or "") + (r.stderr or "")).get("derive")
+        return ev["check_env"], ""
 
-    def run(self, text):
-        server = _lean_server.get_server(_lss_config.project_dir("aeneas"))
+    def run(self, text, timeout=EVAL_TIMEOUT):
+        """(output, "") or (None, why): "timeout", "memory" (the server's memory cap
+        killed it), or why the env is missing."""
+        server = _eval_server()
         env, why = self._env(server)
         if env is None:
             return None, why
-        r = server.check(f"namespace {self.crate}\n" + self.helpers + text, timeout=EVAL_TIMEOUT, env=env)
+        r = server.check(f"namespace {self.crate}\n" + self.helpers + text, timeout=timeout, env=env)
         self.checker.lean_calls += 1
         if r.timed_out:
             return None, "timeout"
+        if getattr(r, "mem_killed", False):
+            return None, "memory"
         return (r.stdout or "") + (r.stderr or ""), ""
 
     def ops(self, unit, unfold):
@@ -601,15 +692,14 @@ class _Lean:
             _OPS[key] = [n for n in json.loads(m.group(1)) if n not in EVAL_DEFS]
         return _OPS[key]
 
-    def _one(self, make):
+    def _one(self, make, timeout=EVAL_TIMEOUT):
         self.n += 1
         tag = f"lss_eval_{self.n}"
         if self.crate is None:
-            server = _lean_server.get_server(_lss_config.project_dir("aeneas"))
-            env, why = self._env(server)
+            env, why = self._env()
             if env is None:
                 return None, why
-        out, why = self.run(make(tag))
+        out, why = self.run(make(tag), timeout)
         if out is None:
             return None, why
         v = parse_evals(out).get(tag)
@@ -620,22 +710,44 @@ class _Lean:
     def plan(self, stmt):
         return self._one(lambda tag: plan_command(tag, self.crate, stmt))
 
-    def eval(self, stmt, args, ret, rows):
-        """the rows' results, batch by batch in the order given. a batch that runs out of
-        time ends the evaluation; the batches before it are kept, with `partial` the
-        number of rows left unevaluated (check_spec orders rows smallest first, so one
-        input too large to evaluate in time, such as a recursion as deep as its
-        argument, no longer costs the verdict on the small ones)."""
-        results = []
-        for i in range(0, max(len(rows), 1), tc.MAX_BATCH):
-            v, why = self._one(lambda tag: eval_command(tag, self.crate, stmt, args, ret, rows[i:i + tc.MAX_BATCH]))
-            if v is None or not v.get("ok"):
-                if v is None and why == "timeout" and results:
-                    return {"kind": results[0]["kind"], "rows": [r for v in results for r in v["rows"]],
-                            "partial": len(rows) - i}, ""
+    def eval(self, stmt, args, ret, rows, alone=True):
+        """the rows' results in the order given, EVAL_GROUP to a command, each command
+        with EVAL_GROUP_TIMEOUT seconds. a group that runs out of time or memory (or
+        whose process dies, as a stack overflow kills it) restarts the evaluation
+        server alone, and its rows then go one to a command, each with the same limit,
+        up to the first that runs out: that row and the ones after it are left without
+        a result (`partial` of them, `why` what stopped the first), the rows before it
+        are kept. check_spec orders the rows smallest first, so an input too large to
+        finish (a loop it bounds, a recursion as deep as it) costs only itself and the
+        larger ones, and an input that never ends (a loop on a negative number) is the
+        one named. alone=False (shrinking, which only needs one failing candidate)
+        ends the evaluation at the group instead, every row of it left without a
+        result."""
+        results, kind = [], None
+
+        def one(group):
+            return self._one(lambda tag: eval_command(tag, self.crate, stmt, args, ret, group), EVAL_GROUP_TIMEOUT)
+        for i in range(0, max(len(rows), 1), EVAL_GROUP):
+            group = rows[i:i + EVAL_GROUP]
+            v, why = one(group)
+            if v is not None and v.get("ok"):
+                kind = kind or v["kind"]
+                results += v["rows"]
+                continue
+            if v is not None or why not in ("timeout", "memory") or not rows:
                 return None, why if v is None else v.get("detail", "")
-            results.append(v)
-        return {"kind": results[0]["kind"], "rows": [r for v in results for r in v["rows"]]}, ""
+            if not alone or len(group) == 1:  # one row has already run alone
+                return {"kind": kind, "rows": results, "partial": len(rows) - i, "why": why}, ""
+            for j, row in enumerate(group):
+                v, why = one([row])
+                if v is not None and v.get("ok"):
+                    kind = kind or v["kind"]
+                    results += v["rows"]
+                    continue
+                if v is None and why in ("timeout", "memory"):
+                    return {"kind": kind, "rows": results, "partial": len(rows) - i - j, "why": why}, ""
+                return None, why if v is None else v.get("detail", "")
+        return {"kind": kind, "rows": results}, ""
 
     def post(self, stmt, args, ret, row, outs):
         v, _ = self._one(lambda tag: post_command(tag, self.crate, stmt, args, ret, row, outs))
@@ -759,6 +871,17 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     if ev is None:
         return {"status": "timeout" if why == "timeout" else "skipped", "detail": why}
     kind, outs = ev["kind"], ev["rows"]
+    stopped = None
+    if ev.get("partial"):
+        # the first input with no result, as the statement would write it
+        names = [f.get("name") or f"x{i}" for i, f in enumerate(plan["free"])]
+        first, why = rows[len(outs)], ev.get("why", "timeout")
+        stopped = (f"{len(outs)} of {len(rows)} inputs evaluated, smallest first; ("
+                   + ", ".join(f"{n} := {tc.lean_literal(t, v, short=True)}" for n, t, v in zip(names, args, first))
+                   + (f") ran past {EVAL_GROUP_TIMEOUT}s" if why == "timeout" else ") hit the memory cap")
+                   + " on its own, and the larger inputs were not run")
+        if not outs:
+            return {"status": "timeout", "detail": stopped, "unevaluated": len(rows)}
     rows = rows[:len(outs)]  # the rows evaluated before the time ran out
     # the plan decided the postcondition, so a row whose value it cannot decide is an
     # error, never a row that neither fits nor fails (which would pass with no witness)
@@ -776,7 +899,7 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
             cands = cands[:2 * tc.MAX_BATCH]
             if not cands:
                 break
-            sev, _ = lean.eval(stmt, args, ret, cands)
+            sev, _ = lean.eval(stmt, args, ret, cands, alone=False)
             hits = [k for k, r in enumerate(sev["rows"]) if _bad(kind, r)] if sev else []
             if not hits:
                 break
@@ -803,11 +926,11 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
                                 "value whose fields break what its type is for, such as a table with no slots), state "
                                 "the condition that excludes it, on the input's fields, as a hypothesis."
                                 if res["outcome"] in ("fail", "div") else ""))}
-    if ev.get("partial"):
+    if stopped:
         # no counterexample among the inputs evaluated, and the larger ones were never run:
         # neither a pass nor a vacuous spec (an unevaluated input could fail)
-        return {"status": "timeout", "detail": f"{len(outs)} of {len(outs) + ev['partial']} inputs evaluated "
-                                               "before the time ran out, smallest first; none refutes the statement"}
+        return {"status": "timeout", "detail": stopped + "; none refutes the statement",
+                "unevaluated": ev["partial"]}
     if not decided:
         return {"status": "not_evaluated", "detail": f"postcondition: {plan.get('post_why', '')}"[:300]}
     fit = [i for i, r in enumerate(outs) if r["outcome"] == "holds"]

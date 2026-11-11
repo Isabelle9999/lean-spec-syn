@@ -225,15 +225,24 @@ def _run_in_project_lake(code, project_dir):
     return r.stdout, r.stderr, r.rc
 
 
+MAX_FAILED_STARTS = 3  # restarts in a row with no answer before a worker stays down (ReplWorker.run)
+
+
 class ReplWorker:
     def __init__(self, project_dir, cmd_timeout=30, import_timeout=180, env_cache_cap=8,
                  mem_cap_bytes=None):
         self._dir = project_dir
         self._cmd_timeout = cmd_timeout
         self._import_timeout = import_timeout
+        # how long a starting REPL gets to answer its first command (it loads no
+        # imports): 30s, or the import time limit when longer. a machine under load
+        # answered a restart in over 30s, and the worker was then left dead
+        self._start_timeout = max(30, import_timeout)
         self._cap = env_cache_cap
         self._mem_cap = mem_cap_bytes
         self._proc = None
+        self._started = False  # start() succeeded once: a lost process is started again (run)
+        self._failed_starts = 0  # restarts in a row whose REPL never answered
         self._mem_watch = None
         self._envs = OrderedDict()
         self.restarts = 0
@@ -346,18 +355,25 @@ class ReplWorker:
             self._launch()
         except (FileNotFoundError, OSError):
             return False
-        resp = self._send_raw({"cmd": "-- ok"}, timeout=30)
+        resp = self._send_raw({"cmd": "-- ok"}, timeout=self._start_timeout)
         if resp is None or "env" not in resp:
             self.close()
             return False
         self._envs[("", "")] = resp["env"]
+        self._started = True
         return True
 
     def run(self, code, cmd_timeout=None, env=None, prelude=""):
         """return CheckResult or None if import unavailable (caller falls back to lake).
         env: run code as a command against this existing env id instead of an
         import-derived base env (code is the whole command, no import extraction).
-        prelude: text elaborated once on top of the imports and reused (no env)."""
+        prelude: text elaborated once on top of the imports and reused (no env).
+        a worker whose last restart got no answer starts again here, once per command,
+        so one slow start never leaves it dead for the rest of the run; after
+        MAX_FAILED_STARTS restarts in a row with no answer it stays down (lake), so a
+        REPL that cannot start does not cost every later command a start time limit."""
+        if self._proc is None and self._started and self._failed_starts < MAX_FAILED_STARTS:
+            self._restart()
         if self._proc is None:
             return None
         _ct = cmd_timeout if cmd_timeout is not None else self._cmd_timeout
@@ -406,13 +422,16 @@ class ReplWorker:
         print(f"  [repl] restart #{self.restarts}")
         try:
             self._launch()
-            resp = self._send_raw({"cmd": "-- ok"}, timeout=30)
+            resp = self._send_raw({"cmd": "-- ok"}, timeout=self._start_timeout)
             if resp is None or "env" not in resp:
-                self.close()
+                self.close()  # no process now: the next command starts one again (run)
+                self._failed_starts += 1
                 return True
             self._envs[("", "")] = resp["env"]
+            self._failed_starts = 0
         except Exception:
             self._proc = None
+            self._failed_starts += 1
         return True
 
     def close(self):
@@ -550,13 +569,18 @@ class LeanServer:
             self._worker = None
 
 
-_servers = {}
+_servers = {}  # (project_dir, role) -> LeanServer
 
 
-def get_server(project_dir, cfg=None):
-    if project_dir not in _servers:
-        _servers[project_dir] = LeanServer(project_dir, cfg or _get_cfg())
-    return _servers[project_dir]
+def get_server(project_dir, cfg=None, role="main"):
+    """the Lean server for a project. role "eval" is a second server of the same
+    project that only the bounded check uses: an input that runs away there (an
+    endless loop, a stack overflow, a memory blow-up) restarts that server alone, and
+    the gate's and the provers' envs in the main one are never lost to it."""
+    key = (project_dir, role)
+    if key not in _servers:
+        _servers[key] = LeanServer(project_dir, cfg or _get_cfg())
+    return _servers[key]
 
 
 def _get_cfg():
@@ -569,9 +593,7 @@ def _get_cfg():
 
 def _get_repl(project_dir):
     """compatibility shim for diag tools."""
-    if project_dir not in _servers:
-        get_server(project_dir)
-    return _servers[project_dir]._worker
+    return get_server(project_dir)._worker
 
 
 def shutdown_all():
@@ -581,7 +603,7 @@ def shutdown_all():
 
 
 def all_stats():
-    return {pd: s.stats() for pd, s in _servers.items()}
+    return {pd if role == "main" else f"{pd} ({role})": s.stats() for (pd, role), s in _servers.items()}
 
 
 _atexit.register(shutdown_all)

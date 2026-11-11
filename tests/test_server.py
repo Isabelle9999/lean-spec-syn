@@ -316,6 +316,69 @@ try:
             child16.kill()
             child16.wait(timeout=5)
 
+    # case 17: a restart whose new REPL never answers (a machine under load answered one in
+    # over 30s) leaves the worker without a process; the next command starts it again and
+    # runs in the REPL, never falling back to lake for the rest of the run
+    s17 = LeanServer(PROJ, cfg)
+    try:
+        w17 = s17._worker
+        check("case17 server started", w17 is not None)
+        if w17 is not None:
+            real17, dropped17 = w17._send_raw, []
+
+            def _no_answer_once(cmd, timeout):
+                if cmd.get("cmd") == "-- ok" and not dropped17:
+                    dropped17.append(timeout)
+                    return None
+                return real17(cmd, timeout)
+            w17._send_raw = _no_answer_once  # type: ignore[method-assign]
+            w17._restart()
+            check("case17 a restart with no answer leaves no process", w17._proc is None and dropped17,
+                  f"proc={w17._proc} dropped={dropped17}")
+            check("case17 a starting REPL gets the import time limit to answer, at least 30s",
+                  dropped17 == [max(30, cfg["import_timeout"])], str(dropped17))
+            r17 = s17.check("#check Nat")
+            check("case17 the next command starts the REPL again and runs there, not in lake",
+                  r17.via == "repl" and r17.rc == 0 and w17._proc is not None and s17.stats()["restarts"] == 2,
+                  f"via={r17.via} rc={r17.rc} restarts={s17.stats()['restarts']} stderr={r17.stderr[:120]}")
+    finally:
+        s17.close()
+
+    # case 19: a REPL that never answers a start stops being started after MAX_FAILED_STARTS
+    # restarts in a row: later commands fall back to lake at once, not after a start time
+    # limit each
+    s19 = LeanServer(PROJ, cfg)
+    try:
+        w19 = s19._worker
+        check("case19 server started", w19 is not None)
+        if w19 is not None:
+            real19 = w19._send_raw
+            def _never_answers(cmd, timeout):
+                return None if cmd.get("cmd") == "-- ok" else real19(cmd, timeout)
+            w19._send_raw = _never_answers  # type: ignore[method-assign]
+            w19._restart()  # the first restart with no answer
+            vias = [s19.check("#check Nat").via for _ in range(lean_server.MAX_FAILED_STARTS + 1)]
+            check("case19 after MAX_FAILED_STARTS restarts in a row with no answer the worker stays down: lake",
+                  w19._proc is None and s19.stats()["restarts"] == lean_server.MAX_FAILED_STARTS
+                  and vias == ["lake"] * (lean_server.MAX_FAILED_STARTS + 1),
+                  f"restarts={s19.stats()['restarts']} vias={vias}")
+            w19._send_raw = real19  # type: ignore[method-assign]
+    finally:
+        s19.close()
+
+    # case 18: the evaluation server is a second REPL of the same project: killing it leaves
+    # the main one, its envs and its restart count as they were
+    sm, se = get_server(PROJ, cfg), get_server(PROJ, cfg, role="eval")
+    check("case18 the evaluation server is its own server", sm is not se and get_server(PROJ, cfg, role="eval") is se)
+    r18 = sm.check("theorem _t18 : (1:Nat) = 1 := rfl")
+    restarts18 = sm.stats()["restarts"]
+    r18e = se.check("partial def _spin18 (n : Nat) : Nat := _spin18 (n + 1)\n#eval _spin18 0", timeout=5)
+    check("case18 a runaway evaluation times out the evaluation server", r18e.timed_out, str(r18e.stderr[:120]))
+    r18b = sm.check("#check _t18", env=r18.new_env)
+    check("case18 the main server keeps its env and did not restart",
+          r18b.rc == 0 and sm.stats()["restarts"] == restarts18 and se.stats()["restarts"] >= 1,
+          f"rc={r18b.rc} main={sm.stats()['restarts']} eval={se.stats()['restarts']}")
+
 finally:
     if s5 is not None:
         s5.close()

@@ -76,6 +76,25 @@ theorem lss_dspec_cases {α : Type} {m : Aeneas.Std.Result α} {P : α → Prop}
     (h : Aeneas.Std.WP.dspec m P) : (∃ y, m = Aeneas.Std.Result.ok y ∧ P y) ∨ m = Aeneas.Std.Result.div := by
   cases m <;> simp_all [Aeneas.Std.WP.dspec]
 
+-- an evaluated input's arrays, vectors and slices of numbers come as text, read in
+-- compiled code (`lssArr ⟨0⟩ 256#usize (lssU .U8 "3 11 …")`): a 256-element literal
+-- is a term elaboration takes about a second to build (each `n#u8` also runs its own
+-- bound tactic), the text a short term whatever the length. property testing in Lean
+-- builds its values in compiled code for the same reason. the numbers wrap into their
+-- bit vector (the sampler draws them in range), and a wrong length gives the fixed
+-- default, never a value of the wrong size. evaluation only: a kernel refutation
+-- writes its witness as literals (bounded.py's refutation_text).
+def lssU (ty : Aeneas.Std.UScalarTy) (s : String) : List (Aeneas.Std.UScalar ty) :=
+  ((s.splitOn " ").filterMap String.toNat?).map fun k => ⟨BitVec.ofNat _ k⟩
+def lssI (ty : Aeneas.Std.IScalarTy) (s : String) : List (Aeneas.Std.IScalar ty) :=
+  ((s.splitOn " ").filterMap String.toInt?).map fun k => ⟨BitVec.ofInt _ k⟩
+def lssArr {α : Type} (d : α) (n : Aeneas.Std.Usize) (l : List α) : Aeneas.Std.Array α n :=
+  if h : l.length = n.val then ⟨l, h⟩ else ⟨List.replicate n.val d, List.length_replicate⟩
+def lssVec {α : Type} (l : List α) : Aeneas.Std.alloc.vec.Vec α :=
+  if h : l.length ≤ Aeneas.Std.Usize.max then ⟨l, h⟩ else ⟨[], Nat.zero_le _⟩
+def lssSlice {α : Type} (l : List α) : Aeneas.Std.Slice α :=
+  if h : l.length ≤ Aeneas.Std.Usize.max then ⟨l, h⟩ else ⟨[], Nat.zero_le _⟩
+
 open Lean Elab Command in
 /-- `lss_eval_ops <C> <f> <g> ...`: the Aeneas operations the definitions of f, g, ...
 reach, followed through C's definitions and Aeneas.Std's, as one LSS_OPS warning (a
