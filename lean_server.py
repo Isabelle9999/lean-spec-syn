@@ -225,6 +225,9 @@ def _run_in_project_lake(code, project_dir):
     return r.stdout, r.stderr, r.rc
 
 
+MAX_FAILED_STARTS = 3  # restarts in a row with no answer before a worker stays down (ReplWorker.run)
+
+
 class ReplWorker:
     def __init__(self, project_dir, cmd_timeout=30, import_timeout=180, env_cache_cap=8,
                  mem_cap_bytes=None):
@@ -239,6 +242,7 @@ class ReplWorker:
         self._mem_cap = mem_cap_bytes
         self._proc = None
         self._started = False  # start() succeeded once: a lost process is started again (run)
+        self._failed_starts = 0  # restarts in a row whose REPL never answered
         self._mem_watch = None
         self._envs = OrderedDict()
         self.restarts = 0
@@ -365,8 +369,10 @@ class ReplWorker:
         import-derived base env (code is the whole command, no import extraction).
         prelude: text elaborated once on top of the imports and reused (no env).
         a worker whose last restart got no answer starts again here, once per command,
-        so one slow start never leaves it dead for the rest of the run."""
-        if self._proc is None and self._started:
+        so one slow start never leaves it dead for the rest of the run; after
+        MAX_FAILED_STARTS restarts in a row with no answer it stays down (lake), so a
+        REPL that cannot start does not cost every later command a start time limit."""
+        if self._proc is None and self._started and self._failed_starts < MAX_FAILED_STARTS:
             self._restart()
         if self._proc is None:
             return None
@@ -419,10 +425,13 @@ class ReplWorker:
             resp = self._send_raw({"cmd": "-- ok"}, timeout=self._start_timeout)
             if resp is None or "env" not in resp:
                 self.close()  # no process now: the next command starts one again (run)
+                self._failed_starts += 1
                 return True
             self._envs[("", "")] = resp["env"]
+            self._failed_starts = 0
         except Exception:
             self._proc = None
+            self._failed_starts += 1
         return True
 
     def close(self):

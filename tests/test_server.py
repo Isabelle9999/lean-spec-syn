@@ -344,6 +344,28 @@ try:
     finally:
         s17.close()
 
+    # case 19: a REPL that never answers a start stops being started after MAX_FAILED_STARTS
+    # restarts in a row: later commands fall back to lake at once, not after a start time
+    # limit each
+    s19 = LeanServer(PROJ, cfg)
+    try:
+        w19 = s19._worker
+        check("case19 server started", w19 is not None)
+        if w19 is not None:
+            real19 = w19._send_raw
+            def _never_answers(cmd, timeout):
+                return None if cmd.get("cmd") == "-- ok" else real19(cmd, timeout)
+            w19._send_raw = _never_answers  # type: ignore[method-assign]
+            w19._restart()  # the first restart with no answer
+            vias = [s19.check("#check Nat").via for _ in range(lean_server.MAX_FAILED_STARTS + 1)]
+            check("case19 after MAX_FAILED_STARTS restarts in a row with no answer the worker stays down: lake",
+                  w19._proc is None and s19.stats()["restarts"] == lean_server.MAX_FAILED_STARTS
+                  and vias == ["lake"] * (lean_server.MAX_FAILED_STARTS + 1),
+                  f"restarts={s19.stats()['restarts']} vias={vias}")
+            w19._send_raw = real19  # type: ignore[method-assign]
+    finally:
+        s19.close()
+
     # case 18: the evaluation server is a second REPL of the same project: killing it leaves
     # the main one, its envs and its restart count as they were
     sm, se = get_server(PROJ, cfg), get_server(PROJ, cfg, role="eval")
