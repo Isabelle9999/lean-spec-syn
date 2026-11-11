@@ -231,9 +231,14 @@ class ReplWorker:
         self._dir = project_dir
         self._cmd_timeout = cmd_timeout
         self._import_timeout = import_timeout
+        # how long a starting REPL gets to answer its first command (it loads no
+        # imports): 30s, or the import time limit when longer. a machine under load
+        # answered a restart in over 30s, and the worker was then left dead
+        self._start_timeout = max(30, import_timeout)
         self._cap = env_cache_cap
         self._mem_cap = mem_cap_bytes
         self._proc = None
+        self._started = False  # start() succeeded once: a lost process is started again (run)
         self._mem_watch = None
         self._envs = OrderedDict()
         self.restarts = 0
@@ -346,18 +351,23 @@ class ReplWorker:
             self._launch()
         except (FileNotFoundError, OSError):
             return False
-        resp = self._send_raw({"cmd": "-- ok"}, timeout=30)
+        resp = self._send_raw({"cmd": "-- ok"}, timeout=self._start_timeout)
         if resp is None or "env" not in resp:
             self.close()
             return False
         self._envs[("", "")] = resp["env"]
+        self._started = True
         return True
 
     def run(self, code, cmd_timeout=None, env=None, prelude=""):
         """return CheckResult or None if import unavailable (caller falls back to lake).
         env: run code as a command against this existing env id instead of an
         import-derived base env (code is the whole command, no import extraction).
-        prelude: text elaborated once on top of the imports and reused (no env)."""
+        prelude: text elaborated once on top of the imports and reused (no env).
+        a worker whose last restart got no answer starts again here, once per command,
+        so one slow start never leaves it dead for the rest of the run."""
+        if self._proc is None and self._started:
+            self._restart()
         if self._proc is None:
             return None
         _ct = cmd_timeout if cmd_timeout is not None else self._cmd_timeout
@@ -406,9 +416,9 @@ class ReplWorker:
         print(f"  [repl] restart #{self.restarts}")
         try:
             self._launch()
-            resp = self._send_raw({"cmd": "-- ok"}, timeout=30)
+            resp = self._send_raw({"cmd": "-- ok"}, timeout=self._start_timeout)
             if resp is None or "env" not in resp:
-                self.close()
+                self.close()  # no process now: the next command starts one again (run)
                 return True
             self._envs[("", "")] = resp["env"]
         except Exception:
