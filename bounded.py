@@ -736,7 +736,7 @@ class _Lean:
                 continue
             if v is not None or why not in ("timeout", "memory") or not rows:
                 return None, why if v is None else v.get("detail", "")
-            if not alone:
+            if not alone or len(group) == 1:  # one row has already run alone
                 return {"kind": kind, "rows": results, "partial": len(rows) - i, "why": why}, ""
             for j, row in enumerate(group):
                 v, why = one([row])

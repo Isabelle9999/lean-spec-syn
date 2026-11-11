@@ -500,6 +500,12 @@ def run_static_check():
     check("shrinking's evaluation ends at a group that runs out, trying none of its inputs alone",
           got is not None and len(got["rows"]) == G and got["partial"] == 2 * G and answers == [ok(1)], str(got)[:200])
     lb = bounded._Lean.__new__(bounded._Lean)
+    lb.crate, answers = "C", [ok(G), (None, "timeout"), ok(1)]
+    lb._one = lambda make, timeout=None: answers.pop(0)
+    got, _ = lb.eval("S", [U32], U32, [[n] for n in range(G + 1)])
+    check("a group of one input that runs out is not run alone again: it already was",
+          got is not None and len(got["rows"]) == G and got["partial"] == 1 and answers == [ok(1)], str(got)[:200])
+    lb = bounded._Lean.__new__(bounded._Lean)
     lb.crate = "C"
     lb._one = lambda make, timeout=None: (None, "timeout")
     got, _ = lb.eval("S", [U32], U32, [[n] for n in range(G)])
