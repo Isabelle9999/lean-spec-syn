@@ -61,6 +61,8 @@ EVAL_GROUP_TIMEOUT = 20
 # ====================== values (the shape lean_literal and lean_encode_expr share) ======================
 
 def _int_range(T):
+    if T[1] == "Nat":  # an index Aeneas keeps as a Nat, drawn as a Usize is
+        return 0, (1 << 64) - 1
     _, bits, signed = tc.INT_TYPES[T[1]]
     return (-(1 << (bits - 1)), (1 << (bits - 1)) - 1) if signed else (0, (1 << bits) - 1)
 
@@ -428,7 +430,7 @@ def type_ir(j, top=False):
     if k in ("bool", "self"):
         return (k,)
     if k == "int":
-        if j[1] not in tc.INT_TYPES:
+        if j[1] not in tc.INT_TYPES and j[1] != "Nat":
             raise tc.Unsupported(f"scalar {j[1]}")
         return ("int", j[1])
     if k == "tuple":

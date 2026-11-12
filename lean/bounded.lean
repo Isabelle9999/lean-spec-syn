@@ -410,7 +410,8 @@ open Lean Meta in
 /-- the type IR python's samplers, literals and encoders use
 (tools/translation_check.py), read off the type itself: scalars, Bool, Unit,
 tuples, Option, Array (its length a number, or the name of the binder that gives it),
-Slice, Vec, the crate's own structures and inductives at their arguments, and the
+Slice, Vec, the crate's own structures and inductives and Aeneas's models of Rust's (Range, a
+slice iterator, StepBy, ...) at their arguments, Nat (an index Aeneas keeps as one), and the
 crate's type aliases as what they stand for, `["self"]` marking where an inductive contains
 itself (through Option or directly). throws on anything else (a function, as in
 a backward function's result). -/
@@ -427,6 +428,7 @@ partial def lssTypeIR (crate : Name) (stack : Array Expr) (ty : Expr) : MetaM Js
   let some c := fn.constName? | throwError "type {ty} is not supported"
   if let .str (.str (.str .anonymous "Aeneas") "Std") s := c then
     if scalars.contains s then return Json.arr #["int", Json.str ("Std." ++ s)]
+  if c == ``Nat then return Json.arr #["int", "Nat"]  -- an index Aeneas keeps as a Nat
   if c == ``Bool then return Json.arr #["bool"]
   if c == ``Unit || c == ``PUnit then return Json.arr #["tuple", Json.arr #[]]
   if c == ``Prod then
@@ -458,7 +460,9 @@ partial def lssTypeIR (crate : Name) (stack : Array Expr) (ty : Expr) : MetaM Js
     if let some ty' ← unfoldDefinition? ty then
       return ← lssTypeIR crate stack ty'
   let some (.inductInfo info) := env.find? c | throwError "type {ty} is not supported"
-  unless crate.isPrefixOf c && info.numIndices == 0 && args.size == info.numParams do
+  -- the crate's own types and Aeneas's models of Rust's (a Range, a slice iterator, a
+  -- StepBy: the state a loop function takes), each read through its fields
+  unless (crate.isPrefixOf c || (`Aeneas.Std).isPrefixOf c) && info.numIndices == 0 && args.size == info.numParams do
     throwError "type {ty} is not supported"
   let params := args.extract 0 info.numParams
   let stack := stack.push ty
