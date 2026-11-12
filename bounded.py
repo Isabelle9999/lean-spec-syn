@@ -56,6 +56,9 @@ EVAL_TIMEOUT = 120
 # inputs after it, never the inputs before it (_Lean.eval)
 EVAL_GROUP = 8
 EVAL_GROUP_TIMEOUT = 20
+# Lean's refusal to compile a call to a definition with no code: an axiom, or a function
+# that calls one (SymCrypt's hardware intrinsics are axioms; 103 of its 731 functions)
+NONCOMPUTABLE = re.compile(r"consider marking it as 'noncomputable'(?: because it depends on '([^']+)')?")
 
 
 # ====================== values (the shape lean_literal and lean_encode_expr share) ======================
@@ -823,6 +826,18 @@ def _lean_goals(out):
     return goals
 
 
+def _no_code(detail):
+    """the verdict for a function Lean will not compile because it calls a definition with
+    no code (NONCOMPUTABLE), else None."""
+    nc = NONCOMPUTABLE.search(detail or "")
+    if nc is None:
+        return None
+    return {"status": "not_evaluated",
+            "detail": f"cannot run: {nc.group(1) or 'the function'} has no code (it calls a definition with no "
+                      "implementation, such as the model of a hardware instruction), so no input can be evaluated; "
+                      "the provers still run"}
+
+
 @events.layer("bounded")
 def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     """the bounded verdict for one candidate (see the module docstring).
@@ -841,7 +856,7 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
         d = plan.get("detail", "")
         if d.startswith(NOT_EVALUATED):
             return {"status": "not_evaluated", "detail": d[len(NOT_EVALUATED):].strip()[:300]}
-        return {"status": "skipped", "detail": d[:300]}
+        return _no_code(d) or {"status": "skipped", "detail": d[:300]}
     try:
         args = [type_ir(f["ir"], top=True) for f in plan["free"]]
         # (array, its length's binder): the binder takes the array's length in every row
@@ -871,7 +886,7 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     rows = sorted((tie(r) for r in sample_rows(args, seed=seed)), key=lambda r: sum(size(t, x) for t, x in zip(args, r)))
     ev, why = lean.eval(stmt, args, ret, rows)
     if ev is None:
-        return {"status": "timeout" if why == "timeout" else "skipped", "detail": why}
+        return _no_code(why) or {"status": "timeout" if why == "timeout" else "skipped", "detail": why}
     kind, outs = ev["kind"], ev["rows"]
     stopped = None
     if ev.get("partial"):
@@ -891,7 +906,7 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
             if decided and r["outcome"] == "unknown" else r for r in outs]
     errors = [r for r in outs if r["outcome"] == "error"]
     if len(errors) == len(outs):
-        return {"status": "skipped", "detail": errors[0].get("detail", "")[:300]}
+        return _no_code(errors[0].get("detail", "")) or {"status": "skipped", "detail": errors[0].get("detail", "")[:300]}
     bad = [i for i, r in enumerate(outs) if _bad(kind, r)]
     if bad:
         row, res = rows[bad[0]], outs[bad[0]]

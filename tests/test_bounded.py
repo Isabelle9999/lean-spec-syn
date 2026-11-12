@@ -372,8 +372,19 @@ def _ok(v):
     return {"outcome": "holds", "value": json.dumps(str(v))}
 
 
+class NoCodeLean(FakeLean):
+    """an evaluation Lean refuses to compile: the function calls an axiom."""
+    def eval(self, stmt, args, ret, rows, alone=True):
+        return None, ("<input>:3:0: error: failed to compile definition, consider marking it as 'noncomputable' "
+                      "because it depends on 'symcrust.common.wipe', which is 'noncomputable'")
+
+
 def run_static_check():
     print("=== static: the verdict ===")
+    v = _check(NoCodeLean(lambda r: _ok(r[0])))
+    check("a function with no code (it calls an axiom, a hardware model) is not evaluated, labelled so",
+          v["status"] == "not_evaluated" and v["detail"].startswith("cannot run: symcrust.common.wipe has no code"),
+          str(v))
     # f x = x, spec "r.val < 5": false from 5 on; the witness shrinks to 5
     fake = FakeLean(lambda r: _ok(r[0]) if int(r[0]) < 5 else {"outcome": "violates", "value": json.dumps(str(r[0]))})
     v = _check(fake)
@@ -1394,14 +1405,21 @@ def range_len (r : core.ops.range.Range Std.Usize) : Result Std.Usize :=
 def iter_left (it : core.slice.iter.Iter Std.U32) : Result Bool :=
   ok (decide (it.i < it.slice.length))
 
+/-- [lss_iter::ext] -/
+axiom ext : Std.U32 → Result Std.U32
+
+/-- [lss_iter::uses_ext] -/
+def uses_ext (x : Std.U32) : Result Std.U32 := ext x
+
 end LssIter
 """
 
 
 def run_planted_iter(checker):
     """Aeneas's models of Rust's types as inputs: a Range (a field named `end`) and a
-    slice iterator (its position a Nat), sampled, evaluated and refuted by the kernel."""
-    print("=== full: a Range and a slice iterator as inputs ===")
+    slice iterator (its position a Nat), sampled, evaluated and refuted by the kernel;
+    and a function with no code."""
+    print("=== full: a Range and a slice iterator as inputs, a function with no code ===")
     import shutil
     import tempfile
     d = tempfile.mkdtemp()
@@ -1410,7 +1428,7 @@ def run_planted_iter(checker):
         with open(os.path.join(d, "LssIter", "Code", "Funs.lean"), "w", encoding="utf-8") as f:
             f.write(PLANTED_ITER_FUNS)
         decls = [{"kind": "function", "is_local": True, "lean_name": f"LssIter.{u}", "rust_name": f"lss_iter::{u}"}
-                 for u in ("range_len", "iter_left")]
+                 for u in ("range_len", "iter_left", "uses_ext")]
         with open(os.path.join(d, "rust-spec-synthesis.json"), "w", encoding="utf-8") as f:
             json.dump({"import": "LssIter", "declarations": decls}, f)
         rng = "∀ (r : core.ops.range.Range Std.Usize), range_len r "
@@ -1427,6 +1445,9 @@ def run_planted_iter(checker):
         v = bounded.check_spec(checker, it + "⦃ b => b = true ⦄", "iter_left", d)
         check("a false one is refuted where the iterator is at its end, by the kernel, its position a Nat",
               v["status"] == "refuted" and v.get("kernel") is True, str(v)[:400])
+        v = bounded.check_spec(checker, "∀ (x : Std.U32), uses_ext x ⦃ _ => True ⦄", "uses_ext", d)
+        check("a function calling an axiom (a hardware model) is not evaluated, labelled: cannot run",
+              v["status"] == "not_evaluated" and v.get("detail", "").startswith("cannot run: "), str(v)[:400])
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
