@@ -144,6 +144,20 @@ def run_static():
     check("a dotted name is one scope per component, as Lean counts them",
           callgraph._open_scopes("namespace A\nnamespace B\nend A.B") == []
           and callgraph._open_scopes("namespace A.B") == ["end B", "end A"])
+    sent = []
+
+    class _Server:
+        def check(self, code, timeout=None):
+            sent.append(timeout)
+            return type("R", (), {"stderr": 'warning: LSS_UNITS {"units": []}', "stdout": ""})()
+    real = callgraph._lean_server.get_server
+    callgraph._lean_server.get_server = lambda d: _Server()
+    try:
+        callgraph._run_unit_graph("import Aeneas", ["a"])
+    finally:
+        callgraph._lean_server.get_server = real
+    check("the unit graph is sent with the crate env's own time limit, not the server's 30 s default",
+          sent == [callgraph.CRATE_BUILD_TIMEOUT] and callgraph.CRATE_BUILD_TIMEOUT >= 600, str(sent))
     text, units, manifest_info = _hand_units()
     g = callgraph.CallGraph(text, units, manifest_info=manifest_info)
 

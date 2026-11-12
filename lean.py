@@ -671,7 +671,7 @@ class LeanChecker:
         text, selector = self._aeneas_env_text(project_dir)
         _CRATE_ENVS[g.crate] = (self, project_dir, hashlib.sha256(g.crate_text.encode("utf-8")).hexdigest()[:16])
         t0 = time.time()
-        r0 = r = server.check(text, timeout=600)
+        r0 = r = server.check(text, timeout=_callgraph.CRATE_BUILD_TIMEOUT)
         if r0.rc == 0 and r0.new_env is not None:
             # inside the crate's namespace, not after `open`: a name the crate defines
             # (its List, Ord, max) is then the crate's, as in its own code, where `open`

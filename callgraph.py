@@ -13,6 +13,11 @@ from events import with_context
 
 _DRIVER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean", "unit_graph.lean")
 
+# a crate's code is elaborated whole, once for its unit graph and once for its env
+# (lean._aeneas_build_env), each given this long: SymCrypt's Code.Funs alone takes
+# 32 s, past the server's 30 s default for a command
+CRATE_BUILD_TIMEOUT = 600
+
 _PROJECT_CACHE = {}
 _SOURCE_CACHE = {}
 
@@ -32,7 +37,7 @@ def _names_literal(names):
 def _run_unit_graph(code_text, names, project="aeneas"):
     """send code_text through a pinned project's server; parse the LSS_UNITS line."""
     full = code_text + "\n" + _driver_text() + f"\n#eval LssUnitGraph.dumpUnits {_names_literal(names)}\n"
-    r = _lean_server.get_server(_lss_config.project_dir(project)).check(full)
+    r = _lean_server.get_server(_lss_config.project_dir(project)).check(full, timeout=CRATE_BUILD_TIMEOUT)
     for line in (r.stderr or "").splitlines():
         if "LSS_UNITS " in line:
             return json.loads(line.split("LSS_UNITS ", 1)[1])
