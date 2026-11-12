@@ -94,4 +94,46 @@ def dumpUnits (namesOpt : Option (List Name)) : MetaM Unit := do
   ]
   logWarning ("LSS_UNITS " ++ (Lean.Json.compress out))
 
+-- for a crate committed without a manifest (SymCrypt's): the definitions Aeneas wrote
+-- in namespace `ns`, each of which it documents with its Rust name (`/-- [crate::path]:
+-- ...`, a trait implementation's `/-- Trait implementation: [...]`), with what a
+-- manifest says of each, read off the definition. one `warning: LSS_DECLS <json>`:
+-- their units (as dumpUnits) and, per definition, its doc comment, whether it returns
+-- a Result (it can fail), has no body (an axiom), has no code (noncomputable: it calls
+-- one) and can diverge (partial_fixpoint, alone or mutual, is Lean.Order.fix).
+def usesFix (env : Environment) (n : Name) : Bool :=
+  let used (c : Name) : Array Name := match env.find? c with
+    | some (.defnInfo d) => d.value.getUsedConstants
+    | _ => #[]
+  (used n).any fun c => c == `Lean.Order.fix ||
+    (c matches .str _ "mutual" && (used c).contains `Lean.Order.fix)
+
+def resultOf (n : Name) : MetaM (Option Bool) := do
+  forallTelescope (<- getConstInfo n).type fun _ body => do
+    let body <- whnfR body
+    if body.isSort then return none  -- a type, not a function or a constant
+    return some (body.getAppFn.constName? == some `Aeneas.Std.Result)
+
+def dumpDecls (ns : Name) : MetaM Unit := do
+  let env <- getEnv
+  let mut found : List (Name × String × Bool) := []
+  for n in (<- collectNames none) do
+    -- a mutual partial_fixpoint's packed `.mutual` definition carries its first member's doc
+    unless ns.isPrefixOf n && !(env.isProjectionFn n) && !(n matches .str _ "mutual") do continue
+    let some doc <- findDocString? env n | continue
+    unless doc.startsWith "[" || doc.startsWith "Trait implementation:" do continue
+    let some res <- resultOf n | continue
+    found := (n, doc, res) :: found
+  let names := found.map (·.1)
+  let units <- names.mapM (fun n => unitJson n names)
+  let decls := found.map fun (n, doc, res) =>
+    let noBody := match env.find? n with
+      | some (.axiomInfo _) | some (.opaqueInfo _) => true
+      | _ => false
+    Lean.Json.mkObj [("name", toJson (toString n)), ("doc", toJson doc), ("returns_result", toJson res),
+      ("opaque", toJson noBody), ("noncomputable", toJson (isNoncomputable env n)),
+      ("diverges", toJson (usesFix env n))]
+  logWarning ("LSS_DECLS " ++ (Lean.Json.compress (Lean.Json.mkObj [
+    ("units", Lean.Json.arr units.toArray), ("decls", Lean.Json.arr decls.toArray)])))
+
 end LssUnitGraph

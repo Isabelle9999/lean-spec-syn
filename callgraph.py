@@ -349,6 +349,54 @@ def build_call_graph(source_text):
     return g
 
 
+def _aeneas_doc(doc):
+    """(Rust name, loop id) from the doc comment Aeneas writes on a definition:
+    `[crate::path]: ...`, a loop's `[crate::path]: loop 0: ...`, a trait
+    implementation's `Trait implementation: [crate::{impl ...}]` (a name can hold
+    brackets of its own: `{impl Foo for [u8; 4]}`)."""
+    i, depth = doc.find("["), 0
+    if i < 0:
+        return "", None
+    for j in range(i, len(doc)):
+        depth += {"[": 1, "]": -1}.get(doc[j], 0)
+        if depth == 0:
+            m = re.match(r":\s*loop (\d+):", doc[j + 1:])
+            return doc[i + 1:j], int(m.group(1)) if m else None
+    return "", None
+
+
+def manifest_from_lean(project_dir, lean_root, root, namespace):
+    """the manifest of a crate committed without one (SymCrypt's Lean project), read off
+    its Lean code: every definition Aeneas wrote in `namespace` (lean/unit_graph.lean's
+    dumpDecls) as a function (it returns a Result), a constant or a trait
+    implementation, with its Rust name, loop, whether it is recursive (its unit graph),
+    can fail, can diverge, has no body (an axiom) or no code (noncomputable)."""
+    head = {"import": root, "namespace": namespace, "lean_root": lean_root}
+    folder = _loader.crate_layout(project_dir, head)[0]
+    ordered, texts = _crate_files(folder, root)
+    text = _concat_code_files(ordered, texts)
+    full = text + "\n" + _driver_text() + f"\n#eval LssUnitGraph.dumpDecls `{namespace}\n"
+    r = _lean_server.get_server(_lss_config.project_dir("aeneas")).check(full, timeout=CRATE_BUILD_TIMEOUT)
+    line = next((ln for ln in (r.stderr or "").splitlines() if "LSS_DECLS " in ln), None)
+    if line is None:
+        raise RuntimeError("manifest: no LSS_DECLS line from lean:\n" + (r.stderr or r.stdout or "(no output)")[:3000])
+    out = json.loads(line.split("LSS_DECLS ", 1)[1])
+    g = CallGraph(text, out["units"])
+    docs = {d["name"]: _aeneas_doc(d["doc"]) for d in out["decls"]}
+    parents = {rust: n for n, (rust, loop) in docs.items() if loop is None}
+    decls = []
+    for d in sorted(out["decls"], key=lambda d: d["name"]):
+        n, (rust, loop) = d["name"], docs[d["name"]]
+        decls.append({
+            "kind": "trait_impl" if d["doc"].startswith("Trait implementation:")
+            else "function" if d["returns_result"] else "global",
+            "is_local": True, "lean_name": n, "rust_name": rust, "lean_file": None,
+            "loop_id": loop, "loop_is_body": False, "parent_lean_name": parents.get(rust) if loop is not None else None,
+            "is_recursive": g.recursive(n), "can_fail": d["returns_result"], "can_diverge": d["diverges"],
+            "is_opaque": d["opaque"], "noncomputable": d["noncomputable"]})
+    return {**head, "made_from": "its Lean code (callgraph.manifest_from_lean)", "declarations": decls}
+
+
 def _aeneas_pin():
     """pinned aeneas rev, read from lake-manifest.json the way test_pins.py does."""
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean", "aeneas", "lake-manifest.json")
@@ -377,8 +425,19 @@ if __name__ == "__main__":
     import sys
 
     paths = sys.argv[1:]
+    if paths[:1] == ["--manifest"] and len(paths) == 5:
+        # python callgraph.py --manifest <project dir> <its Lean folder> <module root> <namespace>
+        m = manifest_from_lean(*paths[1:])
+        with open(os.path.join(paths[1], "rust-spec-synthesis.json"), "w", encoding="utf-8") as f:
+            json.dump(m, f, indent=1)
+        kinds = [d["kind"] for d in m["declarations"]]
+        print(f"{len(kinds)} definitions: " + ", ".join(f"{kinds.count(k)} {k}" for k in sorted(set(kinds)))
+              + f"; {sum(d['noncomputable'] for d in m['declarations'])} cannot run")
+        _lean_server.shutdown_all()
+        sys.exit(0)
     if not paths:
-        print("usage: python callgraph.py <project_path> [...]")
+        print("usage: python callgraph.py <project_path> [...]\n"
+              "       python callgraph.py --manifest <project dir> <its Lean folder> <module root> <namespace>")
         sys.exit(1)
 
     pin = _aeneas_pin()

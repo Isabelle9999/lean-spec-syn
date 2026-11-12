@@ -114,6 +114,77 @@ def run_static_layout():
               and "open Aeneas Aeneas.Std Result ControlFlow Error\n" in after, after[:400])
 
 
+# what lean/unit_graph.lean's dumpDecls says of a crate in Aeneas's shape (its output
+# on a hand-written crate, by the pinned Lean, with the doc comments Aeneas writes)
+DECLS = {
+    "decls": [
+        {"name": "demo.f", "doc": "[demo::f]:\nSource: 'src/lib.rs' ", "returns_result": True, "opaque": False,
+         "noncomputable": False, "diverges": False},
+        {"name": "demo.f_loop", "doc": "[demo::f]: loop 0:\nSource: 'src/lib.rs' ", "returns_result": True,
+         "opaque": False, "noncomputable": False, "diverges": True},
+        {"name": "demo.ext", "doc": "[demo::ext] ", "returns_result": True, "opaque": True, "noncomputable": False,
+         "diverges": False},
+        {"name": "demo.g", "doc": "[demo::g] ", "returns_result": True, "opaque": False, "noncomputable": True,
+         "diverges": False},
+        {"name": "demo.C", "doc": "[demo::C] ", "returns_result": False, "opaque": False, "noncomputable": False,
+         "diverges": False},
+        {"name": "demo.Insts.Foo", "doc": "Trait implementation: [demo::{impl Foo for [u8; 4]}] ",
+         "returns_result": False, "opaque": False, "noncomputable": False, "diverges": False}],
+    "units": [
+        {"name": "demo.f", "callees": ["demo.f_loop"], "generic": False, "range": [3, 4], "no_eqn": False},
+        {"name": "demo.f_loop", "callees": ["demo.f_loop"], "generic": False, "range": [5, 7], "no_eqn": False},
+        {"name": "demo.ext", "callees": [], "generic": False, "range": [8, 8], "no_eqn": True},
+        {"name": "demo.g", "callees": ["demo.ext"], "generic": False, "range": [9, 9], "no_eqn": False},
+        {"name": "demo.C", "callees": [], "generic": False, "range": [10, 10], "no_eqn": False},
+        {"name": "demo.Insts.Foo", "callees": [], "generic": False, "range": [11, 11], "no_eqn": False}]}
+
+
+def run_static_manifest():
+    check("a Rust name and loop are read off Aeneas's doc comment",
+          callgraph._aeneas_doc("[symcrust::a::f]:\nSource: 'x.rs'") == ("symcrust::a::f", None)
+          and callgraph._aeneas_doc("[x::f]: loop 1:\nSource") == ("x::f", 1) and callgraph._aeneas_doc("no name") == ("", None))
+    check("a trait implementation's Rust name keeps the brackets inside it",
+          callgraph._aeneas_doc("Trait implementation: [demo::{impl Foo for [u8; 4]}] ")
+          == ("demo::{impl Foo for [u8; 4]}", None))
+    with tempfile.TemporaryDirectory() as tmp:
+        lean_dir = os.path.join(tmp, "lean")
+        _write(lean_dir, "Demo/Code/Funs.lean", "import Aeneas\nnamespace demo\n" + "\n" * 12 + "end demo\n")
+        sent = []
+
+        class _Server:
+            def check(self, code, timeout=None):
+                sent.append((code, timeout))
+                return type("R", (), {"stderr": "x:1:0: warning: LSS_DECLS " + json.dumps(DECLS), "stdout": ""})()
+        real = callgraph._lean_server.get_server
+        callgraph._lean_server.get_server = lambda d: _Server()
+        try:
+            m = callgraph.manifest_from_lean(tmp, "lean", "Demo", "demo")
+        finally:
+            callgraph._lean_server.get_server = real
+        check("the manifest is read in one Lean command, with the crate build's time limit",
+              len(sent) == 1 and sent[0][0].rstrip().endswith("#eval LssUnitGraph.dumpDecls `demo")
+              and sent[0][1] == callgraph.CRATE_BUILD_TIMEOUT, str([s[1] for s in sent]))
+        by = {d["lean_name"]: d for d in m["declarations"]}
+        check("a definition returning a Result is a function, others a constant or a trait implementation",
+              {n: d["kind"] for n, d in by.items()} == {"demo.f": "function", "demo.f_loop": "function",
+                                                        "demo.ext": "function", "demo.g": "function",
+                                                        "demo.C": "global", "demo.Insts.Foo": "trait_impl"}, str(by))
+        loop = by["demo.f_loop"]
+        check("a loop gets its id, its parent function, recursion and divergence",
+              loop["loop_id"] == 0 and loop["parent_lean_name"] == "demo.f" and loop["is_recursive"]
+              and loop["can_diverge"] and not by["demo.f"]["is_recursive"], str(loop))
+        check("an axiom has no body, a definition calling one cannot run",
+              by["demo.ext"]["is_opaque"] and not by["demo.g"]["is_opaque"] and by["demo.g"]["noncomputable"]
+              and not by["demo.f"]["noncomputable"], str(by["demo.g"]))
+        check("the manifest names the crate's Lean folder, module root and namespace",
+              (m["import"], m["namespace"], m["lean_root"]) == ("Demo", "demo", "lean"))
+        with open(os.path.join(tmp, "rust-spec-synthesis.json"), "w", encoding="utf-8") as f:
+            json.dump(m, f)
+        names = sorted(b["lean_name"] for b in loader.load_rust_project(tmp))
+        check("the loader reads it as any manifest: the functions are the units",
+              names == ["demo.ext", "demo.f", "demo.f_loop", "demo.g"], str(names))
+
+
 def run_static():
     print("=== static ===")
     text = callgraph._concat_code_files(["T.lean"], {"T.lean": "import Aeneas\ndef test1 : Result Unit := ok ()\n"
@@ -134,6 +205,7 @@ def run_static():
     check("each joined file is its own section, so its top-level open and options end with it",
           text == "import Aeneas\nsection\nopen Aeneas Std\ndef a := 1\nend\nsection\ndef b := Slice\nend", text)
     run_static_layout()
+    run_static_manifest()
     check("scopes the file closes itself, or that only a comment opens, are not closed again",
           callgraph._open_scopes(aeneas_file.replace("noncomputable section\n", "")) == [], text)
     check("open scopes close innermost first",
@@ -322,29 +394,93 @@ def run_full():
     check("no lean process left after shutdown", server._worker is None)
 
 
+MINI_TYPES = """import Aeneas
+open Aeneas Aeneas.Std Result ControlFlow Error
+namespace demo
+/-- Trait declaration: [demo::Tr] -/
+structure Tr (Self : Type) where
+  f : Self → Result Self
+end demo
+"""
+
+MINI_FUNS = """import Aeneas
+import Demo.Code.Types
+import Helper.Opens
+open Aeneas Aeneas.Std Result ControlFlow Error
+noncomputable section
+namespace demo
+
+/-- [demo::f] -/
+def f (s : Slice Std.U8) : Result Std.Usize := ok 0#usize
+
+/-- [demo::count]: loop 0:
+    Source: 'src/lib.rs', lines 1:0-1:1 -/
+def count_loop (i : Std.U32) (n : Std.U32) : Result Std.U32 := do
+  if i < n then
+    let i1 ← i + 1#u32
+    count_loop i1 n
+  else ok i
+partial_fixpoint
+
+/-- [demo::count] -/
+def count (n : Std.U32) : Result Std.U32 := count_loop 0#u32 n
+
+/-- [demo::ext] -/
+axiom ext : Std.U32 → Result Std.U32
+
+/-- [demo::uses_ext] -/
+def uses_ext (x : Std.U32) : Result Std.U32 := ext x
+
+/-- [demo::K] -/
+def K : Std.U32 := 3#u32
+
+/-- Trait implementation: [demo::{impl demo::Tr for u32}] -/
+@[reducible]
+def U32.Insts.DemoTr : Tr Std.U32 := { f := fun x => ok x }
+
+end demo
+"""
+
+
 def run_full_layout():
-    """SymCrypt's Slice clash in small: a module the crate imports opens `Aeneas Std`,
-    which opens Lean's own `Std` too; joined, `Slice` in the next file was ambiguous."""
+    """a crate in SymCrypt's shape, in small: committed with its own Lean folder and no
+    manifest, its namespace not its module root, and a module it imports opening
+    `Aeneas Std`, which opens Lean's own `Std` too (joined, `Slice` in the next file
+    was ambiguous)."""
     import lean
     with tempfile.TemporaryDirectory() as tmp:
         lean_dir = os.path.join(tmp, "lean")
         _write(lean_dir, "Helper/Opens.lean", "import Aeneas\nopen Aeneas Std\ndef Helper.h : Nat := 1\n")
-        _write(lean_dir, "Demo/Code/Funs.lean", "import Aeneas\nimport Helper.Opens\nopen Aeneas Aeneas.Std Result\n"
-               "namespace demo\n/-- [demo::f] -/\ndef f (s : Slice Std.U8) : Result Std.Usize := ok 0#usize\n"
-               "end demo\n")
+        _write(lean_dir, "Demo/Code/Types.lean", MINI_TYPES)
+        _write(lean_dir, "Demo/Code/Funs.lean", MINI_FUNS)
         proj = os.path.join(tmp, "project")
         os.makedirs(proj)
-        with open(os.path.join(proj, "rust-spec-synthesis.json"), "w", encoding="utf-8") as f:
-            json.dump({"import": "Demo", "namespace": "demo", "lean_root": "../lean",
-                       "declarations": [{"kind": "function", "is_local": True, "lean_name": "demo.f",
-                                         "rust_name": "demo::f"}]}, f)
         try:
-            g = callgraph.for_project(proj)
-            names = g.names
+            m = callgraph.manifest_from_lean(proj, "../lean", "Demo", "demo")
+        except RuntimeError as e:
+            m = {"declarations": [], "error": str(e)[:600]}
+        by = {d["lean_name"]: d for d in m["declarations"]}
+        check("a module's `open Aeneas Std` does not reach the files after it: the crate is read",
+              "demo.f" in by, m.get("error", str(sorted(by))))
+        check("its manifest is read off its code: functions, a constant, a trait implementation",
+              {n: d["kind"] for n, d in by.items()} == {
+                  "demo.f": "function", "demo.count_loop": "function", "demo.count": "function",
+                  "demo.ext": "function", "demo.uses_ext": "function", "demo.K": "global",
+                  "demo.U32.Insts.DemoTr": "trait_impl"}, str(sorted(by)))
+        loop = by.get("demo.count_loop", {})
+        check("a partial_fixpoint loop: its id, parent, recursion and divergence",
+              loop.get("loop_id") == 0 and loop.get("parent_lean_name") == "demo.count" and loop.get("is_recursive")
+              and loop.get("can_diverge") and not by.get("demo.count", {}).get("can_diverge", True), str(loop))
+        check("an axiom has no body, and a function calling it cannot run",
+              by.get("demo.ext", {}).get("is_opaque") and by.get("demo.uses_ext", {}).get("noncomputable")
+              and not by.get("demo.count", {}).get("noncomputable", True), str(by.get("demo.uses_ext")))
+        with open(os.path.join(proj, "rust-spec-synthesis.json"), "w", encoding="utf-8") as f:
+            json.dump(m, f)
+        try:
+            names = callgraph.for_project(proj).names
         except RuntimeError as e:
             names = str(e)[:400]
-        check("a module's `open Aeneas Std` does not reach the files after it: the crate's unit graph runs",
-              isinstance(names, set) and "demo.f" in names, str(names))
+        check("with it the crate's unit graph runs", isinstance(names, set) and "demo.count_loop" in names, str(names))
         err = lean.crate_env_error(lean.LeanChecker(), proj)
         check("and its crate env builds in its own namespace", not err, str(err)[:400])
 
