@@ -39,29 +39,31 @@ def _run_unit_graph(code_text, names, project="aeneas"):
     raise RuntimeError("unit graph: no LSS_UNITS line from lean:\n" + (r.stderr or r.stdout or "(no output)"))
 
 
-def _topo_order_code_files(code_dir, crate):
-    """order <crate>/Code/*.lean files by their own crate-local import lines
-    (callees-first: a file with no crate-local deps comes before one that imports it)."""
-    paths = sorted(glob.glob(os.path.join(code_dir, "*.lean")))
-    texts = {p: open(p, encoding="utf-8").read() for p in paths}
-    prefix = f"import {crate}.Code."
+def _crate_files(folder, root):
+    """a crate's code files, callees first, as Lean builds them: its <root>/Code/*.lean
+    files and every module of `folder` they import, at any depth (SymCrypt's Code
+    files import its hardware models and Spec files; a crate our translation writes
+    imports only its own Code files). Aeneas writes an `X_Template.lean` for a person
+    to fill in and rename to X.lean ("This is a template file: rename it to ..."):
+    once X.lean is written the template is left out (joined, its axioms would define
+    X's names twice); until then it stands in for X, its holes axioms."""
+    code_dir = os.path.join(folder, root, "Code")
+    paths = sorted(p for p in glob.glob(os.path.join(code_dir, "*.lean"))
+                   if not (p.endswith("_Template.lean") and os.path.isfile(p[:-len("_Template.lean")] + ".lean")))
+    texts = {}
+    prefix = f"{root}.Code."
 
     def stem(p):
         return os.path.splitext(os.path.basename(p))[0]
 
-    def resolve(target):
-        for p in paths:
-            if stem(p) == target:
-                return p
-        for p in paths:
-            if stem(p).startswith(target):
-                return p
+    def resolve(module):
+        p = os.path.join(folder, *module.split(".")) + ".lean"
+        if os.path.isfile(p):
+            return p
+        if module.startswith(prefix):  # a Code file named by a prefix of its stem
+            target = module[len(prefix):]
+            return next((p for p in paths if stem(p).startswith(target)), None)
         return None
-
-    deps = {}
-    for p, text in texts.items():
-        targets = [l.strip()[len(prefix):] for l in text.splitlines() if l.strip().startswith(prefix)]
-        deps[p] = sorted({d for d in map(resolve, targets) if d is not None} - {p})
 
     ordered, seen = [], set()
 
@@ -69,7 +71,10 @@ def _topo_order_code_files(code_dir, crate):
         if p in seen:
             return
         seen.add(p)
-        for dep in deps[p]:
+        with open(p, encoding="utf-8") as f:
+            texts[p] = f.read()
+        targets = [l.strip()[len("import "):].strip() for l in texts[p].splitlines() if l.strip().startswith("import ")]
+        for dep in sorted({d for d in map(resolve, targets) if d is not None} - {p}):
             visit(dep)
         ordered.append(p)
 
@@ -120,16 +125,18 @@ def _open_scopes(text):
 def _concat_code_files(ordered, texts):
     """import Aeneas, then each file's body with its own import lines and Aeneas's
     `#assert` unit tests stripped: a test runs code, it defines nothing a spec
-    needs, and Aeneas can place one before the function it calls. a Lean file's
-    end closes the scopes it left open; joined, the next file would be read inside
-    them (Aeneas opens a `noncomputable section` it never closes, which made every
-    definition after the crate noncomputable), so each file's open scopes are
-    closed where the file ends."""
+    needs, and Aeneas can place one before the function it calls. a Lean file
+    starts afresh and its end closes the scopes it left open; joined, the next file
+    would be read inside them (Aeneas opens a `noncomputable section` it never
+    closes, which made every definition after the crate noncomputable) and under
+    its top-level `open`, `set_option` and `local` commands (SymCrypt's `open Aeneas
+    Std` opens Lean's own `Std` too, and `Slice` in the next file was ambiguous). so
+    each file is its own `section`, its open scopes closed where it ends."""
     parts = ["import Aeneas"]
     for p in ordered:
         body = "\n".join(l for l in texts[p].splitlines()
                          if not l.strip().startswith(("import ", "#assert")))
-        parts.append("\n".join([body] + _open_scopes(body)))
+        parts.append("\n".join(["section", body] + _open_scopes(body) + ["end"]))
     return "\n".join(parts)
 
 
@@ -291,13 +298,12 @@ class CallGraph:
 
 def for_project(project_path):
     """call graph for a Rust/Aeneas project: names from the manifest, text from
-    the crate's own Code/*.lean files elaborated under import Aeneas in the
+    the crate's code files (_crate_files) elaborated under import Aeneas in the
     pinned aeneas project (read-only; the crate's own lake project is never built)."""
     project_path = os.path.abspath(project_path)
     manifest = _loader.load_manifest(project_path)
-    crate = _loader.detect_crate(project_path, manifest)
-    code_dir = os.path.join(project_path, crate, "Code")
-    ordered, texts = _topo_order_code_files(code_dir, crate)
+    folder, root, crate = _loader.crate_layout(project_path, manifest)
+    ordered, texts = _crate_files(folder, root)
     text = _concat_code_files(ordered, texts)
 
     local = [d for d in _loader.normalize_declarations(manifest)

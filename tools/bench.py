@@ -202,7 +202,7 @@ def run(set_name, tag, overrides, final=False, checker=None):
     with open(SPLIT, encoding="utf-8") as f:
         units = json.load(f)[set_name]
     import loader
-    paths = {loader.detect_crate(p, loader.load_manifest(p)): os.path.abspath(p) for p in _suite()}
+    paths = {loader.crate_layout(p, loader.load_manifest(p))[2]: os.path.abspath(p) for p in _suite()}
     _require_building(sorted({paths[u["crate"]] for u in units}), checker)
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "meta.json"), "w", encoding="utf-8") as f:

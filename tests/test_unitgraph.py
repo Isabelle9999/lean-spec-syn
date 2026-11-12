@@ -48,6 +48,72 @@ def _hand_units():
     return text, units, manifest_info
 
 
+def _write(root, rel, text):
+    path = os.path.join(root, *rel.split("/"))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+    return path
+
+
+def run_static_layout():
+    """a crate committed with its own Lean project (SymCrypt's shape): Code files that
+    import modules outside Code, an Aeneas template beside them, a namespace that is
+    not the module root."""
+    with tempfile.TemporaryDirectory() as tmp:
+        lean_dir = os.path.join(tmp, "their", "lean")
+        funs = _write(lean_dir, "Demo/Code/Funs.lean", "import Aeneas\nimport Demo.Code.Types\nimport Helper.Opens\n"
+                      "open Aeneas Aeneas.Std Result\nnamespace demo\n/-- [demo::f] -/\ndef f (x : Std.U32) : "
+                      "Result Std.U32 := ok x\nend demo\n")
+        types = _write(lean_dir, "Demo/Code/Types.lean", "import Aeneas\nimport Helper.Deep.Model\nnamespace demo\n"
+                       "structure P where\n  a : Std.U32\nend demo\n")
+        _write(lean_dir, "Demo/Code/FunsExternal_Template.lean", "-- This is a template file: rename it\n"
+               "import Aeneas\naxiom demo.dup : Nat\n")
+        external = _write(lean_dir, "Demo/Code/FunsExternal.lean", "import Aeneas\naxiom demo.dup : Nat\n")
+        stand_in = _write(lean_dir, "Demo/Code/TypesExternal_Template.lean", "-- This is a template file\n"
+                          "import Aeneas\naxiom demo.ty : Type\n")
+        opens = _write(lean_dir, "Helper/Opens.lean", "import Aeneas\nopen Aeneas Std\ndef Helper.h : Nat := 1\n")
+        model = _write(lean_dir, "Helper/Deep/Model.lean", "import Aeneas\nimport Mathlib.Data.ZMod.Defs\n"
+                       "def Helper.Deep.m : Nat := 2\n")
+        ordered, texts = callgraph._crate_files(lean_dir, "Demo")
+        check("a crate's code is its Code files and every module of its Lean folder they import, callees first",
+              ordered == [model, types, opens, funs, external, stand_in],
+              str([os.path.relpath(p, lean_dir) for p in ordered]))
+        check("an Aeneas template is left out once its file is written, and stands in for it until then",
+              not any(p.endswith("FunsExternal_Template.lean") for p in ordered) and stand_in in ordered)
+        proj = os.path.join(tmp, "project")
+        os.makedirs(proj)
+        manifest = {"import": "Demo", "namespace": "demo", "lean_root": "../their/lean",
+                    "declarations": [{"kind": "function", "is_local": True, "lean_name": "demo.f",
+                                      "rust_name": "demo::f"}]}
+        check("a manifest names the crate's Lean folder, module root and namespace",
+              loader.crate_layout(proj, manifest) == (lean_dir, "Demo", "demo"),
+              str(loader.crate_layout(proj, manifest)))
+        check("a crate our translation writes is all three at once: its project folder and its import",
+              loader.crate_layout(proj, {"import": "Demo"}) == (proj, "Demo", "Demo"))
+        with open(os.path.join(proj, "rust-spec-synthesis.json"), "w", encoding="utf-8") as f:
+            json.dump(manifest, f)
+        b = loader.load_rust_project(proj)
+        check("its functions are named in its namespace, their code read from its Lean folder",
+              [x["func_name"] for x in b] == ["f"] and "def f (x : Std.U32)" in b[0]["func_source"]
+              and "open demo" in b[0]["lean_preamble"], str([(x["func_name"], x["lean_preamble"]) for x in b]))
+        import lean
+
+        class _G:
+            crate_text = "import Aeneas\nsection\nset_option maxHeartbeats 1000000\ndef x := 1\nend"
+        real = callgraph.for_project
+        callgraph.for_project = lambda p: _G()
+        try:
+            env, _ = lean.LeanChecker()._aeneas_env_text(proj)
+        finally:
+            callgraph.for_project = real
+        after = env[len(_G.crate_text):]
+        check("the crate env sets Aeneas's options and opens again after the crate's own files",
+              "set_option maxHeartbeats 1000000\n" in after and "set_option maxRecDepth 2048\n" in after
+              and "set_option linter.unusedVariables false\n" in after
+              and "open Aeneas Aeneas.Std Result ControlFlow Error\n" in after, after[:400])
+
+
 def run_static():
     print("=== static ===")
     text = callgraph._concat_code_files(["T.lean"], {"T.lean": "import Aeneas\ndef test1 : Result Unit := ok ()\n"
@@ -61,9 +127,13 @@ def run_static():
                    "/-- doc\nend of a doc line\nsection inside a comment -/\ndef f (x : Nat) : Nat :=\n"
                    "  match x with\n  | _ => x\nmutual\ndef e : Nat → Bool\n  | _ => true\nend\n-- end\nend c\n")
     text = callgraph._concat_code_files(["A.lean", "B.lean"], {"A.lean": aeneas_file, "B.lean": "def g := 1\n"})
-    a_end = text.index("def g := 1")
     check("a file's open `noncomputable section` is closed where the file ends, before the next file",
-          text[:a_end].rstrip().endswith("end c\nend") and text.count("\nend\n") == 2, text)
+          text.endswith("end c\nend\nend\nsection\ndef g := 1\nend"), text)
+    text = callgraph._concat_code_files(["A.lean", "B.lean"], {"A.lean": "import Aeneas\nopen Aeneas Std\ndef a := 1\n",
+                                                               "B.lean": "def b := Slice\n"})
+    check("each joined file is its own section, so its top-level open and options end with it",
+          text == "import Aeneas\nsection\nopen Aeneas Std\ndef a := 1\nend\nsection\ndef b := Slice\nend", text)
+    run_static_layout()
     check("scopes the file closes itself, or that only a comment opens, are not closed again",
           callgraph._open_scopes(aeneas_file.replace("noncomputable section\n", "")) == [], text)
     check("open scopes close innermost first",
@@ -233,8 +303,36 @@ def run_full():
           (g.def_text("inc") or "").strip() == "def inc (n : Nat) : Nat := n + 1",
           repr(g.def_text("inc")))
 
+    run_full_layout()
     lean_server.shutdown_all()
     check("no lean process left after shutdown", server._worker is None)
+
+
+def run_full_layout():
+    """SymCrypt's Slice clash in small: a module the crate imports opens `Aeneas Std`,
+    which opens Lean's own `Std` too; joined, `Slice` in the next file was ambiguous."""
+    import lean
+    with tempfile.TemporaryDirectory() as tmp:
+        lean_dir = os.path.join(tmp, "lean")
+        _write(lean_dir, "Helper/Opens.lean", "import Aeneas\nopen Aeneas Std\ndef Helper.h : Nat := 1\n")
+        _write(lean_dir, "Demo/Code/Funs.lean", "import Aeneas\nimport Helper.Opens\nopen Aeneas Aeneas.Std Result\n"
+               "namespace demo\n/-- [demo::f] -/\ndef f (s : Slice Std.U8) : Result Std.Usize := ok 0#usize\n"
+               "end demo\n")
+        proj = os.path.join(tmp, "project")
+        os.makedirs(proj)
+        with open(os.path.join(proj, "rust-spec-synthesis.json"), "w", encoding="utf-8") as f:
+            json.dump({"import": "Demo", "namespace": "demo", "lean_root": "../lean",
+                       "declarations": [{"kind": "function", "is_local": True, "lean_name": "demo.f",
+                                         "rust_name": "demo::f"}]}, f)
+        try:
+            g = callgraph.for_project(proj)
+            names = g.names
+        except RuntimeError as e:
+            names = str(e)[:400]
+        check("a module's `open Aeneas Std` does not reach the files after it: the crate's unit graph runs",
+              isinstance(names, set) and "demo.f" in names, str(names))
+        err = lean.crate_env_error(lean.LeanChecker(), proj)
+        check("and its crate env builds in its own namespace", not err, str(err)[:400])
 
 
 if static:
