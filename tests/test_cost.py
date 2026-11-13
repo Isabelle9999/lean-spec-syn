@@ -40,6 +40,9 @@ class FakeServer:
         self.sent.append({"code": code, "env": env, "timeout": timeout, "prelude": prelude})
         return lean_server.CheckResult(stdout="", stderr=self.reply(code), rc=0, via="repl", new_env=99)
 
+    def restarts(self):
+        return 0
+
     def stats(self):
         return {"restarts": 0}
 

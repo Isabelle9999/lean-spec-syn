@@ -698,7 +698,7 @@ class LeanChecker:
         state = self._aeneas_env.get(project_dir)
         if state is None:
             return self._aeneas_build_env(project_dir)
-        if state["restarts"] != server.stats()["restarts"]:
+        if state["restarts"] != server.restarts():
             admitted, helpers = state["admitted"], state.get("helpers", {})
             state = self._aeneas_build_env(project_dir)
             if state["ok"]:

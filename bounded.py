@@ -640,7 +640,7 @@ class _Lean:
         self.crate = state["crate"]
         ev = eval_state(self.project_dir)
         # built again in a new server (shutdown_all) or after a restart: env ids are per process
-        if ev.get("env0") is None or ev.get("server") is not server or ev.get("restarts") != server.stats()["restarts"]:
+        if ev.get("env0") is None or ev.get("server") is not server or ev.get("restarts") != server.restarts():
             ev.clear()
             import callgraph
             text, _ = self.checker._aeneas_env_text(self.project_dir)
