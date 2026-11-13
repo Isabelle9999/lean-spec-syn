@@ -856,7 +856,7 @@ def _no_code(detail):
 def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     """the bounded verdict for one candidate (see the module docstring).
     status: pass, refuted, vacuous, not_evaluated, timeout or skipped; warning:
-    None, narrow or no_witness; a refutation carries the shrunk witness, whether
+    None, narrow, no_witness or vacuity_unchecked; a refutation carries the shrunk witness, whether
     the kernel checked it, and the feedback text a repair prompt uses. `helpers` (a
     Rust spec's own definitions) are defined before each command."""
     lean = _Lean(checker, project_dir, helpers) if helpers else _Lean(checker, project_dir)
@@ -989,8 +989,31 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
         if "violates" in got:
             rejects = True
             break
+    # an output type with one value (Unit) has no wrong output to try, and accepting every
+    # output costs such a statement nothing; one whose wrong outputs could not be tried
+    # (a function in the output, a perturbed output Lean could not read) is a pass that
+    # says so, not a pass on no evidence: 108 always-true statements of the sweep were
+    if fit and not checked and ret is not None and _one_value(ret):
+        checked = True
+    elif fit and not checked:
+        verdict["warning"] = verdict["warning"] or "vacuity_unchecked"
     if checked and not rejects and not claims_success:
         verdict.update(status="vacuous",
                        feedback="The statement holds for every output tried, including wrong ones, "
                                 "so it says nothing about what the function computes.")
     return verdict
+
+
+def _one_value(T):
+    """whether a type has exactly one value (Unit, a tuple or structure of such, an
+    empty array): nothing to perturb, and nothing a postcondition can rule out."""
+    kind = T[0]
+    if kind == "tuple":
+        return all(_one_value(e) for e in T[1])
+    if kind == "struct":
+        return all(_one_value(ft) for _, ft in T[2])
+    if kind == "array":
+        return T[2] == 0 or _one_value(T[1])
+    if kind == "enum":
+        return len(T[2]) == 1 and all(_one_value(a) for a in T[2][0][1])
+    return False

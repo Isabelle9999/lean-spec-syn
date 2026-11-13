@@ -454,6 +454,14 @@ def run_static_check():
     check("a function with no code (it calls an axiom, a hardware model) is not evaluated, labelled so",
           v["status"] == "not_evaluated" and v["detail"].startswith("cannot run: symcrust.common.wipe has no code"),
           str(v))
+    unit = _check(FakeLean(lambda r: _ok(0), plan=_plan(ret=["tuple", []])))
+    check("an always-true statement about a Unit result is vacuous: there is no wrong output to try",
+          unit["status"] == "vacuous", str(unit))
+    fn_out = FakeLean(lambda r: _ok(0))
+    fn_out.plan_ = {**_plan(), "ret": None}
+    got = _check(fn_out)
+    check("one whose wrong outputs cannot be tried (a function in the result) passes, saying so",
+          got["status"] == "pass" and got["warning"] == "vacuity_unchecked", str(got))
     lcnf = bounded._no_code("error: Failed to find LCNF signature for symcrust.mlkem.ntt.sample_loop")
     check("and so is one whose loop was never compiled (Lean's other message for it)",
           (lcnf or {}).get("detail", "").startswith("cannot run: symcrust.mlkem.ntt.sample_loop has no code"), str(lcnf))
