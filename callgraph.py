@@ -452,8 +452,9 @@ if __name__ == "__main__":
 
     paths = sys.argv[1:]
     if paths[:1] == ["--manifest"] and len(paths) == 5:
-        # python callgraph.py --manifest <project dir> <its Lean folder> <module root> <namespace>
-        m = manifest_from_lean(*paths[1:])
+        # python callgraph.py --manifest <project dir> <its Lean folder> <module root> <namespace>;
+        # the folder as typed, from where this runs (the manifest keeps it absolute)
+        m = manifest_from_lean(paths[1], os.path.abspath(os.path.expanduser(paths[2])), *paths[3:])
         with open(os.path.join(paths[1], "rust-spec-synthesis.json"), "w", encoding="utf-8") as f:
             json.dump(m, f, indent=1)
         kinds = [d["kind"] for d in m["declarations"]]
