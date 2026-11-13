@@ -100,13 +100,14 @@ def dumpUnits (namesOpt : Option (List Name)) : MetaM Unit := do
 -- manifest says of each, read off the definition. one `warning: LSS_DECLS <json>`:
 -- their units (as dumpUnits) and, per definition, its doc comment, whether it returns
 -- a Result (it can fail), has no body (an axiom), has no code (noncomputable: it calls
--- one) and can diverge (partial_fixpoint, alone or mutual, is Lean.Order.fix).
+-- one) and can diverge (partial_fixpoint, alone or mutual, is Lean.Order.fix; a loop
+-- of the pinned Aeneas iterates its body with Aeneas.Std.loop, itself a partial_fixpoint).
 def usesFix (env : Environment) (n : Name) : Bool :=
   let used (c : Name) : Array Name := match env.find? c with
     | some (.defnInfo d) => d.value.getUsedConstants
     | _ => #[]
-  (used n).any fun c => c == `Lean.Order.fix ||
-    (c matches .str _ "mutual" && (used c).contains `Lean.Order.fix)
+  let fix (c : Name) := c == `Lean.Order.fix || c == `Aeneas.Std.loop
+  (used n).any fun c => fix c || (c matches .str _ "mutual" && (used c).any fix)
 
 def resultOf (n : Name) : MetaM (Option Bool) := do
   forallTelescope (<- getConstInfo n).type fun _ body => do

@@ -123,7 +123,8 @@ def run_static_layout():
 
 
 # what lean/unit_graph.lean's dumpDecls says of a crate in Aeneas's shape (its output
-# on a hand-written crate, by the pinned Lean, with the doc comments Aeneas writes)
+# on a hand-written crate, by the pinned Lean, with the doc comments Aeneas writes):
+# the Code file's lines are 36-51 of the joined text, an imported model's 2-35
 DECLS = {
     "decls": [
         {"name": "demo.f", "doc": "[demo::f]:\nSource: 'src/lib.rs' ", "returns_result": True, "opaque": False,
@@ -136,27 +137,37 @@ DECLS = {
          "diverges": False},
         {"name": "demo.C", "doc": "[demo::C] ", "returns_result": False, "opaque": False, "noncomputable": False,
          "diverges": False},
+        {"name": "demo.w_loop.body", "doc": "[demo::f]: loop body 1: ", "returns_result": True, "opaque": False,
+         "noncomputable": False, "diverges": False},
+        {"name": "demo.model", "doc": "[demo::model]: ", "returns_result": True, "opaque": False,
+         "noncomputable": False, "diverges": False},
         {"name": "demo.Insts.Foo", "doc": "Trait implementation: [demo::{impl Foo for [u8; 4]}] ",
          "returns_result": False, "opaque": False, "noncomputable": False, "diverges": False}],
     "units": [
-        {"name": "demo.f", "callees": ["demo.f_loop"], "generic": False, "range": [3, 4], "no_eqn": False},
-        {"name": "demo.f_loop", "callees": ["demo.f_loop"], "generic": False, "range": [5, 7], "no_eqn": False},
-        {"name": "demo.ext", "callees": [], "generic": False, "range": [8, 8], "no_eqn": True},
-        {"name": "demo.g", "callees": ["demo.ext"], "generic": False, "range": [9, 9], "no_eqn": False},
-        {"name": "demo.C", "callees": [], "generic": False, "range": [10, 10], "no_eqn": False},
-        {"name": "demo.Insts.Foo", "callees": [], "generic": False, "range": [11, 11], "no_eqn": False}]}
+        {"name": "demo.f", "callees": ["demo.f_loop"], "generic": False, "range": [37, 38], "no_eqn": False},
+        {"name": "demo.f_loop", "callees": ["demo.f_loop"], "generic": False, "range": [39, 41], "no_eqn": False},
+        {"name": "demo.ext", "callees": [], "generic": False, "range": [42, 42], "no_eqn": True},
+        {"name": "demo.g", "callees": ["demo.ext"], "generic": False, "range": [43, 43], "no_eqn": False},
+        {"name": "demo.C", "callees": [], "generic": False, "range": [44, 44], "no_eqn": False},
+        {"name": "demo.w_loop.body", "callees": [], "generic": False, "range": [46, 46], "no_eqn": False},
+        {"name": "demo.model", "callees": [], "generic": False, "range": [5, 6], "no_eqn": False},
+        {"name": "demo.Insts.Foo", "callees": [], "generic": False, "range": [45, 45], "no_eqn": False}]}
 
 
 def run_static_manifest():
     check("a Rust name and loop are read off Aeneas's doc comment",
-          callgraph._aeneas_doc("[symcrust::a::f]:\nSource: 'x.rs'") == ("symcrust::a::f", None)
-          and callgraph._aeneas_doc("[x::f]: loop 1:\nSource") == ("x::f", 1) and callgraph._aeneas_doc("no name") == ("", None))
+          callgraph._aeneas_doc("[symcrust::a::f]:\nSource: 'x.rs'") == ("symcrust::a::f", None, False)
+          and callgraph._aeneas_doc("[x::f]: loop 1:\nSource") == ("x::f", 1, False)
+          and callgraph._aeneas_doc("[x::f]: loop body 1:\nSource") == ("x::f", 1, True)
+          and callgraph._aeneas_doc("no name") == ("", None, False))
     check("a trait implementation's Rust name keeps the brackets inside it",
           callgraph._aeneas_doc("Trait implementation: [demo::{impl Foo for [u8; 4]}] ")
-          == ("demo::{impl Foo for [u8; 4]}", None))
+          == ("demo::{impl Foo for [u8; 4]}", None, False))
     with tempfile.TemporaryDirectory() as tmp:
         lean_dir = os.path.join(tmp, "lean")
-        _write(lean_dir, "Demo/Code/Funs.lean", "import Aeneas\nnamespace demo\n" + "\n" * 12 + "end demo\n")
+        _write(lean_dir, "Demo/Code/Funs.lean", "import Aeneas\nimport Spec.Model\nnamespace demo\n" + "\n" * 12
+               + "end demo\n")
+        _write(lean_dir, "Spec/Model.lean", "import Aeneas\nnamespace demo\n" + "\n" * 30 + "end demo\n")
         sent = []
 
         class _Server:
@@ -176,7 +187,14 @@ def run_static_manifest():
         check("a definition returning a Result is a function, others a constant or a trait implementation",
               {n: d["kind"] for n, d in by.items()} == {"demo.f": "function", "demo.f_loop": "function",
                                                         "demo.ext": "function", "demo.g": "function",
-                                                        "demo.C": "global", "demo.Insts.Foo": "trait_impl"}, str(by))
+                                                        "demo.C": "global", "demo.Insts.Foo": "trait_impl",
+                                                        "demo.w_loop.body": "function"}, str(by))
+        check("a definition in a module the crate imports, though in its namespace, is not the crate's",
+              "demo.model" not in by)
+        body = by.get("demo.w_loop.body", {})
+        check("the body a pinned-Aeneas loop iterates is a loop body (never a unit), its parent the function",
+              body.get("loop_is_body") and body.get("loop_id") == 1 and body.get("parent_lean_name") == "demo.f"
+              and not by["demo.f_loop"]["loop_is_body"], str(body))
         loop = by["demo.f_loop"]
         check("a loop gets its id, its parent function, recursion and divergence",
               loop["loop_id"] == 0 and loop["parent_lean_name"] == "demo.f" and loop["is_recursive"]
@@ -189,7 +207,7 @@ def run_static_manifest():
         with open(os.path.join(tmp, "rust-spec-synthesis.json"), "w", encoding="utf-8") as f:
             json.dump(m, f)
         names = sorted(b["lean_name"] for b in loader.load_rust_project(tmp))
-        check("the loader reads it as any manifest: the functions are the units",
+        check("the loader reads it as any manifest: the functions are the units, a loop body not one",
               names == ["demo.ext", "demo.f", "demo.f_loop", "demo.g"], str(names))
 
 
@@ -439,6 +457,22 @@ axiom ext : Std.U32 → Result Std.U32
 /-- [demo::uses_ext] -/
 def uses_ext (x : Std.U32) : Result Std.U32 := ext x
 
+/-- [demo::sum]: loop body 0:
+    Source: 'src/lib.rs', lines 2:0-2:1 -/
+def sum_loop.body (p : Std.U32 × Std.U32) : Result (ControlFlow (Std.U32 × Std.U32) Std.U32) := do
+  let (i, n) := p
+  if i < n then
+    let i1 ← i + 1#u32
+    ok (.cont (i1, n))
+  else ok (.done i)
+
+/-- [demo::sum]: loop 0:
+    Source: 'src/lib.rs', lines 2:0-2:1 -/
+def sum_loop (i n : Std.U32) : Result Std.U32 := loop sum_loop.body (i, n)
+
+/-- [demo::sum] -/
+def sum (n : Std.U32) : Result Std.U32 := sum_loop 0#u32 n
+
 /-- [demo::K] -/
 def K : Std.U32 := 3#u32
 
@@ -458,7 +492,9 @@ def run_full_layout():
     import lean
     with tempfile.TemporaryDirectory() as tmp:
         lean_dir = os.path.join(tmp, "lean")
-        _write(lean_dir, "Helper/Opens.lean", "import Aeneas\nopen Aeneas Std\ndef Helper.h : Nat := 1\n")
+        _write(lean_dir, "Helper/Opens.lean", "import Aeneas\nopen Aeneas Std\ndef Helper.h : Nat := 1\n"
+               "namespace demo\n/-- [demo::model]: a model in the crate's namespace -/\n"
+               "def model (x : Aeneas.Std.U32) : Aeneas.Std.Result Aeneas.Std.U32 := .ok x\nend demo\n")
         _write(lean_dir, "Demo/Code/Types.lean", MINI_TYPES)
         _write(lean_dir, "Demo/Code/Funs.lean", MINI_FUNS)
         proj = os.path.join(tmp, "project")
@@ -474,7 +510,12 @@ def run_full_layout():
               {n: d["kind"] for n, d in by.items()} == {
                   "demo.f": "function", "demo.count_loop": "function", "demo.count": "function",
                   "demo.ext": "function", "demo.uses_ext": "function", "demo.K": "global",
-                  "demo.U32.Insts.DemoTr": "trait_impl"}, str(sorted(by)))
+                  "demo.U32.Insts.DemoTr": "trait_impl", "demo.sum_loop.body": "function",
+                  "demo.sum_loop": "function", "demo.sum": "function"}, str(sorted(by)))
+        sl, sb = by.get("demo.sum_loop", {}), by.get("demo.sum_loop.body", {})
+        check("a loop of the pinned Aeneas's shape (`loop` over a body): it can diverge, its body is a loop body",
+              sl.get("can_diverge") and sl.get("loop_id") == 0 and not sl.get("loop_is_body")
+              and sb.get("loop_is_body") and sb.get("parent_lean_name") == "demo.sum", str((sl, sb)))
         loop = by.get("demo.count_loop", {})
         check("a partial_fixpoint loop: its id, parent, recursion and divergence",
               loop.get("loop_id") == 0 and loop.get("parent_lean_name") == "demo.count" and loop.get("is_recursive")

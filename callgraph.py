@@ -141,7 +141,7 @@ def _open_scopes(text):
     return stack[::-1]
 
 
-def _concat_code_files(ordered, texts, outside=()):
+def _concat_code_files(ordered, texts, outside=(), spans=None):
     """import Aeneas and the modules the files import from outside their folder
     (_crate_files), then each file's body with its own import lines and Aeneas's
     `#assert` unit tests stripped: a test runs code, it defines nothing a spec
@@ -151,12 +151,18 @@ def _concat_code_files(ordered, texts, outside=()):
     closes, which made every definition after the crate noncomputable) and under
     its top-level `open`, `set_option` and `local` commands (SymCrypt's `open Aeneas
     Std` opens Lean's own `Std` too, and `Slice` in the next file was ambiguous). so
-    each file is its own `section`, its open scopes closed where it ends."""
+    each file is its own `section`, its open scopes closed where it ends. `spans`, a
+    dict, gets each file's first and last line in the joined text."""
     parts = ["import " + m for m in dict.fromkeys(["Aeneas", *outside])]
+    line = len(parts)
     for p in ordered:
         body = "\n".join(l for l in texts[p].splitlines()
                          if not (_IMPORT.match(l) or l.strip().startswith("#assert")))
         parts.append("\n".join(["section", body] + _open_scopes(body) + ["end"]))
+        n = parts[-1].count("\n") + 1
+        if spans is not None:
+            spans[p] = (line + 1, line + n)
+        line += n
     return "\n".join(parts)
 
 
@@ -363,47 +369,55 @@ def build_call_graph(source_text):
 
 
 def _aeneas_doc(doc):
-    """(Rust name, loop id) from the doc comment Aeneas writes on a definition:
-    `[crate::path]: ...`, a loop's `[crate::path]: loop 0: ...`, a trait
-    implementation's `Trait implementation: [crate::{impl ...}]` (a name can hold
-    brackets of its own: `{impl Foo for [u8; 4]}`)."""
+    """(Rust name, loop id, whether it is a loop body) from the doc comment Aeneas writes
+    on a definition (Extract.ml, extract_fun_comment): `[crate::path]: ...`, a loop's
+    `[crate::path]: loop 0: ...`, the body a `loop` iterates `[crate::path]: loop body
+    0: ...`, a trait implementation's `Trait implementation: [crate::{impl ...}]` (a
+    name can hold brackets of its own: `{impl Foo for [u8; 4]}`)."""
     i, depth = doc.find("["), 0
     if i < 0:
-        return "", None
+        return "", None, False
     for j in range(i, len(doc)):
         depth += {"[": 1, "]": -1}.get(doc[j], 0)
         if depth == 0:
-            m = re.match(r":\s*loop (\d+):", doc[j + 1:])
-            return doc[i + 1:j], int(m.group(1)) if m else None
-    return "", None
+            m = re.match(r":\s*loop (body )?(\d+):", doc[j + 1:])
+            return doc[i + 1:j], int(m.group(2)) if m else None, bool(m and m.group(1))
+    return "", None, False
 
 
 def manifest_from_lean(project_dir, lean_root, root, namespace):
     """the manifest of a crate committed without one (SymCrypt's Lean project), read off
-    its Lean code: every definition Aeneas wrote in `namespace` (lean/unit_graph.lean's
-    dumpDecls) as a function (it returns a Result), a constant or a trait
+    its Lean code: every definition Aeneas wrote in `namespace` in the crate's own Code
+    files (lean/unit_graph.lean's dumpDecls; an imported module of the folder may use
+    the namespace too) as a function (it returns a Result), a constant or a trait
     implementation, with its Rust name, loop, whether it is recursive (its unit graph),
     can fail, can diverge, has no body (an axiom) or no code (noncomputable)."""
     head = {"import": root, "namespace": namespace, "lean_root": lean_root}
     folder = _loader.crate_layout(project_dir, head)[0]
-    text = _concat_code_files(*_crate_files(folder, root))
+    spans = {}
+    text = _concat_code_files(*_crate_files(folder, root), spans=spans)
+    code_dir = os.path.realpath(os.path.join(folder, root, "Code")) + os.sep
+    code = [s for p, s in spans.items() if p.startswith(code_dir)]
     full = text + "\n" + _driver_text() + f"\n#eval LssUnitGraph.dumpDecls `{namespace}\n"
     r = _lean_server.get_server(_lss_config.project_dir("aeneas")).check(full, timeout=CRATE_BUILD_TIMEOUT)
     line = next((ln for ln in (r.stderr or "").splitlines() if "LSS_DECLS " in ln), None)
     if line is None:
         raise RuntimeError("manifest: no LSS_DECLS line from lean:\n" + (r.stderr or r.stdout or "(no output)")[:3000])
     out = json.loads(line.split("LSS_DECLS ", 1)[1])
+    starts = {u["name"]: (u.get("range") or [None])[0] for u in out["units"]}
+    found = [d for d in out["decls"]
+             if starts.get(d["name"]) is None or any(a <= starts[d["name"]] <= b for a, b in code)]
     g = CallGraph(text, out["units"])
-    docs = {d["name"]: _aeneas_doc(d["doc"]) for d in out["decls"]}
-    parents = {rust: n for n, (rust, loop) in docs.items() if loop is None}
+    docs = {d["name"]: _aeneas_doc(d["doc"]) for d in found}
+    parents = {rust: n for n, (rust, loop, _) in docs.items() if loop is None}
     decls = []
-    for d in sorted(out["decls"], key=lambda d: d["name"]):
-        n, (rust, loop) = d["name"], docs[d["name"]]
+    for d in sorted(found, key=lambda d: d["name"]):
+        n, (rust, loop, body) = d["name"], docs[d["name"]]
         decls.append({
             "kind": "trait_impl" if d["doc"].startswith("Trait implementation:")
             else "function" if d["returns_result"] else "global",
             "is_local": True, "lean_name": n, "rust_name": rust, "lean_file": None,
-            "loop_id": loop, "loop_is_body": False, "parent_lean_name": parents.get(rust) if loop is not None else None,
+            "loop_id": loop, "loop_is_body": body, "parent_lean_name": parents.get(rust) if loop is not None else None,
             "is_recursive": g.recursive(n), "can_fail": d["returns_result"], "can_diverge": d["diverges"],
             "is_opaque": d["opaque"], "noncomputable": d["noncomputable"]})
     return {**head, "made_from": "its Lean code (callgraph.manifest_from_lean)", "declarations": decls}
