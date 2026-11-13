@@ -1286,7 +1286,7 @@ def run_suite_types(checker):
         stmt = _trivial(g.def_text(q) or "", unit)
         v = bounded.check_spec(checker, stmt, unit, d)
         # a loop whose bound is drawn large runs past its time on some input: the smaller ones were evaluated
-        some = v["status"] == "timeout" and not (v.get("detail") or "").startswith("0 of")
+        some = v["status"] == "timeout" and re.match(r"[1-9]\d* of \d+ inputs evaluated", v.get("detail") or "")
         check(title, v["status"] in ("pass", "refuted", "vacuous") or some, f"{stmt} -> {str(v)[:300]}")
 
 
