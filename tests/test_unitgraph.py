@@ -65,7 +65,7 @@ def run_static_layout():
         funs = _write(lean_dir, "Demo/Code/Funs.lean", "import Aeneas\nimport Demo.Code.Types\nimport Helper.Opens\n"
                       "open Aeneas Aeneas.Std Result\nnamespace demo\n/-- [demo::f] -/\ndef f (x : Std.U32) : "
                       "Result Std.U32 := ok x\nend demo\n")
-        types = _write(lean_dir, "Demo/Code/Types.lean", "import Aeneas\nimport Helper.Deep.Model\nnamespace demo\n"
+        types = _write(lean_dir, "Demo/Code/Types.lean", "import Aeneas Helper.Deep.Model -- the model\nnamespace demo\n"
                        "structure P where\n  a : Std.U32\nend demo\n")
         _write(lean_dir, "Demo/Code/FunsExternal_Template.lean", "-- This is a template file: rename it\n"
                "import Aeneas\naxiom demo.dup : Nat\n")
@@ -73,14 +73,22 @@ def run_static_layout():
         stand_in = _write(lean_dir, "Demo/Code/TypesExternal_Template.lean", "-- This is a template file\n"
                           "import Aeneas\naxiom demo.ty : Type\n")
         opens = _write(lean_dir, "Helper/Opens.lean", "import Aeneas\nopen Aeneas Std\ndef Helper.h : Nat := 1\n")
-        model = _write(lean_dir, "Helper/Deep/Model.lean", "import Aeneas\nimport Mathlib.Data.ZMod.Defs\n"
+        model = _write(lean_dir, "Helper/Deep/Model.lean", "import Aeneas\npublic import Mathlib.Data.ZMod.Defs\n"
                        "def Helper.Deep.m : Nat := 2\n")
-        ordered, texts = callgraph._crate_files(lean_dir, "Demo")
+        funs, types, external, stand_in, opens, model = map(os.path.realpath, (funs, types, external, stand_in,
+                                                                                opens, model))
+        ordered, texts, outside = callgraph._crate_files(lean_dir, "Demo")
         check("a crate's code is its Code files and every module of its Lean folder they import, callees first",
               ordered == [model, types, opens, funs, external, stand_in],
               str([os.path.relpath(p, lean_dir) for p in ordered]))
         check("an Aeneas template is left out once its file is written, and stands in for it until then",
               not any(p.endswith("FunsExternal_Template.lean") for p in ordered) and stand_in in ordered)
+        text = callgraph._concat_code_files(ordered, texts, outside)
+        check("import lines are read as Lean reads them: several modules, a comment, `public import`",
+              outside == ["Aeneas", "Mathlib.Data.ZMod.Defs"], str(outside))
+        check("a module imported from outside the Lean folder is imported by the joined text, and no file's own "
+              "import line is left in it", text.startswith("import Aeneas\nimport Mathlib.Data.ZMod.Defs\nsection\n")
+              and text.count("import ") == 2, text[:300])
         proj = os.path.join(tmp, "project")
         os.makedirs(proj)
         manifest = {"import": "Demo", "namespace": "demo", "lean_root": "../their/lean",

@@ -44,18 +44,31 @@ def _run_unit_graph(code_text, names, project="aeneas"):
     raise RuntimeError("unit graph: no LSS_UNITS line from lean:\n" + (r.stderr or r.stdout or "(no output)"))
 
 
+# an import line as Lean 4.31 reads one: several modules, a trailing comment, and the
+# module system's `public` / `private` / `meta` and `all`
+_IMPORT = re.compile(r"^\s*(?:(?:public|private|meta)\s+)*import\s+(.*?)\s*(?:--.*)?$")
+
+
+def _imports(text):
+    """the modules a file's import lines name."""
+    return [m for line in text.splitlines() if (i := _IMPORT.match(line))
+            for m in i.group(1).split() if m != "all"]
+
+
 def _crate_files(folder, root):
-    """a crate's code files, callees first, as Lean builds them: its <root>/Code/*.lean
-    files and every module of `folder` they import, at any depth (SymCrypt's Code
-    files import its hardware models and Spec files; a crate our translation writes
-    imports only its own Code files). Aeneas writes an `X_Template.lean` for a person
-    to fill in and rename to X.lean ("This is a template file: rename it to ..."):
-    once X.lean is written the template is left out (joined, its axioms would define
-    X's names twice); until then it stands in for X, its holes axioms."""
+    """(a crate's code files, callees first, their texts, the modules they import from
+    outside `folder`), as Lean builds them: its <root>/Code/*.lean files and every
+    module of `folder` they import, at any depth (SymCrypt's Code files import its
+    hardware models and Spec files; a crate our translation writes imports only its own
+    Code files and Aeneas). Aeneas writes an `X_Template.lean` for a person to fill in
+    and rename to X.lean ("This is a template file: rename it to ..."): once X.lean is
+    written the template is left out (joined, its axioms would define X's names twice);
+    until then it stands in for X, its holes axioms. paths are real paths, so a file
+    reached two ways is joined once."""
     code_dir = os.path.join(folder, root, "Code")
-    paths = sorted(p for p in glob.glob(os.path.join(code_dir, "*.lean"))
+    paths = sorted(os.path.realpath(p) for p in glob.glob(os.path.join(code_dir, "*.lean"))
                    if not (p.endswith("_Template.lean") and os.path.isfile(p[:-len("_Template.lean")] + ".lean")))
-    texts = {}
+    texts, outside = {}, []
     prefix = f"{root}.Code."
 
     def stem(p):
@@ -64,10 +77,12 @@ def _crate_files(folder, root):
     def resolve(module):
         p = os.path.join(folder, *module.split(".")) + ".lean"
         if os.path.isfile(p):
-            return p
+            return os.path.realpath(p)
         if module.startswith(prefix):  # a Code file named by a prefix of its stem
             target = module[len(prefix):]
             return next((p for p in paths if stem(p).startswith(target)), None)
+        if module not in outside:
+            outside.append(module)
         return None
 
     ordered, seen = [], set()
@@ -78,14 +93,13 @@ def _crate_files(folder, root):
         seen.add(p)
         with open(p, encoding="utf-8") as f:
             texts[p] = f.read()
-        targets = [l.strip()[len("import "):].strip() for l in texts[p].splitlines() if l.strip().startswith("import ")]
-        for dep in sorted({d for d in map(resolve, targets) if d is not None} - {p}):
+        for dep in sorted({d for d in map(resolve, _imports(texts[p])) if d is not None} - {p}):
             visit(dep)
         ordered.append(p)
 
     for p in paths:
         visit(p)
-    return ordered, texts
+    return ordered, texts, outside
 
 
 _SCOPE_OPEN = re.compile(r"(?:@\[[^\]]*\]\s*)?(?:(?:public|private)\s+)?(?:noncomputable\s+)?section\b\s*([^\s-]*)"
@@ -127,8 +141,9 @@ def _open_scopes(text):
     return stack[::-1]
 
 
-def _concat_code_files(ordered, texts):
-    """import Aeneas, then each file's body with its own import lines and Aeneas's
+def _concat_code_files(ordered, texts, outside=()):
+    """import Aeneas and the modules the files import from outside their folder
+    (_crate_files), then each file's body with its own import lines and Aeneas's
     `#assert` unit tests stripped: a test runs code, it defines nothing a spec
     needs, and Aeneas can place one before the function it calls. a Lean file
     starts afresh and its end closes the scopes it left open; joined, the next file
@@ -137,10 +152,10 @@ def _concat_code_files(ordered, texts):
     its top-level `open`, `set_option` and `local` commands (SymCrypt's `open Aeneas
     Std` opens Lean's own `Std` too, and `Slice` in the next file was ambiguous). so
     each file is its own `section`, its open scopes closed where it ends."""
-    parts = ["import Aeneas"]
+    parts = ["import " + m for m in dict.fromkeys(["Aeneas", *outside])]
     for p in ordered:
         body = "\n".join(l for l in texts[p].splitlines()
-                         if not l.strip().startswith(("import ", "#assert")))
+                         if not (_IMPORT.match(l) or l.strip().startswith("#assert")))
         parts.append("\n".join(["section", body] + _open_scopes(body) + ["end"]))
     return "\n".join(parts)
 
@@ -209,9 +224,8 @@ class CallGraph:
 
     @property
     def crate_text(self):
-        """the crate code sent to lean (import Aeneas + the crate's own Code/*.lean
-        files), without the unit-graph driver that for_project appends only to
-        compute units."""
+        """the crate code sent to lean (_concat_code_files of _crate_files), without the
+        unit-graph driver that for_project appends only to compute units."""
         return self._text
 
     @property
@@ -308,8 +322,7 @@ def for_project(project_path):
     project_path = os.path.abspath(project_path)
     manifest = _loader.load_manifest(project_path)
     folder, root, crate = _loader.crate_layout(project_path, manifest)
-    ordered, texts = _crate_files(folder, root)
-    text = _concat_code_files(ordered, texts)
+    text = _concat_code_files(*_crate_files(folder, root))
 
     local = [d for d in _loader.normalize_declarations(manifest)
              if d.get("is_local") and d.get("kind") in ("function", "global", "trait_impl")]
@@ -373,8 +386,7 @@ def manifest_from_lean(project_dir, lean_root, root, namespace):
     can fail, can diverge, has no body (an axiom) or no code (noncomputable)."""
     head = {"import": root, "namespace": namespace, "lean_root": lean_root}
     folder = _loader.crate_layout(project_dir, head)[0]
-    ordered, texts = _crate_files(folder, root)
-    text = _concat_code_files(ordered, texts)
+    text = _concat_code_files(*_crate_files(folder, root))
     full = text + "\n" + _driver_text() + f"\n#eval LssUnitGraph.dumpDecls `{namespace}\n"
     r = _lean_server.get_server(_lss_config.project_dir("aeneas")).check(full, timeout=CRATE_BUILD_TIMEOUT)
     line = next((ln for ln in (r.stderr or "").splitlines() if "LSS_DECLS " in ln), None)
