@@ -650,6 +650,12 @@ def _seed_bytes(seed, fn_id):
 
 # ====================== Lean codegen ======================
 
+def field_name(fn):
+    """a structure field as Lean reads it in any position: quoted, since a field can be
+    a keyword (Aeneas's core.ops.range.Range has `end`)."""
+    return fn if fn.startswith("«") else f"«{fn}»"
+
+
 def lean_literal(T, value, self_T=None, short=False):
     """the Lean term for a value of type T. short=True writes it the way a statement
     would, for prose a person or the LLM reads (n#usize, [a, b]); it carries no proof
@@ -661,6 +667,8 @@ def lean_literal(T, value, self_T=None, short=False):
         self_T = T
     if kind == "bool":
         return "true" if value else "false"
+    if kind == "int" and T[1] == "Nat":  # an index Aeneas keeps as a Nat (a slice iterator's position)
+        return str(int(value)) if short else f"({int(value)} : Nat)"
     if kind == "int":
         n = int(value)
         lit = f"({n})" if n < 0 else str(n)
@@ -708,7 +716,7 @@ def lean_literal(T, value, self_T=None, short=False):
                 f"(simp [Usize.max, Usize.numBits]; cases System.Platform.numBits_eq <;> simp_all; done) | "
                 f"native_decide⟩ : {ctor} {lean_type_str(T[1], self_T)})")
     if kind == "struct":
-        parts = ", ".join(f"{fn} := {lean_literal(ft, value[fn], self_T, short)}" for fn, ft in T[2])
+        parts = ", ".join(f"{field_name(fn)} := {lean_literal(ft, value[fn], self_T, short)}" for fn, ft in T[2])
         return "{ " + parts + " }"
     if kind == "enum":
         for vname, arg_types in T[2]:
@@ -819,7 +827,7 @@ def lean_encode_expr(T, var, defs=None, self_fn=None, _body=False):
     if kind == "bool":
         return f'(if {var} then "true" else "false")'
     if kind == "int":
-        return f'("\\"" ++ toString ({var}).val ++ "\\"")'
+        return f'("\\"" ++ toString ({var}){"" if T[1] == "Nat" else ".val"} ++ "\\"")'
     if kind == "tuple":
         n = len(T[1])
         parts = []
@@ -839,7 +847,7 @@ def lean_encode_expr(T, var, defs=None, self_fn=None, _body=False):
         return ('("[" ++ String.intercalate "," (' + f'({var}).val.map (fun _x => {inner})'
                 + ') ++ "]")')
     if kind == "struct":
-        parts = [f'("\\"{fn}\\":" ++ {enc(ft, f"({var}).{fn}")})' for fn, ft in T[2]]
+        parts = [f'("\\"{fn}\\":" ++ {enc(ft, f"({var}).{field_name(fn)}")})' for fn, ft in T[2]]
         return '("{" ++ String.intercalate "," [' + ", ".join(parts) + '] ++ "}")'
     if kind == "enum":
         arms = []
@@ -918,8 +926,8 @@ def build_eval_command(arg_types, ret_type, call_expr, input_rows):
 
 def select_units(crate_path):
     manifest = loader.load_manifest(crate_path)
-    crate = loader.detect_crate(crate_path, manifest)
-    types_path = os.path.join(crate_path, crate, "Code", "Types.lean")
+    folder, root, crate = loader.crate_layout(crate_path, manifest)
+    types_path = os.path.join(folder, root, "Code", "Types.lean")
     types_text = open(types_path, encoding="utf-8").read() if os.path.exists(types_path) else ""
     raw_types = parse_custom_types(types_text, crate)
     custom_types, type_skip_reasons = resolve_custom_types(raw_types, crate)

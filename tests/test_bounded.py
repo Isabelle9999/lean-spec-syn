@@ -150,6 +150,48 @@ def run_static_recursive():
     check("a monomorphic struct still ascribes by name", tc.lean_type_str(PAIR) == "records.Pair")
 
 
+RANGE = ("struct", "Aeneas.Std.core.ops.range.Range", [("start", ("int", "Std.Usize")), ("end", ("int", "Std.Usize"))],
+         "Aeneas.Std.core.ops.range.Range Aeneas.Std.Usize")
+ITER = ("struct", "Aeneas.Std.core.slice.iter.Iter", [("slice", ("slice", U32)), ("i", ("int", "Nat"))],
+        "Aeneas.Std.core.slice.iter.Iter Aeneas.Std.U32")
+
+
+def run_static_core_types():
+    """Aeneas's models of Rust's types, the state loop functions take: a Range's
+    fields are numbers (one of them named `end`), a slice iterator's position a Nat."""
+    print("=== static: a Range, a slice iterator ===")
+
+    def ir(j):
+        try:
+            return bounded.type_ir(j)
+        except tc.Unsupported as e:
+            return e.reason
+    got = (ir(["struct", RANGE[1], [["start", ["int", "Std.Usize"]], ["end", ["int", "Std.Usize"]]], RANGE[3]]),
+           ir(["int", "Nat"]))
+    check("a Range reads as a structure, a Nat as a number", got == (RANGE, ("int", "Nat")), str(got))
+    check("a type with no values (Aeneas's Infallible) is not sampled",
+          ir(["enum", "Aeneas.Std.core.convert.Infallible", [], "core.convert.Infallible"])
+          == "type core.convert.Infallible has no values")
+    check("a structure's fields are written quoted, so Range's `end` (a keyword) reads",
+          tc.lean_literal(RANGE, {"start": 1, "end": 3}) == "{ «start» := 1#usize, «end» := 3#usize }"
+          and bounded.eval_literal(RANGE, {"start": 1, "end": 3}) == "{ «start» := 1#usize, «end» := 3#usize }",
+          tc.lean_literal(RANGE, {"start": 1, "end": 3}))
+    enc = tc.lean_encode_expr(RANGE, "v")
+    check("and read back through quoted fields", "(v).«end»" in enc and "(v).«start»" in enc and '\\"end\\":' in enc, enc)
+    check("a Nat is written as a Nat and read back with no `.val`",
+          tc.lean_literal(("int", "Nat"), 5) == "(5 : Nat)" and tc.lean_literal(("int", "Nat"), 5, short=True) == "5"
+          and tc.lean_encode_expr(("int", "Nat"), "v") == '("\\"" ++ toString (v) ++ "\\"")',
+          tc.lean_encode_expr(("int", "Nat"), "v"))
+    rows = bounded.sample_rows([ITER], n=24, seed=0)
+    check("a slice iterator's inputs are a slice and a position from 0, every position kind tried",
+          all(set(r[0]) == {"slice", "i"} and r[0]["i"] >= 0 for r in rows)
+          and any(r[0]["i"] < len(r[0]["slice"]) for r in rows) and any(r[0]["i"] >= len(r[0]["slice"]) for r in rows),
+          str(rows[:4]))
+    lits = [tc.lean_literal(ITER, r[0]) for r in rows]
+    check("each written with its fields quoted and its position a Nat",
+          all(x.startswith("{ «slice» := ") and ", «i» := (" in x and x.endswith(" : Nat) }") for x in lits), lits[0])
+
+
 def run_static_commands():
     print("=== static: lean command text ===")
     stmt = '∀ (x : Std.U32), f x ⦃ r => r.val = x.val + 1 ⦄'
@@ -333,8 +375,19 @@ def _ok(v):
     return {"outcome": "holds", "value": json.dumps(str(v))}
 
 
+class NoCodeLean(FakeLean):
+    """an evaluation Lean refuses to compile: the function calls an axiom."""
+    def eval(self, stmt, args, ret, rows, alone=True):
+        return None, ("<input>:3:0: error: failed to compile definition, consider marking it as 'noncomputable' "
+                      "because it depends on 'symcrust.common.wipe', which is 'noncomputable'")
+
+
 def run_static_check():
     print("=== static: the verdict ===")
+    v = _check(NoCodeLean(lambda r: _ok(r[0])))
+    check("a function with no code (it calls an axiom, a hardware model) is not evaluated, labelled so",
+          v["status"] == "not_evaluated" and v["detail"].startswith("cannot run: symcrust.common.wipe has no code"),
+          str(v))
     # f x = x, spec "r.val < 5": false from 5 on; the witness shrinks to 5
     fake = FakeLean(lambda r: _ok(r[0]) if int(r[0]) < 5 else {"outcome": "violates", "value": json.dumps(str(r[0]))})
     v = _check(fake)
@@ -1037,6 +1090,7 @@ def run_full():
           v["status"] == "refuted" and len(v.get("witness", [[]])[0]) == 2, str(v))
 
     run_planted(checker)
+    run_planted_iter(checker)
     run_eval_inputs(checker, rust_dir)
     run_suite_refutations(checker)
     run_suite_types(checker)
@@ -1218,7 +1272,11 @@ def run_suite_types(checker):
             ("Loops", "sum_array", "a function over an array of const generic length is evaluated, its length "
                                    "drawn with the array"),
             ("AeneasStandalone", "curve25519.mul_internal", "a function over a crate's alias for an array is evaluated"),
-            ("NoNestedBorrows", "read_tuple_struct", "a function over a crate's alias for a pair is evaluated")]:
+            ("NoNestedBorrows", "read_tuple_struct", "a function over a crate's alias for a pair is evaluated"),
+            ("AeneasStandalone", "iterators.iter_range_loop", "a loop over a Range is evaluated"),
+            ("AeneasStandalone", "iterators.copy_arrays_loop", "a loop over a Range and two arrays is evaluated"),
+            ("AeneasStandalone", "iterators.iter_range_step_by_loop", "a loop over a StepBy of a Range is evaluated"),
+            ("AeneasStandalone", "iterators.slice_iter_while_loop0", "a loop over a slice iterator is evaluated")]:
         d = os.path.join(suite, crate)
         if not os.path.isdir(d):
             check(f"{d} exists", False, "not a directory")
@@ -1227,7 +1285,9 @@ def run_suite_types(checker):
         q = unit if unit in g.names else f"{g.crate}.{unit}"
         stmt = _trivial(g.def_text(q) or "", unit)
         v = bounded.check_spec(checker, stmt, unit, d)
-        check(title, v["status"] in ("pass", "refuted", "vacuous"), f"{stmt} -> {str(v)[:300]}")
+        # a loop whose bound is drawn large runs past its time on some input: the smaller ones were evaluated
+        some = v["status"] == "timeout" and re.match(r"[1-9]\d* of \d+ inputs evaluated", v.get("detail") or "")
+        check(title, v["status"] in ("pass", "refuted", "vacuous") or some, f"{stmt} -> {str(v)[:300]}")
 
 
 PLANTED_TYPES = """-- hand-written in the shape Aeneas generates, for LSS's tests
@@ -1331,6 +1391,70 @@ ORD_LAW = ("∀ {T : Type} (OrdInst : LssPlanted.Ord T) [LinearOrder T] (hcmp : 
            "else LssPlanted.Ordering.Greater)) (a b : T), ")
 
 
+PLANTED_ITER_FUNS = """-- hand-written in the shape Aeneas generates, for LSS's tests
+import Aeneas
+open Aeneas Aeneas.Std Result ControlFlow Error
+
+/- You can remove the following line by using the CLI option `-all-computable`: -/
+noncomputable section
+
+namespace LssIter
+
+/-- [lss_iter::range_len] -/
+def range_len (r : core.ops.range.Range Std.Usize) : Result Std.Usize :=
+  if r.start ≤ r.«end» then r.«end» - r.start else ok 0#usize
+
+/-- [lss_iter::iter_left] -/
+def iter_left (it : core.slice.iter.Iter Std.U32) : Result Bool :=
+  ok (decide (it.i < it.slice.length))
+
+/-- [lss_iter::ext] -/
+axiom ext : Std.U32 → Result Std.U32
+
+/-- [lss_iter::uses_ext] -/
+def uses_ext (x : Std.U32) : Result Std.U32 := ext x
+
+end LssIter
+"""
+
+
+def run_planted_iter(checker):
+    """Aeneas's models of Rust's types as inputs: a Range (a field named `end`) and a
+    slice iterator (its position a Nat), sampled, evaluated and refuted by the kernel;
+    and a function with no code."""
+    print("=== full: a Range and a slice iterator as inputs, a function with no code ===")
+    import shutil
+    import tempfile
+    d = tempfile.mkdtemp()
+    try:
+        os.makedirs(os.path.join(d, "LssIter", "Code"))
+        with open(os.path.join(d, "LssIter", "Code", "Funs.lean"), "w", encoding="utf-8") as f:
+            f.write(PLANTED_ITER_FUNS)
+        decls = [{"kind": "function", "is_local": True, "lean_name": f"LssIter.{u}", "rust_name": f"lss_iter::{u}"}
+                 for u in ("range_len", "iter_left", "uses_ext")]
+        with open(os.path.join(d, "rust-spec-synthesis.json"), "w", encoding="utf-8") as f:
+            json.dump({"import": "LssIter", "declarations": decls}, f)
+        rng = "∀ (r : core.ops.range.Range Std.Usize), range_len r "
+        v = bounded.check_spec(checker, rng + "⦃ n => n.val = r.«end».val - r.start.val ⦄", "range_len", d)
+        check("a true spec over a Range passes, rejecting wrong outputs", v["status"] == "pass" and v["warning"] is None,
+              str(v)[:400])
+        v = bounded.check_spec(checker, rng + "⦃ n => n.val = r.«end».val ⦄", "range_len", d)
+        check("a false spec over a Range is refuted, its witness a Range",
+              v["status"] == "refuted" and isinstance((v.get("witness") or [None])[0], dict), str(v)[:400])
+        check("and the kernel checks it, the field `end` written quoted", v.get("kernel") is True, str(v)[:400])
+        it = "∀ (it : core.slice.iter.Iter Std.U32), iter_left it "
+        v = bounded.check_spec(checker, it + "⦃ b => b = decide (it.i < it.slice.length) ⦄", "iter_left", d)
+        check("a true spec over a slice iterator passes", v["status"] == "pass", str(v)[:400])
+        v = bounded.check_spec(checker, it + "⦃ b => b = true ⦄", "iter_left", d)
+        check("a false one is refuted where the iterator is at its end, by the kernel, its position a Nat",
+              v["status"] == "refuted" and v.get("kernel") is True, str(v)[:400])
+        v = bounded.check_spec(checker, "∀ (x : Std.U32), uses_ext x ⦃ _ => True ⦄", "uses_ext", d)
+        check("a function calling an axiom (a hardware model) is not evaluated, labelled: cannot run",
+              v["status"] == "not_evaluated" and v.get("detail", "").startswith("cannot run: "), str(v)[:400])
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def planted_crate():
     """a crate written in Aeneas's shape: generic functions, a trait with an instance and
     one without, a tree, a backward function. returns its directory."""
@@ -1425,6 +1549,7 @@ def run_planted(checker):
 run_static_values()
 run_static_recursive()
 run_static_commands()
+run_static_core_types()
 run_static_check()
 run_static_run()
 run_static_synth()

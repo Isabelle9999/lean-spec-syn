@@ -316,33 +316,33 @@ try:
             child16.kill()
             child16.wait(timeout=5)
 
-    # case 17: a restart whose new REPL never answers (a machine under load answered one in
+    # case 20: a restart whose new REPL never answers (a machine under load answered one in
     # over 30s) leaves the worker without a process; the next command starts it again and
     # runs in the REPL, never falling back to lake for the rest of the run
-    s17 = LeanServer(PROJ, cfg)
+    s20 = LeanServer(PROJ, cfg)
     try:
-        w17 = s17._worker
-        check("case17 server started", w17 is not None)
-        if w17 is not None:
-            real17, dropped17 = w17._send_raw, []
+        w20 = s20._worker
+        check("case20 server started", w20 is not None)
+        if w20 is not None:
+            real20, dropped20 = w20._send_raw, []
 
             def _no_answer_once(cmd, timeout):
-                if cmd.get("cmd") == "-- ok" and not dropped17:
-                    dropped17.append(timeout)
+                if cmd.get("cmd") == "-- ok" and not dropped20:
+                    dropped20.append(timeout)
                     return None
-                return real17(cmd, timeout)
-            w17._send_raw = _no_answer_once  # type: ignore[method-assign]
-            w17._restart()
-            check("case17 a restart with no answer leaves no process", w17._proc is None and dropped17,
-                  f"proc={w17._proc} dropped={dropped17}")
-            check("case17 a starting REPL gets the import time limit to answer, at least 30s",
-                  dropped17 == [max(30, cfg["import_timeout"])], str(dropped17))
-            r17 = s17.check("#check Nat")
-            check("case17 the next command starts the REPL again and runs there, not in lake",
-                  r17.via == "repl" and r17.rc == 0 and w17._proc is not None and s17.stats()["restarts"] == 2,
-                  f"via={r17.via} rc={r17.rc} restarts={s17.stats()['restarts']} stderr={r17.stderr[:120]}")
+                return real20(cmd, timeout)
+            w20._send_raw = _no_answer_once  # type: ignore[method-assign]
+            w20._restart()
+            check("case20 a restart with no answer leaves no process", w20._proc is None and dropped20,
+                  f"proc={w20._proc} dropped={dropped20}")
+            check("case20 a starting REPL gets the import time limit to answer, at least 30s",
+                  dropped20 == [max(30, cfg["import_timeout"])], str(dropped20))
+            r20 = s20.check("#check Nat")
+            check("case20 the next command starts the REPL again and runs there, not in lake",
+                  r20.via == "repl" and r20.rc == 0 and w20._proc is not None and s20.stats()["restarts"] == 2,
+                  f"via={r20.via} rc={r20.rc} restarts={s20.stats()['restarts']} stderr={r20.stderr[:120]}")
     finally:
-        s17.close()
+        s20.close()
 
     # case 19: a REPL that never answers a start stops being started after MAX_FAILED_STARTS
     # restarts in a row: later commands fall back to lake at once, not after a start time

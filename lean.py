@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 import lss_config as _lss_config
 import lean_server as _lean_server
 import callgraph as _callgraph
+import loader as _loader
 import events
 
 TACTICS = [
@@ -642,8 +643,14 @@ class LeanChecker:
         if _lss_config.proof_cfg()["rust_hammer"]:
             crate = crate.replace("import Aeneas", "import Aeneas\nimport Hammer", 1)
             selector = _hammer_selector()
+        # the options and opens Aeneas writes at the top of every file: a joined file's
+        # own end with its section (callgraph._concat_code_files), so they are set again
+        # for what follows, Aeneas's maxHeartbeats the budget a Rust unit's attempts keep
         return (crate +
-                "\nset_option maxRecDepth 2048\n"
+                "\nset_option linter.dupNamespace false\nset_option linter.hashCommand false\n"
+                "set_option linter.unusedVariables false\n"
+                f"set_option maxHeartbeats {_loader.AENEAS_HEARTBEATS}\n"
+                "set_option maxRecDepth 2048\n"
                 "open Aeneas Aeneas.Std Result ControlFlow Error\n" +
                 proof_check_text() + "\n" + _aeneas_layer_text()), selector
 
@@ -655,16 +662,16 @@ class LeanChecker:
         commands are elaborated before the crate's namespace is entered, so a crate
         defining a name they use (a `List` of its own) cannot change them; that env
         is kept as "env0" for the gate and the bounded check, which send their own
-        Lean text and enter the namespace after it. maxHeartbeats is left out here on
-        purpose: each attempt sets its own cap. printed once per crate since cost
-        grows with crate size."""
+        Lean text and enter the namespace after it. maxHeartbeats is Aeneas's own
+        (_aeneas_env_text): an attempt that sets its own cap sets it with `in`.
+        printed once per crate since cost grows with crate size."""
         aeneas_dir = _lss_config.project_dir("aeneas")
         server = _lean_server.get_server(aeneas_dir)
         g = _callgraph.for_project(project_dir)
         text, selector = self._aeneas_env_text(project_dir)
         _CRATE_ENVS[g.crate] = (self, project_dir, hashlib.sha256(g.crate_text.encode("utf-8")).hexdigest()[:16])
         t0 = time.time()
-        r0 = r = server.check(text, timeout=600)
+        r0 = r = server.check(text, timeout=_callgraph.CRATE_BUILD_TIMEOUT)
         if r0.rc == 0 and r0.new_env is not None:
             # inside the crate's namespace, not after `open`: a name the crate defines
             # (its List, Ord, max) is then the crate's, as in its own code, where `open`

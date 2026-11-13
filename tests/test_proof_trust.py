@@ -614,9 +614,8 @@ def run_full_modularity():
         return
     server = lean_server.get_server(lss_config.project_dir("aeneas"), lss_config.server_cfg())
     g = callgraph.for_project(rust_dir)
-    base = (g.crate_text + "\nset_option maxRecDepth 2048\n"
-            f"open Aeneas Aeneas.Std Result ControlFlow Error\nopen {g.crate}\n" +
-            lean.proof_check_text() + "\n" + lean._aeneas_layer_text() + "\n")
+    # the crate env's own text (its options too: Aeneas's heartbeats), as a proof attempt gets it
+    base = lean.LeanChecker()._aeneas_env_text(rust_dir)[0] + f"\nopen {g.crate}\n"
     r0 = server.check(base, timeout=600)
     check("crate env built", r0.rc == 0 and r0.new_env is not None, (r0.stderr or "")[:300])
     if r0.new_env is None:

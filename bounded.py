@@ -56,11 +56,16 @@ EVAL_TIMEOUT = 120
 # inputs after it, never the inputs before it (_Lean.eval)
 EVAL_GROUP = 8
 EVAL_GROUP_TIMEOUT = 20
+# Lean's refusal to compile a call to a definition with no code: an axiom, or a function
+# that calls one (SymCrypt's hardware intrinsics are axioms; 103 of its 731 functions)
+NONCOMPUTABLE = re.compile(r"consider marking it as 'noncomputable'(?: because it depends on '([^']+)')?")
 
 
 # ====================== values (the shape lean_literal and lean_encode_expr share) ======================
 
 def _int_range(T):
+    if T[1] == "Nat":  # an index Aeneas keeps as a Nat, drawn as a Usize is
+        return 0, (1 << 64) - 1
     _, bits, signed = tc.INT_TYPES[T[1]]
     return (-(1 << (bits - 1)), (1 << (bits - 1)) - 1) if signed else (0, (1 << bits) - 1)
 
@@ -428,7 +433,7 @@ def type_ir(j, top=False):
     if k in ("bool", "self"):
         return (k,)
     if k == "int":
-        if j[1] not in tc.INT_TYPES:
+        if j[1] not in tc.INT_TYPES and j[1] != "Nat":
             raise tc.Unsupported(f"scalar {j[1]}")
         return ("int", j[1])
     if k == "tuple":
@@ -447,6 +452,8 @@ def type_ir(j, top=False):
     if k == "struct":
         return ("struct", j[1], [(f, type_ir(t)) for f, t in j[2]], j[3])
     if k == "enum":
+        if not j[2]:  # Aeneas's core.convert.Infallible: no value to draw
+            raise tc.Unsupported(f"type {j[3]} has no values")
         variants = [(v, [type_ir(a) for a in args]) for v, args in j[2]]
         nonrec = [v for v in variants if not v[1]]
         rec = [v for v in variants if len(v[1]) == 2 and v[1][1] == ("self",) and not _self_refs(v[1][0])]
@@ -635,8 +642,9 @@ class _Lean:
         # built again in a new server (shutdown_all) or after a restart: env ids are per process
         if ev.get("env0") is None or ev.get("server") is not server or ev.get("restarts") != server.stats()["restarts"]:
             ev.clear()
+            import callgraph
             text, _ = self.checker._aeneas_env_text(self.project_dir)
-            r = server.check(text, timeout=600)
+            r = server.check(text, timeout=callgraph.CRATE_BUILD_TIMEOUT)
             self.checker.lean_calls += 1
             if r.timed_out:
                 return None, "timeout"
@@ -821,6 +829,19 @@ def _lean_goals(out):
     return goals
 
 
+def _no_code(detail):
+    """the verdict for a call Lean will not compile because it uses a definition with no
+    code (NONCOMPUTABLE): the function's own (an axiom it calls) or the statement's (a
+    noncomputable helper), else None."""
+    nc = NONCOMPUTABLE.search(detail or "")
+    if nc is None:
+        return None
+    return {"status": "not_evaluated",
+            "detail": f"cannot run: {nc.group(1) or 'the call'} has no code (Lean cannot compile it: it uses an "
+                      "axiom, such as a hardware instruction's model, or another noncomputable definition), so no "
+                      "input can be evaluated; the provers still run"}
+
+
 @events.layer("bounded")
 def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     """the bounded verdict for one candidate (see the module docstring).
@@ -839,7 +860,7 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
         d = plan.get("detail", "")
         if d.startswith(NOT_EVALUATED):
             return {"status": "not_evaluated", "detail": d[len(NOT_EVALUATED):].strip()[:300]}
-        return {"status": "skipped", "detail": d[:300]}
+        return _no_code(d) or {"status": "skipped", "detail": d[:300]}
     try:
         args = [type_ir(f["ir"], top=True) for f in plan["free"]]
         # (array, its length's binder): the binder takes the array's length in every row
@@ -869,7 +890,7 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     rows = sorted((tie(r) for r in sample_rows(args, seed=seed)), key=lambda r: sum(size(t, x) for t, x in zip(args, r)))
     ev, why = lean.eval(stmt, args, ret, rows)
     if ev is None:
-        return {"status": "timeout" if why == "timeout" else "skipped", "detail": why}
+        return _no_code(why) or {"status": "timeout" if why == "timeout" else "skipped", "detail": why}
     kind, outs = ev["kind"], ev["rows"]
     stopped = None
     if ev.get("partial"):
@@ -889,7 +910,7 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
             if decided and r["outcome"] == "unknown" else r for r in outs]
     errors = [r for r in outs if r["outcome"] == "error"]
     if len(errors) == len(outs):
-        return {"status": "skipped", "detail": errors[0].get("detail", "")[:300]}
+        return _no_code(errors[0].get("detail", "")) or {"status": "skipped", "detail": errors[0].get("detail", "")[:300]}
     bad = [i for i, r in enumerate(outs) if _bad(kind, r)]
     if bad:
         row, res = rows[bad[0]], outs[bad[0]]

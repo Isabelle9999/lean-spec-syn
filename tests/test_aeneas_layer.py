@@ -153,8 +153,9 @@ def run_full():
     check("server started", server._worker is not None)
 
     g = callgraph.for_project(rust_dir)
-    layer = lean._aeneas_layer_text()
-    base = g.crate_text + f"\nopen {g.crate}\n" + lean.proof_check_text() + "\n" + layer + "\n"
+    # the crate env's own text: the crate, Aeneas's options and opens set again after it,
+    # LSS's commands and the aeneas layer
+    base = lean.LeanChecker()._aeneas_env_text(rust_dir)[0] + f"\nopen {g.crate}\n"
 
     def run(label, extra, timeout=90):
         r = server.check(base + extra, timeout=timeout)

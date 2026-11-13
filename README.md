@@ -67,6 +67,14 @@ python run.py --bench <name>                                 # a built-in Lean b
 `translation.json` next to `<Crate>/Code/*.lean`. Each run writes a report per
 function to `.lss/reports/` and an event log to `.lss/runs/`.
 
+A crate whose Aeneas output was committed with its own Lean project and no
+manifest gets one read off its Lean code, in a folder of its own (the Lean
+folder is the one holding `<module root>/Code`):
+
+```
+python callgraph.py --manifest <dir> <its Lean folder> <module root> <namespace>
+```
+
 ## Repository layout
 
 | Path | Purpose |
