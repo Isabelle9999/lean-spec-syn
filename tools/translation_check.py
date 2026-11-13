@@ -926,8 +926,8 @@ def build_eval_command(arg_types, ret_type, call_expr, input_rows):
 
 def select_units(crate_path):
     manifest = loader.load_manifest(crate_path)
-    crate = loader.detect_crate(crate_path, manifest)
-    types_path = os.path.join(crate_path, crate, "Code", "Types.lean")
+    folder, root, crate = loader.crate_layout(crate_path, manifest)
+    types_path = os.path.join(folder, root, "Code", "Types.lean")
     types_text = open(types_path, encoding="utf-8").read() if os.path.exists(types_path) else ""
     raw_types = parse_custom_types(types_text, crate)
     custom_types, type_skip_reasons = resolve_custom_types(raw_types, crate)

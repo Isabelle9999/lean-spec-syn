@@ -642,8 +642,9 @@ class _Lean:
         # built again in a new server (shutdown_all) or after a restart: env ids are per process
         if ev.get("env0") is None or ev.get("server") is not server or ev.get("restarts") != server.stats()["restarts"]:
             ev.clear()
+            import callgraph
             text, _ = self.checker._aeneas_env_text(self.project_dir)
-            r = server.check(text, timeout=600)
+            r = server.check(text, timeout=callgraph.CRATE_BUILD_TIMEOUT)
             self.checker.lean_calls += 1
             if r.timed_out:
                 return None, "timeout"
