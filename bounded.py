@@ -452,6 +452,8 @@ def type_ir(j, top=False):
     if k == "struct":
         return ("struct", j[1], [(f, type_ir(t)) for f, t in j[2]], j[3])
     if k == "enum":
+        if not j[2]:  # Aeneas's core.convert.Infallible: no value to draw
+            raise tc.Unsupported(f"type {j[3]} has no values")
         variants = [(v, [type_ir(a) for a in args]) for v, args in j[2]]
         nonrec = [v for v in variants if not v[1]]
         rec = [v for v in variants if len(v[1]) == 2 and v[1][1] == ("self",) and not _self_refs(v[1][0])]
@@ -827,15 +829,16 @@ def _lean_goals(out):
 
 
 def _no_code(detail):
-    """the verdict for a function Lean will not compile because it calls a definition with
-    no code (NONCOMPUTABLE), else None."""
+    """the verdict for a call Lean will not compile because it uses a definition with no
+    code (NONCOMPUTABLE): the function's own (an axiom it calls) or the statement's (a
+    noncomputable helper), else None."""
     nc = NONCOMPUTABLE.search(detail or "")
     if nc is None:
         return None
     return {"status": "not_evaluated",
-            "detail": f"cannot run: {nc.group(1) or 'the function'} has no code (it calls a definition with no "
-                      "implementation, such as the model of a hardware instruction), so no input can be evaluated; "
-                      "the provers still run"}
+            "detail": f"cannot run: {nc.group(1) or 'the call'} has no code (Lean cannot compile it: it uses an "
+                      "axiom, such as a hardware instruction's model, or another noncomputable definition), so no "
+                      "input can be evaluated; the provers still run"}
 
 
 @events.layer("bounded")

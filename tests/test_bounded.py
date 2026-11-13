@@ -169,6 +169,9 @@ def run_static_core_types():
     got = (ir(["struct", RANGE[1], [["start", ["int", "Std.Usize"]], ["end", ["int", "Std.Usize"]]], RANGE[3]]),
            ir(["int", "Nat"]))
     check("a Range reads as a structure, a Nat as a number", got == (RANGE, ("int", "Nat")), str(got))
+    check("a type with no values (Aeneas's Infallible) is not sampled",
+          ir(["enum", "Aeneas.Std.core.convert.Infallible", [], "core.convert.Infallible"])
+          == "type core.convert.Infallible has no values")
     check("a structure's fields are written quoted, so Range's `end` (a keyword) reads",
           tc.lean_literal(RANGE, {"start": 1, "end": 3}) == "{ «start» := 1#usize, «end» := 3#usize }"
           and bounded.eval_literal(RANGE, {"start": 1, "end": 3}) == "{ «start» := 1#usize, «end» := 3#usize }",
