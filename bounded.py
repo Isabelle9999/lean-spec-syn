@@ -85,7 +85,7 @@ def edge_values(T, self_T=None):
     T = _sized(T)
     kind = T[0]
     if kind == "self":
-        return [random_value(self_T, random.Random(i), 3, self_T) for i in range(2)]
+        return [random_value(self_T, random.Random(i), 3, self_T, size=0.0) for i in range(2)]
     if _named(T):
         self_T = T
     if kind == "bool":
@@ -104,7 +104,13 @@ def edge_values(T, self_T=None):
         return [[], [e[0]], [e[1 % len(e)], e[0]], [e[0], e[1 % len(e)], e[2 % len(e)]]]
     if kind == "option":
         return [None, edge_values(T[1], self_T)[0]]
-    return [random_value(T, random.Random(i)) for i in range(2)]
+    # a structure's are its fields' (all first ones, then all second ones), and anything
+    # else's a draw at the smallest size: drawn at full size, a Range's or a StepBy's first
+    # rows had bounds near 2^62, and a loop over them never ended on its very first input
+    if kind == "struct":
+        es = [edge_values(ft, self_T) for _, ft in T[2]]
+        return [{fn: e[i % len(e)] for (fn, _), e in zip(T[2], es)} for i in range(2)]
+    return [random_value(T, random.Random(i), size=0.0) for i in range(2)]
 
 
 def _self_refs(t):

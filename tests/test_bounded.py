@@ -187,6 +187,12 @@ def run_static_core_types():
           all(set(r[0]) == {"slice", "i"} and r[0]["i"] >= 0 for r in rows)
           and any(r[0]["i"] < len(r[0]["slice"]) for r in rows) and any(r[0]["i"] >= len(r[0]["slice"]) for r in rows),
           str(rows[:4]))
+    step_by = ("struct", "Aeneas.Std.core.iter.adapters.step_by.StepBy", [("iter", RANGE), ("step_by", ("int", "Std.Usize"))],
+               "core.iter.adapters.step_by.StepBy (core.ops.range.Range Std.Usize)")
+    first = bounded.sample_rows([step_by], n=48, seed=0)[:2]
+    check("a structure's first inputs are its fields' edge values (0, then 1), not a full-size draw",
+          first == [[{"iter": {"start": 0, "end": 0}, "step_by": 0}], [{"iter": {"start": 1, "end": 1}, "step_by": 1}]],
+          str(first))
     lits = [tc.lean_literal(ITER, r[0]) for r in rows]
     check("each written with its fields quoted and its position a Nat",
           all(x.startswith("{ «slice» := ") and ", «i» := (" in x and x.endswith(" : Nat) }") for x in lits), lits[0])
