@@ -36,6 +36,7 @@ import os
 import random
 import re
 import sys
+import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools"))
 import translation_check as tc  # noqa: E402
@@ -50,6 +51,10 @@ MAX_DISCARD_RATIO = 10
 PERTURB_ROWS = 3
 SHRINK_ROUNDS = 6
 EVAL_TIMEOUT = 120
+# the kernel's proof of one refutation gets its attempts until this many seconds have
+# gone (and the one running finishes): in the sweep 95% of the refutations the kernel
+# checked took under 136 s, function and all, while one it never checked took 20 min
+KERNEL_BUDGET = 180
 # the inputs go to Lean EVAL_GROUP at a time, smallest first, each command with
 # EVAL_GROUP_TIMEOUT seconds (about 28 million loop steps at the 1.4 million a second
 # compiled evaluation runs): an input that runs away costs only itself and the larger
@@ -802,8 +807,12 @@ def _kernel_refutation(lean, stmt, kind, binders, insts, args, ret, row, res, un
     nm = f"lss_refute_{lean.n}"
     hb = _lss_config.proof_cfg()["aeneas_heartbeats"]
     whys, text, ops = [], "", None
+    t0 = time.monotonic()
     for label, kw in [("evaluation", {}), ("with the operations it reaches", {"ops": True}),
                       ("per platform width", {"ops": True, "split": True}), ("stated value", {"stated": True})]:
+        if time.monotonic() - t0 > KERNEL_BUDGET:
+            whys.append(f"{label}: not tried, the kernel's {KERNEL_BUDGET}s for this refutation were spent")
+            continue
         if kw.get("ops"):
             ops = lean.ops(unit, unfold) if ops is None else ops  # asked only once the plain evaluation failed
             if not ops and not kw.get("split"):
@@ -819,7 +828,8 @@ def _kernel_refutation(lean, stmt, kind, binders, insts, args, ret, row, res, un
         text = t if kw.get("split") else text
     # the goals each case's evaluation leaves (a ⦄div statement has two), closed by sorry
     closer = re.compile(r"^( +)all_goals \(first \| decide \| omega\)$", re.M)
-    out, _ = lean.run(closer.sub(r"\1lss_log_goals\n\1all_goals sorry", text)) if closer.search(text) else (None, "")
+    out, _ = (lean.run(closer.sub(r"\1lss_log_goals\n\1all_goals sorry", text))
+              if closer.search(text) and time.monotonic() - t0 <= KERNEL_BUDGET else (None, ""))
     left = [g.get("text", "") for g in _lean_goals(out)]
     if any(re.search(r"\bloop\b", g) for g in left):
         whys.insert(0, f"the evaluation stops after {EVAL_ROUNDS} rounds with the loop still running")

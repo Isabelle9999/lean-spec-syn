@@ -454,6 +454,18 @@ def run_static_check():
     check("a function with no code (it calls an axiom, a hardware model) is not evaluated, labelled so",
           v["status"] == "not_evaluated" and v["detail"].startswith("cannot run: symcrust.common.wipe has no code"),
           str(v))
+    clock = iter(range(0, 10_000, 100))
+    real_clock = bounded.time.monotonic
+    bounded.time.monotonic = lambda: next(clock)  # every reading 100 s later: one attempt fits in 180 s
+    try:
+        slow = FakeLean(lambda r: {"outcome": "fail"}, kernel=False, ops=["op"])
+        got = _check(slow)
+    finally:
+        bounded.time.monotonic = real_clock
+    tried = sum(1 for x in slow.sent if " name:" in x)
+    check("the kernel's attempts at one refutation stop once its time budget is spent",
+          got["status"] == "refuted" and not got["kernel"] and tried == 1
+          and "were spent" in got.get("kernel_why", ""), f"{tried} tried: {str(got)[:300]}")
     unit = _check(FakeLean(lambda r: _ok(0), plan=_plan(ret=["tuple", []])))
     check("an always-true statement about a Unit result is vacuous: there is no wrong output to try",
           unit["status"] == "vacuous", str(unit))
