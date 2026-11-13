@@ -198,6 +198,22 @@ def run_static_core_types():
           all(x.startswith("{ «slice» := ") and ", «i» := (" in x and x.endswith(" : Nat) }") for x in lits), lits[0])
 
 
+def run_static_nested_text():
+    """numbers inside a structure, an option or an array of arrays go to an evaluation
+    as text too (SymCrypt's Key: matrices of 256-number arrays in its fields)."""
+    print("=== static: number arrays at any depth as text ===")
+    u8, u16 = ("int", "Std.U8"), ("int", "Std.U16")
+    key = ("struct", "symcrust.mlkem.key.Key",
+           [("seed", ("array", u8, 2)), ("m", ("array", ("array", u16, 2), 2)), ("t", ("option", ("slice", u8))),
+            ("n", u8)], "symcrust.mlkem.key.Key")
+    lit = bounded.eval_literal(key, {"seed": [1, 2], "m": [[3, 4], [5, 6]], "t": [7], "n": 9})
+    check("a structure's number arrays, an array of arrays and an option's slice are text, its scalars literals",
+          lit.count("lssArr") == 3 and lit.count("lssSlice") == 1 and "«n» := 9#u8" in lit
+          and "#u16" not in lit and lit.startswith("{ «seed» := (lssArr"), lit)
+    check("a kernel refutation still writes the literal", "lss" not in tc.lean_literal(key, {
+        "seed": [1, 2], "m": [[3, 4], [5, 6]], "t": [7], "n": 9}))
+
+
 def run_static_server():
     """a Lean server whose REPL was killed from outside while idle, or grew past half its
     memory cap, is restarted before it is used (lean_server.ReplWorker.ready)."""
@@ -1602,6 +1618,7 @@ def run_planted(checker):
 run_static_values()
 run_static_recursive()
 run_static_server()
+run_static_nested_text()
 run_static_commands()
 run_static_core_types()
 run_static_check()

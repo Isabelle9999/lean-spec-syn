@@ -373,14 +373,16 @@ def _q(s):
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
 
 
-def eval_literal(T, v):
+def eval_literal(T, v, self_T=None):
     """the Lean term for an evaluated input: an array, vector or slice of numbers as
     text read in compiled code (lean/bounded.lean's lssU/lssI and lssArr/lssVec/
-    lssSlice), whose elaboration costs the same at any length; a tuple part by part;
-    everything else as tc.lean_literal. a literal of 256 numbers takes elaboration
-    about a second (each n#u8 also runs its bound tactic), so a check of 48 such
-    inputs spent most of its time limit building them. evaluation only: a kernel
-    refutation writes its witness as literals (refutation_text)."""
+    lssSlice), whose elaboration costs the same at any length, wherever it sits (a
+    field, a tuple's part, an array of arrays); everything else as tc.lean_literal. a
+    literal of 256 numbers takes elaboration about a second (each n#u8 also runs its
+    bound tactic): a check of 48 such inputs spent most of its time limit building them,
+    and SymCrypt's Key (matrices of 256-number arrays in its fields) passed Lean's
+    recursion limit. evaluation only: a kernel refutation writes its witness as literals
+    (refutation_text)."""
     kind = T[0]
     if kind in ("array", "vec", "slice") and T[1][0] == "int" and T[1][1] in tc.LEAN_SCALAR_SUFFIX:
         ty = T[1][1].split(".")[-1]
@@ -390,9 +392,7 @@ def eval_literal(T, v):
             n = len(v) if T[2] is None else T[2]
             return f"(lssArr (⟨0⟩ : {tc.lean_type_str(T[1])}) {n}#usize {dec})"
         return f"({'lssVec' if kind == 'vec' else 'lssSlice'} {dec})"
-    if kind == "tuple":
-        return "(" + ", ".join(eval_literal(e, x) for e, x in zip(T[1], v)) + ")"
-    return tc.lean_literal(T, v)
+    return tc.lean_literal(T, v, self_T, inner=eval_literal)
 
 
 def _lits(arg_types, row):
