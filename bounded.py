@@ -57,8 +57,12 @@ EVAL_TIMEOUT = 120
 EVAL_GROUP = 8
 EVAL_GROUP_TIMEOUT = 20
 # Lean's refusal to compile a call to a definition with no code: an axiom, or a function
-# that calls one (SymCrypt's hardware intrinsics are axioms; 103 of its 731 functions)
-NONCOMPUTABLE = re.compile(r"consider marking it as 'noncomputable'(?: because it depends on '([^']+)')?")
+# that calls one (SymCrypt's hardware intrinsics are axioms; 103 of its 731 functions).
+# its compiler says it two ways: the first when the call's own definition is compiled,
+# the second when a definition it reaches was never compiled (a partial_fixpoint loop
+# in a noncomputable section that calls an axiom)
+NONCOMPUTABLE = re.compile(r"consider marking it as 'noncomputable'(?: because it depends on '([^']+)')?"
+                           r"|Failed to find LCNF signature for (\S+)")
 
 
 # ====================== values (the shape lean_literal and lean_encode_expr share) ======================
@@ -843,7 +847,7 @@ def _no_code(detail):
     if nc is None:
         return None
     return {"status": "not_evaluated",
-            "detail": f"cannot run: {nc.group(1) or 'the call'} has no code (Lean cannot compile it: it uses an "
+            "detail": f"cannot run: {nc.group(1) or nc.group(2) or 'the call'} has no code (Lean cannot compile it: it uses an "
                       "axiom, such as a hardware instruction's model, or another noncomputable definition), so no "
                       "input can be evaluated; the provers still run"}
 

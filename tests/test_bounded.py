@@ -454,6 +454,9 @@ def run_static_check():
     check("a function with no code (it calls an axiom, a hardware model) is not evaluated, labelled so",
           v["status"] == "not_evaluated" and v["detail"].startswith("cannot run: symcrust.common.wipe has no code"),
           str(v))
+    lcnf = bounded._no_code("error: Failed to find LCNF signature for symcrust.mlkem.ntt.sample_loop")
+    check("and so is one whose loop was never compiled (Lean's other message for it)",
+          (lcnf or {}).get("detail", "").startswith("cannot run: symcrust.mlkem.ntt.sample_loop has no code"), str(lcnf))
     # f x = x, spec "r.val < 5": false from 5 on; the witness shrinks to 5
     fake = FakeLean(lambda r: _ok(r[0]) if int(r[0]) < 5 else {"outcome": "violates", "value": json.dumps(str(r[0]))})
     v = _check(fake)
