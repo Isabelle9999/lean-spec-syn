@@ -656,13 +656,17 @@ def field_name(fn):
     return fn if fn.startswith("«") else f"«{fn}»"
 
 
-def lean_literal(T, value, self_T=None, short=False):
+def lean_literal(T, value, self_T=None, short=False, inner=None):
     """the Lean term for a value of type T. short=True writes it the way a statement
     would, for prose a person or the LLM reads (n#usize, [a, b]); it carries no proof
-    and is never elaborated."""
+    and is never elaborated. inner(T, value, self_T) writes the values inside it, when
+    given (bounded.eval_literal: an array of numbers at any depth as text)."""
     kind = T[0]
+
+    def sub(t, v, s):
+        return inner(t, v, s) if inner else lean_literal(t, v, s, short)
     if kind == "self":
-        return lean_literal(self_T, value, self_T, short)
+        return sub(self_T, value, self_T)
     if kind in ("struct", "enum", "list_enum"):
         self_T = T
     if kind == "bool":
@@ -692,16 +696,16 @@ def lean_literal(T, value, self_T=None, short=False):
         suf = LEAN_SCALAR_SUFFIX[T[1]]
         return f"{lit}#{suf}"
     if kind == "tuple":
-        return "(" + ", ".join(lean_literal(e, v, self_T, short) for e, v in zip(T[1], value)) + ")"
+        return "(" + ", ".join(sub(e, v, self_T) for e, v in zip(T[1], value)) + ")"
     if kind == "array":
         # Array's obligation is l.length = n.val for a small literal n: a
         # plain structural fact, nothing to do with Usize.max/numBits.
-        inner = ", ".join(lean_literal(T[1], v, self_T, short) for v in value)
+        elems = ", ".join(sub(T[1], v, self_T) for v in value)
         if short:
-            return f"[{inner}]"
+            return f"[{elems}]"
         # a length None is a const generic's: the binder that gives it takes this value's length
         n = len(value) if T[2] is None else T[2]
-        return f"(⟨[{inner}], by decide⟩ : Array {lean_type_str(T[1], self_T)} {n}#usize)"
+        return f"(⟨[{elems}], by decide⟩ : Array {lean_type_str(T[1], self_T)} {n}#usize)"
     if kind in ("slice", "vec"):
         # Vec/Slice's obligation is l.length <= Usize.max, which needs the
         # irreducible Usize.max/numBits unfolded and cased on the platform
@@ -709,21 +713,21 @@ def lean_literal(T, value, self_T=None, short=False):
         # lists this produces, native_decide a fallback for anything it
         # can't close symbolically.
         ctor = "Slice" if kind == "slice" else "alloc.vec.Vec"
-        inner = ", ".join(lean_literal(T[1], v, self_T, short) for v in value)
+        elems = ", ".join(sub(T[1], v, self_T) for v in value)
         if short:
-            return f"[{inner}]"
-        return (f"(⟨[{inner}], by first | decide | "
+            return f"[{elems}]"
+        return (f"(⟨[{elems}], by first | decide | "
                 f"(simp [Usize.max, Usize.numBits]; cases System.Platform.numBits_eq <;> simp_all; done) | "
                 f"native_decide⟩ : {ctor} {lean_type_str(T[1], self_T)})")
     if kind == "struct":
-        parts = ", ".join(f"{field_name(fn)} := {lean_literal(ft, value[fn], self_T, short)}" for fn, ft in T[2])
+        parts = ", ".join(f"{field_name(fn)} := {sub(ft, value[fn], self_T)}" for fn, ft in T[2])
         return "{ " + parts + " }"
     if kind == "enum":
         for vname, arg_types in T[2]:
             if value.get("tag") == vname:
                 if not arg_types:
                     return f"{T[1]}.{vname}"
-                args = " ".join(lean_literal(a, v, self_T, short) for a, v in zip(arg_types, value["args"]))
+                args = " ".join(sub(a, v, self_T) for a, v in zip(arg_types, value["args"]))
                 return f"({T[1]}.{vname} {args})"
         raise Unsupported(f"unknown variant {value.get('tag')!r} for {T[1]}")
     if kind == "list_enum":
@@ -731,12 +735,12 @@ def lean_literal(T, value, self_T=None, short=False):
         items = _list_enum_to_list(T, value)
         acc = f"{lean_name}.{nil_v}"
         for item in reversed(items):
-            acc = f"({lean_name}.{cons_v} {lean_literal(elem_T, item, short=short)} {acc})"
+            acc = f"({lean_name}.{cons_v} {sub(elem_T, item, None)} {acc})"
         return acc
     if kind == "option":
         if value is None:
             return "none"
-        return f"(some {lean_literal(T[1], value, self_T, short)})"
+        return f"(some {sub(T[1], value, self_T)})"
     raise Unsupported(f"no literal for {T!r}")
 
 

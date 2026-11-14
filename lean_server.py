@@ -226,6 +226,13 @@ def _run_in_project_lake(code, project_dir):
 
 
 MAX_FAILED_STARTS = 3  # restarts in a row with no answer before a worker stays down (ReplWorker.run)
+# a REPL holding more than this share of its memory cap is restarted between commands
+# (ReplWorker.ready): on SymCrypt the main and the evaluation REPL, each capped at 40% of
+# memory, grew to 13 GB together, and the system killed one while it was idle
+RESTART_FRACTION = 0.5
+# ... and only once it has grown by this share of its cap since it started and its
+# caller built its envs, so a crate env that is itself that big is not rebuilt in a loop
+GROWTH_FRACTION = 0.25
 
 
 class ReplWorker:
@@ -244,6 +251,7 @@ class ReplWorker:
         self._started = False  # start() succeeded once: a lost process is started again (run)
         self._failed_starts = 0  # restarts in a row whose REPL never answered
         self._mem_watch = None
+        self._size_base, self._size_reads = 0, 0  # its size after its caller built its envs (ready)
         self._envs = OrderedDict()
         self.restarts = 0
         self._env_hits = 0
@@ -257,6 +265,7 @@ class ReplWorker:
             start_new_session=True,
         )
         _start_reaper(self._proc.pid)
+        self._size_base, self._size_reads = 0, 0
         self._mem_watch = (_MemWatchdog(self._proc, self._proc.pid, self._mem_cap)
                             if self._mem_cap is not None else None)
 
@@ -363,6 +372,36 @@ class ReplWorker:
         self._started = True
         return True
 
+    def ready(self, big=True):
+        """restart a process that is gone or (big) too big, before it is used: one killed
+        from outside while idle (the system's out-of-memory killer sends SIGTERM, exit
+        143) answered its next command with nothing, and that command was reported as a
+        time-out; one holding more than RESTART_FRACTION of its memory cap (the REPL
+        keeps every command's env, so it only grows) is restarted between commands,
+        not killed in the middle of one, once it has also grown by GROWTH_FRACTION of
+        the cap past its size after a start: the larger of the first two reads, which
+        come after its caller built its envs (a caller reads the count right before it
+        builds them). a caller holding env ids reads the restart count through this
+        (LeanServer.restarts) and builds them again; a command (run) restarts only a
+        process that is gone, so a caller's next command never loses the env ids it
+        just made."""
+        p = self._proc
+        if p is None:
+            return
+        if p.poll() is not None:
+            self._restart()
+            self._size_base, self._size_reads = 0, 0
+            return
+        if not big or self._mem_cap is None:
+            return
+        size = _rss_anon_bytes(p.pid)
+        self._size_reads += 1
+        if self._size_reads <= 2:
+            self._size_base = max(self._size_base, size)
+        elif size > RESTART_FRACTION * self._mem_cap and size - self._size_base > GROWTH_FRACTION * self._mem_cap:
+            self._restart()
+            self._size_base, self._size_reads = 0, 0
+
     def run(self, code, cmd_timeout=None, env=None, prelude=""):
         """return CheckResult or None if import unavailable (caller falls back to lake).
         env: run code as a command against this existing env id instead of an
@@ -372,6 +411,7 @@ class ReplWorker:
         so one slow start never leaves it dead for the rest of the run; after
         MAX_FAILED_STARTS restarts in a row with no answer it stays down (lake), so a
         REPL that cannot start does not cost every later command a start time limit."""
+        self.ready(big=False)
         if self._proc is None and self._started and self._failed_starts < MAX_FAILED_STARTS:
             self._restart()
         if self._proc is None:
@@ -544,6 +584,15 @@ class LeanServer:
                     timed_out=r.timed_out, restarted=r.restarted,
                     n_errors=n_err, sorry=sorry, mem_killed=r.mem_killed)
         return r
+
+    def restarts(self):
+        """how many times the worker restarted, after restarting one that is gone or too
+        big (ReplWorker.ready): a caller compares it with the count its env ids were
+        made under before it uses them."""
+        if self._worker is None:
+            return 0
+        self._worker.ready()
+        return self._worker.restarts
 
     def stats(self):
         w = self._worker

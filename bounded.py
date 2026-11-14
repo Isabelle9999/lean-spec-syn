@@ -36,6 +36,7 @@ import os
 import random
 import re
 import sys
+import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools"))
 import translation_check as tc  # noqa: E402
@@ -50,6 +51,10 @@ MAX_DISCARD_RATIO = 10
 PERTURB_ROWS = 3
 SHRINK_ROUNDS = 6
 EVAL_TIMEOUT = 120
+# the kernel's proof of one refutation gets its attempts until this many seconds have
+# gone (and the one running finishes): in the sweep 95% of the refutations the kernel
+# checked took under 136 s, function and all, while one it never checked took 20 min
+KERNEL_BUDGET = 180
 # the inputs go to Lean EVAL_GROUP at a time, smallest first, each command with
 # EVAL_GROUP_TIMEOUT seconds (about 28 million loop steps at the 1.4 million a second
 # compiled evaluation runs): an input that runs away costs only itself and the larger
@@ -57,8 +62,12 @@ EVAL_TIMEOUT = 120
 EVAL_GROUP = 8
 EVAL_GROUP_TIMEOUT = 20
 # Lean's refusal to compile a call to a definition with no code: an axiom, or a function
-# that calls one (SymCrypt's hardware intrinsics are axioms; 103 of its 731 functions)
-NONCOMPUTABLE = re.compile(r"consider marking it as 'noncomputable'(?: because it depends on '([^']+)')?")
+# that calls one (SymCrypt's hardware intrinsics are axioms; 103 of its 731 functions).
+# its compiler says it two ways: the first when the call's own definition is compiled,
+# the second when a definition it reaches was never compiled (a partial_fixpoint loop
+# in a noncomputable section that calls an axiom)
+NONCOMPUTABLE = re.compile(r"consider marking it as 'noncomputable'(?: because it depends on '([^']+)')?"
+                           r"|Failed to find LCNF signature for (\S+)")
 
 
 # ====================== values (the shape lean_literal and lean_encode_expr share) ======================
@@ -85,7 +94,7 @@ def edge_values(T, self_T=None):
     T = _sized(T)
     kind = T[0]
     if kind == "self":
-        return [random_value(self_T, random.Random(i), 3, self_T) for i in range(2)]
+        return [random_value(self_T, random.Random(i), 3, self_T, size=0.0) for i in range(2)]
     if _named(T):
         self_T = T
     if kind == "bool":
@@ -104,7 +113,13 @@ def edge_values(T, self_T=None):
         return [[], [e[0]], [e[1 % len(e)], e[0]], [e[0], e[1 % len(e)], e[2 % len(e)]]]
     if kind == "option":
         return [None, edge_values(T[1], self_T)[0]]
-    return [random_value(T, random.Random(i)) for i in range(2)]
+    # a structure's are its fields' (all first ones, then all second ones), and anything
+    # else's a draw at the smallest size: drawn at full size, a Range's or a StepBy's first
+    # rows had bounds near 2^62, and a loop over them never ended on its very first input
+    if kind == "struct":
+        es = [edge_values(ft, self_T) for _, ft in T[2]]
+        return [{fn: e[i % len(e)] for (fn, _), e in zip(T[2], es)} for i in range(2)]
+    return [random_value(T, random.Random(i), size=0.0) for i in range(2)]
 
 
 def _self_refs(t):
@@ -367,14 +382,16 @@ def _q(s):
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
 
 
-def eval_literal(T, v):
+def eval_literal(T, v, self_T=None):
     """the Lean term for an evaluated input: an array, vector or slice of numbers as
     text read in compiled code (lean/bounded.lean's lssU/lssI and lssArr/lssVec/
-    lssSlice), whose elaboration costs the same at any length; a tuple part by part;
-    everything else as tc.lean_literal. a literal of 256 numbers takes elaboration
-    about a second (each n#u8 also runs its bound tactic), so a check of 48 such
-    inputs spent most of its time limit building them. evaluation only: a kernel
-    refutation writes its witness as literals (refutation_text)."""
+    lssSlice), whose elaboration costs the same at any length, wherever it sits (a
+    field, a tuple's part, an array of arrays); everything else as tc.lean_literal. a
+    literal of 256 numbers takes elaboration about a second (each n#u8 also runs its
+    bound tactic): a check of 48 such inputs spent most of its time limit building them,
+    and SymCrypt's Key (matrices of 256-number arrays in its fields) passed Lean's
+    recursion limit. evaluation only: a kernel refutation writes its witness as literals
+    (refutation_text)."""
     kind = T[0]
     if kind in ("array", "vec", "slice") and T[1][0] == "int" and T[1][1] in tc.LEAN_SCALAR_SUFFIX:
         ty = T[1][1].split(".")[-1]
@@ -384,9 +401,7 @@ def eval_literal(T, v):
             n = len(v) if T[2] is None else T[2]
             return f"(lssArr (⟨0⟩ : {tc.lean_type_str(T[1])}) {n}#usize {dec})"
         return f"({'lssVec' if kind == 'vec' else 'lssSlice'} {dec})"
-    if kind == "tuple":
-        return "(" + ", ".join(eval_literal(e, x) for e, x in zip(T[1], v)) + ")"
-    return tc.lean_literal(T, v)
+    return tc.lean_literal(T, v, self_T, inner=eval_literal)
 
 
 def _lits(arg_types, row):
@@ -640,7 +655,7 @@ class _Lean:
         self.crate = state["crate"]
         ev = eval_state(self.project_dir)
         # built again in a new server (shutdown_all) or after a restart: env ids are per process
-        if ev.get("env0") is None or ev.get("server") is not server or ev.get("restarts") != server.stats()["restarts"]:
+        if ev.get("env0") is None or ev.get("server") is not server or ev.get("restarts") != server.restarts():
             ev.clear()
             import callgraph
             text, _ = self.checker._aeneas_env_text(self.project_dir)
@@ -792,8 +807,12 @@ def _kernel_refutation(lean, stmt, kind, binders, insts, args, ret, row, res, un
     nm = f"lss_refute_{lean.n}"
     hb = _lss_config.proof_cfg()["aeneas_heartbeats"]
     whys, text, ops = [], "", None
+    t0 = time.monotonic()
     for label, kw in [("evaluation", {}), ("with the operations it reaches", {"ops": True}),
                       ("per platform width", {"ops": True, "split": True}), ("stated value", {"stated": True})]:
+        if time.monotonic() - t0 > KERNEL_BUDGET:
+            whys.append(f"{label}: not tried, the kernel's {KERNEL_BUDGET}s for this refutation were spent")
+            continue
         if kw.get("ops"):
             ops = lean.ops(unit, unfold) if ops is None else ops  # asked only once the plain evaluation failed
             if not ops and not kw.get("split"):
@@ -809,7 +828,8 @@ def _kernel_refutation(lean, stmt, kind, binders, insts, args, ret, row, res, un
         text = t if kw.get("split") else text
     # the goals each case's evaluation leaves (a ⦄div statement has two), closed by sorry
     closer = re.compile(r"^( +)all_goals \(first \| decide \| omega\)$", re.M)
-    out, _ = lean.run(closer.sub(r"\1lss_log_goals\n\1all_goals sorry", text)) if closer.search(text) else (None, "")
+    out, _ = (lean.run(closer.sub(r"\1lss_log_goals\n\1all_goals sorry", text))
+              if closer.search(text) and time.monotonic() - t0 <= KERNEL_BUDGET else (None, ""))
     left = [g.get("text", "") for g in _lean_goals(out)]
     if any(re.search(r"\bloop\b", g) for g in left):
         whys.insert(0, f"the evaluation stops after {EVAL_ROUNDS} rounds with the loop still running")
@@ -837,7 +857,7 @@ def _no_code(detail):
     if nc is None:
         return None
     return {"status": "not_evaluated",
-            "detail": f"cannot run: {nc.group(1) or 'the call'} has no code (Lean cannot compile it: it uses an "
+            "detail": f"cannot run: {nc.group(1) or nc.group(2) or 'the call'} has no code (Lean cannot compile it: it uses an "
                       "axiom, such as a hardware instruction's model, or another noncomputable definition), so no "
                       "input can be evaluated; the provers still run"}
 
@@ -846,7 +866,7 @@ def _no_code(detail):
 def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     """the bounded verdict for one candidate (see the module docstring).
     status: pass, refuted, vacuous, not_evaluated, timeout or skipped; warning:
-    None, narrow or no_witness; a refutation carries the shrunk witness, whether
+    None, narrow, no_witness or vacuity_unchecked; a refutation carries the shrunk witness, whether
     the kernel checked it, and the feedback text a repair prompt uses. `helpers` (a
     Rust spec's own definitions) are defined before each command."""
     lean = _Lean(checker, project_dir, helpers) if helpers else _Lean(checker, project_dir)
@@ -979,8 +999,31 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
         if "violates" in got:
             rejects = True
             break
+    # an output type with one value (Unit) has no wrong output to try, and accepting every
+    # output costs such a statement nothing; one whose wrong outputs could not be tried
+    # (a function in the output, a perturbed output Lean could not read) is a pass that
+    # says so, not a pass on no evidence: 108 always-true statements of the sweep were
+    if fit and not checked and ret is not None and _one_value(ret):
+        checked = True
+    elif fit and not checked:
+        verdict["warning"] = verdict["warning"] or "vacuity_unchecked"
     if checked and not rejects and not claims_success:
         verdict.update(status="vacuous",
                        feedback="The statement holds for every output tried, including wrong ones, "
                                 "so it says nothing about what the function computes.")
     return verdict
+
+
+def _one_value(T):
+    """whether a type has exactly one value (Unit, a tuple or structure of such, an
+    empty array): nothing to perturb, and nothing a postcondition can rule out."""
+    kind = T[0]
+    if kind == "tuple":
+        return all(_one_value(e) for e in T[1])
+    if kind == "struct":
+        return all(_one_value(ft) for _, ft in T[2])
+    if kind == "array":
+        return T[2] == 0 or _one_value(T[1])
+    if kind == "enum":
+        return len(T[2]) == 1 and all(_one_value(a) for a in T[2][0][1])
+    return False

@@ -187,9 +187,75 @@ def run_static_core_types():
           all(set(r[0]) == {"slice", "i"} and r[0]["i"] >= 0 for r in rows)
           and any(r[0]["i"] < len(r[0]["slice"]) for r in rows) and any(r[0]["i"] >= len(r[0]["slice"]) for r in rows),
           str(rows[:4]))
+    step_by = ("struct", "Aeneas.Std.core.iter.adapters.step_by.StepBy", [("iter", RANGE), ("step_by", ("int", "Std.Usize"))],
+               "core.iter.adapters.step_by.StepBy (core.ops.range.Range Std.Usize)")
+    first = bounded.sample_rows([step_by], n=48, seed=0)[:2]
+    check("a structure's first inputs are its fields' edge values (0, then 1), not a full-size draw",
+          first == [[{"iter": {"start": 0, "end": 0}, "step_by": 0}], [{"iter": {"start": 1, "end": 1}, "step_by": 1}]],
+          str(first))
     lits = [tc.lean_literal(ITER, r[0]) for r in rows]
     check("each written with its fields quoted and its position a Nat",
           all(x.startswith("{ «slice» := ") and ", «i» := (" in x and x.endswith(" : Nat) }") for x in lits), lits[0])
+
+
+def run_static_nested_text():
+    """numbers inside a structure, an option or an array of arrays go to an evaluation
+    as text too (SymCrypt's Key: matrices of 256-number arrays in its fields)."""
+    print("=== static: number arrays at any depth as text ===")
+    u8, u16 = ("int", "Std.U8"), ("int", "Std.U16")
+    key = ("struct", "symcrust.mlkem.key.Key",
+           [("seed", ("array", u8, 2)), ("m", ("array", ("array", u16, 2), 2)), ("t", ("option", ("slice", u8))),
+            ("n", u8)], "symcrust.mlkem.key.Key")
+    lit = bounded.eval_literal(key, {"seed": [1, 2], "m": [[3, 4], [5, 6]], "t": [7], "n": 9})
+    check("a structure's number arrays, an array of arrays and an option's slice are text, its scalars literals",
+          lit.count("lssArr") == 3 and lit.count("lssSlice") == 1 and "«n» := 9#u8" in lit
+          and "#u16" not in lit and lit.startswith("{ «seed» := (lssArr"), lit)
+    check("a kernel refutation still writes the literal", "lss" not in tc.lean_literal(key, {
+        "seed": [1, 2], "m": [[3, 4], [5, 6]], "t": [7], "n": 9}))
+
+
+def run_static_server():
+    """a Lean server whose REPL was killed from outside while idle, or grew past half its
+    memory cap, is restarted before it is used (lean_server.ReplWorker.ready)."""
+    print("=== static: a REPL gone or too big ===")
+    import lean_server
+
+    class Proc:
+        pid = 1
+
+        def __init__(self, code):
+            self.code = code
+
+        def poll(self):
+            return self.code
+    w = lean_server.ReplWorker("/nowhere", mem_cap_bytes=1000)
+    w._restart = lambda: setattr(w, "restarts", w.restarts + 1)
+    real = lean_server._rss_anon_bytes
+    try:
+        lean_server._rss_anon_bytes = lambda pgid: 400
+        w._proc = Proc(None)
+        w.ready()
+        check("a live REPL under half its cap is used as it is", w.restarts == 0)
+        w._proc = Proc(143)
+        w.ready(big=False)
+        check("one killed while idle (SIGTERM, exit 143) is restarted before the next command", w.restarts == 1)
+        size = [600]
+        lean_server._rss_anon_bytes = lambda pgid: size[0]
+        w._proc = Proc(None)
+        w.ready(big=False)
+        check("a command never restarts a live one, so its caller's env ids stay good", w.restarts == 1)
+        s = object.__new__(lean_server.LeanServer)
+        s._worker = w
+        n = [s.restarts() for _ in range(4)]
+        check("one past half its cap, its size since its caller built its envs, is not restarted (no rebuild loop)",
+              n == [1, 1, 1, 1], str(n))
+        size[0] = 900
+        check("one past half its cap that has grown by a quarter of it is restarted where a caller reads the count",
+              s.restarts() == 2, str(w.restarts))
+        check("and its next reads measure the new one's size again", [s.restarts() for _ in range(3)] == [2, 2, 2],
+              str(w.restarts))
+    finally:
+        lean_server._rss_anon_bytes = real
 
 
 def run_static_commands():
@@ -388,6 +454,29 @@ def run_static_check():
     check("a function with no code (it calls an axiom, a hardware model) is not evaluated, labelled so",
           v["status"] == "not_evaluated" and v["detail"].startswith("cannot run: symcrust.common.wipe has no code"),
           str(v))
+    clock = iter(range(0, 10_000, 100))
+    real_clock = bounded.time.monotonic
+    bounded.time.monotonic = lambda: next(clock)  # every reading 100 s later: one attempt fits in 180 s
+    try:
+        slow = FakeLean(lambda r: {"outcome": "fail"}, kernel=False, ops=["op"])
+        got = _check(slow)
+    finally:
+        bounded.time.monotonic = real_clock
+    tried = sum(1 for x in slow.sent if " name:" in x)
+    check("the kernel's attempts at one refutation stop once its time budget is spent",
+          got["status"] == "refuted" and not got["kernel"] and tried == 1
+          and "were spent" in got.get("kernel_why", ""), f"{tried} tried: {str(got)[:300]}")
+    unit = _check(FakeLean(lambda r: _ok(0), plan=_plan(ret=["tuple", []])))
+    check("an always-true statement about a Unit result is vacuous: there is no wrong output to try",
+          unit["status"] == "vacuous", str(unit))
+    fn_out = FakeLean(lambda r: _ok(0))
+    fn_out.plan_ = {**_plan(), "ret": None}
+    got = _check(fn_out)
+    check("one whose wrong outputs cannot be tried (a function in the result) passes, saying so",
+          got["status"] == "pass" and got["warning"] == "vacuity_unchecked", str(got))
+    lcnf = bounded._no_code("error: Failed to find LCNF signature for symcrust.mlkem.ntt.sample_loop")
+    check("and so is one whose loop was never compiled (Lean's other message for it)",
+          (lcnf or {}).get("detail", "").startswith("cannot run: symcrust.mlkem.ntt.sample_loop has no code"), str(lcnf))
     # f x = x, spec "r.val < 5": false from 5 on; the witness shrinks to 5
     fake = FakeLean(lambda r: _ok(r[0]) if int(r[0]) < 5 else {"outcome": "violates", "value": json.dumps(str(r[0]))})
     v = _check(fake)
@@ -691,7 +780,7 @@ def run_static_run():
           str(sorted(mine & others)))
 
     class Server:
-        sent, roles, restarts = [], [], 0
+        sent, roles, n_restarts = [], [], 0
 
         def check(self, code, timeout=None, env=None):
             self.sent.append((code, env))
@@ -702,8 +791,11 @@ def run_static_run():
                 new_env = 70 if code == "CRATE TEXT" else 77
             return R()
 
+        def restarts(self):
+            return self.n_restarts
+
         def stats(self):
-            return {"restarts": self.restarts}
+            return {"restarts": self.n_restarts}
 
     class Checker:
         lean_calls = 0
@@ -731,11 +823,11 @@ def run_static_run():
         bounded._Lean(ck, "/p").run("lss_eval_spec z")
         ck.state = {"ok": True, "env": 52, "env0": 51, "crate": "C"}  # the main server's crate env was rebuilt
         bounded._Lean(ck, "/p").run("lss_eval_spec v")
-        server.restarts = 1  # the evaluation server restarted
+        server.n_restarts = 1  # the evaluation server restarted
         bounded._Lean(ck, "/p").run("lss_eval_spec w")
         n_before = len(server.sent)
         server2 = Server()
-        server2.sent, server2.restarts = [], 1  # the same restart count as the old one
+        server2.sent, server2.n_restarts = [], 1  # the same restart count as the old one
         bounded._lean_server.get_server = lambda *a, **k: server2  # type: ignore[assignment]
         bounded._Lean(ck, "/p").run("lss_eval_spec u")  # a new server (shutdown_all), its restart count 0 again
     finally:
@@ -1548,6 +1640,8 @@ def run_planted(checker):
 
 run_static_values()
 run_static_recursive()
+run_static_server()
+run_static_nested_text()
 run_static_commands()
 run_static_core_types()
 run_static_check()

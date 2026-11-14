@@ -141,6 +141,8 @@ DECLS = {
          "noncomputable": False, "diverges": False},
         {"name": "demo.model", "doc": "[demo::model]: ", "returns_result": True, "opaque": False,
          "noncomputable": False, "diverges": False},
+        {"name": "root_ext", "doc": "[demo::root_ext]: ", "returns_result": True, "opaque": True,
+         "noncomputable": False, "diverges": False},
         {"name": "demo.Insts.Foo", "doc": "Trait implementation: [demo::{impl Foo for [u8; 4]}] ",
          "returns_result": False, "opaque": False, "noncomputable": False, "diverges": False}],
     "units": [
@@ -151,6 +153,7 @@ DECLS = {
         {"name": "demo.C", "callees": [], "generic": False, "range": [44, 44], "no_eqn": False},
         {"name": "demo.w_loop.body", "callees": [], "generic": False, "range": [46, 46], "no_eqn": False},
         {"name": "demo.model", "callees": [], "generic": False, "range": [5, 6], "no_eqn": False},
+        {"name": "root_ext", "callees": [], "generic": False, "range": [48, 48], "no_eqn": True},
         {"name": "demo.Insts.Foo", "callees": [], "generic": False, "range": [45, 45], "no_eqn": False}]}
 
 
@@ -181,14 +184,17 @@ def run_static_manifest():
         finally:
             callgraph._lean_server.get_server = real
         check("the manifest is read in one Lean command, with the crate build's time limit",
-              len(sent) == 1 and sent[0][0].rstrip().endswith("#eval LssUnitGraph.dumpDecls `demo")
+              len(sent) == 1 and sent[0][0].rstrip().endswith("#eval LssUnitGraph.dumpDecls .anonymous")
               and sent[0][1] == callgraph.CRATE_BUILD_TIMEOUT, str([s[1] for s in sent]))
         by = {d["lean_name"]: d for d in m["declarations"]}
         check("a definition returning a Result is a function, others a constant or a trait implementation",
               {n: d["kind"] for n, d in by.items()} == {"demo.f": "function", "demo.f_loop": "function",
                                                         "demo.ext": "function", "demo.g": "function",
                                                         "demo.C": "global", "demo.Insts.Foo": "trait_impl",
-                                                        "demo.w_loop.body": "function"}, str(by))
+                                                        "demo.w_loop.body": "function", "root_ext": "function"},
+              str(by))
+        check("an axiom outside the crate's namespace (SymCrypt's, at the root) is read too",
+              by.get("root_ext", {}).get("is_opaque") is True, str(by.get("root_ext")))
         check("a definition in a module the crate imports, though in its namespace, is not the crate's",
               "demo.model" not in by)
         body = by.get("demo.w_loop.body", {})
@@ -208,7 +214,7 @@ def run_static_manifest():
             json.dump(m, f)
         names = sorted(b["lean_name"] for b in loader.load_rust_project(tmp))
         check("the loader reads it as any manifest: the functions are the units, a loop body not one",
-              names == ["demo.ext", "demo.f", "demo.f_loop", "demo.g"], str(names))
+              names == ["demo.ext", "demo.f", "demo.f_loop", "demo.g", "root_ext"], str(names))
 
 
 def run_static():
@@ -481,6 +487,9 @@ def K : Std.U32 := 3#u32
 def U32.Insts.DemoTr : Tr Std.U32 := { f := fun x => ok x }
 
 end demo
+
+/-- [demo::root_ext]: an axiom at the root, as SymCrypt's FunsExternal declares them -/
+axiom root_ext : Std.U32 → Result Std.U32
 """
 
 
@@ -511,7 +520,7 @@ def run_full_layout():
                   "demo.f": "function", "demo.count_loop": "function", "demo.count": "function",
                   "demo.ext": "function", "demo.uses_ext": "function", "demo.K": "global",
                   "demo.U32.Insts.DemoTr": "trait_impl", "demo.sum_loop.body": "function",
-                  "demo.sum_loop": "function", "demo.sum": "function"}, str(sorted(by)))
+                  "demo.sum_loop": "function", "demo.sum": "function", "root_ext": "function"}, str(sorted(by)))
         sl, sb = by.get("demo.sum_loop", {}), by.get("demo.sum_loop.body", {})
         check("a loop of the pinned Aeneas's shape (`loop` over a body): it can diverge, its body is a loop body",
               sl.get("can_diverge") and sl.get("loop_id") == 0 and not sl.get("loop_is_body")

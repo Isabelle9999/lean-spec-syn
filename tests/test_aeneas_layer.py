@@ -506,6 +506,9 @@ class _FakeServer:
         self.sent.append((code, env))
         return lean_server.CheckResult(stdout="", stderr="", rc=0, via="repl", new_env=len(self.sent) + 100)
 
+    def restarts(self):
+        return 0
+
     def stats(self):
         return {"restarts": 0}
 

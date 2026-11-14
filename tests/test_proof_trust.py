@@ -53,6 +53,9 @@ class _FakeServer:
         self.preludes.append(prelude)
         return lean_server.CheckResult(stdout="", stderr=self.reply(code), rc=0, via="repl", new_env=1)
 
+    def restarts(self):
+        return 0
+
     def stats(self):
         return {"restarts": 0}
 

@@ -387,9 +387,10 @@ def _aeneas_doc(doc):
 
 def manifest_from_lean(project_dir, lean_root, root, namespace):
     """the manifest of a crate committed without one (SymCrypt's Lean project), read off
-    its Lean code: every definition Aeneas wrote in `namespace` in the crate's own Code
-    files (lean/unit_graph.lean's dumpDecls; an imported module of the folder may use
-    the namespace too) as a function (it returns a Result), a constant or a trait
+    its Lean code: every definition Aeneas wrote in the crate's own Code files, in any
+    namespace (lean/unit_graph.lean's dumpDecls; SymCrypt's FunsExternal declares its
+    axioms at the root under `open symcrust`, and an imported module of the folder may
+    use the crate's namespace too) as a function (it returns a Result), a constant or a trait
     implementation, with its Rust name, loop, whether it is recursive (its unit graph),
     can fail, can diverge, has no body (an axiom) or no code (noncomputable)."""
     head = {"import": root, "namespace": namespace, "lean_root": lean_root}
@@ -398,7 +399,7 @@ def manifest_from_lean(project_dir, lean_root, root, namespace):
     text = _concat_code_files(*_crate_files(folder, root), spans=spans)
     code_dir = os.path.realpath(os.path.join(folder, root, "Code")) + os.sep
     code = [s for p, s in spans.items() if p.startswith(code_dir)]
-    full = text + "\n" + _driver_text() + f"\n#eval LssUnitGraph.dumpDecls `{namespace}\n"
+    full = text + "\n" + _driver_text() + "\n#eval LssUnitGraph.dumpDecls .anonymous\n"
     r = _lean_server.get_server(_lss_config.project_dir("aeneas")).check(full, timeout=CRATE_BUILD_TIMEOUT)
     line = next((ln for ln in (r.stderr or "").splitlines() if "LSS_DECLS " in ln), None)
     if line is None:
