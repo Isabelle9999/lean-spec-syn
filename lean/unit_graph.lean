@@ -99,9 +99,19 @@ def dumpUnits (namesOpt : Option (List Name)) : MetaM Unit := do
 -- ...`, a trait implementation's `/-- Trait implementation: [...]`), with what a
 -- manifest says of each, read off the definition. one `warning: LSS_DECLS <json>`:
 -- their units (as dumpUnits) and, per definition, its doc comment, whether it returns
--- a Result (it can fail), has no body (an axiom), has no code (noncomputable: it calls
--- one) and can diverge (partial_fixpoint, alone or mutual, is Lean.Order.fix; a loop
--- of the pinned Aeneas iterates its body with Aeneas.Std.loop, itself a partial_fixpoint).
+-- a Result (it can fail), has no body (an axiom), has no code (noCode) and can diverge
+-- (partial_fixpoint, alone or mutual, is Lean.Order.fix; a loop of the pinned Aeneas
+-- iterates its body with Aeneas.Std.loop, itself a partial_fixpoint).
+
+-- no code to run: marked noncomputable (it calls an axiom), or a definition Lean never
+-- compiled. a partial_fixpoint loop in a noncomputable section that calls an axiom is
+-- neither marked nor compiled (8 of SymCrypt's loops): running it fails with "Failed
+-- to find LCNF signature".
+def noCode (env : Environment) (n : Name) : Bool :=
+  isNoncomputable env n || match env.find? n with
+    | some (.defnInfo _) => (Lean.IR.findEnvDecl env n).isNone
+    | _ => false
+
 def usesFix (env : Environment) (n : Name) : Bool :=
   let used (c : Name) : Array Name := match env.find? c with
     | some (.defnInfo d) => d.value.getUsedConstants
@@ -132,7 +142,7 @@ def dumpDecls (ns : Name) : MetaM Unit := do
       | some (.axiomInfo _) | some (.opaqueInfo _) => true
       | _ => false
     Lean.Json.mkObj [("name", toJson (toString n)), ("doc", toJson doc), ("returns_result", toJson res),
-      ("opaque", toJson noBody), ("noncomputable", toJson (isNoncomputable env n)),
+      ("opaque", toJson noBody), ("noncomputable", toJson (noCode env n)),
       ("diverges", toJson (usesFix env n))]
   logWarning ("LSS_DECLS " ++ (Lean.Json.compress (Lean.Json.mkObj [
     ("units", Lean.Json.arr units.toArray), ("decls", Lean.Json.arr decls.toArray)])))

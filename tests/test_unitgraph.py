@@ -463,6 +463,16 @@ axiom ext : Std.U32 → Result Std.U32
 /-- [demo::uses_ext] -/
 def uses_ext (x : Std.U32) : Result Std.U32 := ext x
 
+/-- [demo::hw]: loop 0:
+    Source: 'src/lib.rs', lines 3:0-3:1 -/
+def hw_loop (i : Std.U32) : Result Std.U32 := do
+  let x ← ext i
+  if x < i then hw_loop x else ok x
+partial_fixpoint
+
+/-- [demo::hw] -/
+def hw (i : Std.U32) : Result Std.U32 := hw_loop i
+
 /-- [demo::sum]: loop body 0:
     Source: 'src/lib.rs', lines 2:0-2:1 -/
 def sum_loop.body (p : Std.U32 × Std.U32) : Result (ControlFlow (Std.U32 × Std.U32) Std.U32) := do
@@ -520,7 +530,8 @@ def run_full_layout():
                   "demo.f": "function", "demo.count_loop": "function", "demo.count": "function",
                   "demo.ext": "function", "demo.uses_ext": "function", "demo.K": "global",
                   "demo.U32.Insts.DemoTr": "trait_impl", "demo.sum_loop.body": "function",
-                  "demo.sum_loop": "function", "demo.sum": "function", "root_ext": "function"}, str(sorted(by)))
+                  "demo.sum_loop": "function", "demo.sum": "function", "root_ext": "function",
+                  "demo.hw_loop": "function", "demo.hw": "function"}, str(sorted(by)))
         sl, sb = by.get("demo.sum_loop", {}), by.get("demo.sum_loop.body", {})
         check("a loop of the pinned Aeneas's shape (`loop` over a body): it can diverge, its body is a loop body",
               sl.get("can_diverge") and sl.get("loop_id") == 0 and not sl.get("loop_is_body")
@@ -532,6 +543,12 @@ def run_full_layout():
         check("an axiom has no body, and a function calling it cannot run",
               by.get("demo.ext", {}).get("is_opaque") and by.get("demo.uses_ext", {}).get("noncomputable")
               and not by.get("demo.count", {}).get("noncomputable", True), str(by.get("demo.uses_ext")))
+        check("a loop Lean never compiled (it calls an axiom, unmarked) cannot run, nor its caller; "
+              "the functions, loops, constant and trait implementation it compiled can",
+              by.get("demo.hw_loop", {}).get("noncomputable") and by.get("demo.hw", {}).get("noncomputable")
+              and not any(by.get(n, {}).get("noncomputable", True) for n in
+                          ("demo.f", "demo.count_loop", "demo.sum_loop", "demo.sum_loop.body", "demo.K",
+                           "demo.U32.Insts.DemoTr")), str({n: d.get("noncomputable") for n, d in by.items()}))
         with open(os.path.join(proj, "rust-spec-synthesis.json"), "w", encoding="utf-8") as f:
             json.dump(m, f)
         try:
