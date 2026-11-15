@@ -937,6 +937,10 @@ def run_static_run():
     check("the check env, a setup step as the crate env is, gets the crate env's time limit",
           slow.limits[:2] == [("CRATE TEXT", callgraph.CRATE_BUILD_TIMEOUT), (slow.limits[1][0], callgraph.CRATE_BUILD_TIMEOUT)],
           str(slow.limits))
+    check("reading the statement, the first command in a fresh env (its first use is minutes on SymCrypt), "
+          "gets the setup time limit too",
+          [lim for c, lim in slow.limits if c.startswith("namespace ")][:1] == [callgraph.CRATE_BUILD_TIMEOUT],
+          str(slow.limits))
     check("a time-out names the step that ran out, and the verdict says how long each step took",
           v.get("status") == "timeout" and v.get("detail", "").endswith("(at reading the statement)")
           and set(v.get("seconds", {})) == {"env", "plan"}, str(v))

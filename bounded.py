@@ -750,7 +750,11 @@ class _Lean:
         return v, ""
 
     def plan(self, stmt):
-        return self._one(lambda tag: plan_command(tag, self.crate, stmt))
+        """the statement read; the first command in a freshly built env, so it pays the
+        env's first use (probe 19: 91 s on SymCrypt, then 0 s): a setup step, with the
+        crate env's time limit, never an input's."""
+        import callgraph
+        return self._one(lambda tag: plan_command(tag, self.crate, stmt), callgraph.CRATE_BUILD_TIMEOUT)
 
     def eval(self, stmt, args, ret, rows, alone=True):
         """the rows' results in the order given, EVAL_GROUP to a command, each command
