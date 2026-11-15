@@ -906,6 +906,44 @@ def run_static_run():
     check("a check env the server lost (a memory kill) skips the candidate, it does not stop the run",
           v.get("status") == "skipped" and "check env lost" in v.get("detail", ""), str(v))
 
+    class Slow(Server):
+        """a statement whose reading runs out of time: the server restarts, as the
+        real one does after a time-out."""
+        def __init__(self):
+            self.sent, self.limits, self.n_restarts = [], [], 0
+
+        def check(self, code, timeout=None, env=None):
+            self.sent.append((code, env))
+            self.limits.append((code[:10], timeout))
+            plan = code.startswith("namespace ") and "lss_eval_plan" in code
+            if plan:
+                self.n_restarts += 1
+
+            class R:
+                timed_out = plan
+                stdout, stderr = ('LSS_EVAL {"tag":"derive","ok":true,"derived":[],"via_beq":[],"none":[]}', "")
+                new_env = None if plan else 80
+            return R()
+    slow = Slow()
+    bounded._lean_server.get_server = lambda *a, **k: slow  # type: ignore[assignment]
+    bounded._EVAL_ENVS.clear()
+    try:
+        fresh = Checker()
+        fresh.state = {"ok": True, "env": 82, "env0": 81, "crate": "C"}
+        v = bounded.check_spec(fresh, "S", "f", "/p")
+    finally:
+        bounded._lean_server.get_server = old
+    import callgraph
+    check("the check env, a setup step as the crate env is, gets the crate env's time limit",
+          slow.limits[:2] == [("CRATE TEXT", callgraph.CRATE_BUILD_TIMEOUT), (slow.limits[1][0], callgraph.CRATE_BUILD_TIMEOUT)],
+          str(slow.limits))
+    check("a time-out names the step that ran out, and the verdict says how long each step took",
+          v.get("status") == "timeout" and v.get("detail", "").endswith("(at reading the statement)")
+          and set(v.get("seconds", {})) == {"env", "plan"}, str(v))
+    check("the server that time-out restarted gets its envs back within this check, not the next one's",
+          [c[:10] for c, _ in slow.sent] == ["CRATE TEXT", slow.sent[1][0][:10], "namespace ", "CRATE TEXT",
+                                             slow.sent[1][0][:10]], str([c[:30] for c, _ in slow.sent]))
+
 
 def run_static_synth():
     print("=== static: wiring into validate ===")

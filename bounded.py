@@ -649,6 +649,13 @@ class _Lean:
         self.helpers = _lean.helpers_command(helpers)
         self.prefix = _gate._wf_gate_text() + "\n" + _gate._wf_gate_aeneas_text() + "\n"
         self.crate = None
+        # seconds per step of this check (STEPS), and the step a time limit stopped
+        self.seconds, self.phase, self.timed_out = {}, None, None
+
+    def _took(self, step, t0, timed_out=False):
+        self.seconds[step] = self.seconds.get(step, 0.0) + time.monotonic() - t0
+        if timed_out:
+            self.timed_out = step
 
     def _env(self, server=None):
         server = server or _eval_server()
@@ -662,7 +669,9 @@ class _Lean:
             ev.clear()
             import callgraph
             text, _ = self.checker._aeneas_env_text(self.project_dir)
+            t0 = time.monotonic()
             r = server.check(text, timeout=callgraph.CRATE_BUILD_TIMEOUT)
+            self._took("env", t0, r.timed_out)
             self.checker.lean_calls += 1
             if r.timed_out:
                 return None, "timeout"
@@ -674,7 +683,12 @@ class _Lean:
             ev.update(env0=r.new_env, server=server, restarts=server.stats()["restarts"])
         if ev.get("check_env") is None or ev.get("check_env_of") != ev["env0"]:
             text = self.prefix + _bounded_text() + f"\nlss_derive_deceq crate:{state['crate']}\n"
-            r = server.check(text, timeout=EVAL_TIMEOUT, env=ev["env0"])
+            # a setup step, as the crate env is: it gets the same limit (SymCrypt's types take
+            # minutes to derive for after a restart on a loaded machine)
+            import callgraph
+            t0 = time.monotonic()
+            r = server.check(text, timeout=callgraph.CRATE_BUILD_TIMEOUT, env=ev["env0"])
+            self._took("env", t0, r.timed_out)
             self.checker.lean_calls += 1
             if r.timed_out:
                 return None, "timeout"
@@ -697,7 +711,9 @@ class _Lean:
         env, why = self._env(server)
         if env is None:
             return None, why
+        t0 = time.monotonic()
         r = server.check(f"namespace {self.crate}\n" + self.helpers + text, timeout=timeout, env=env)
+        self._took(self.phase or _step(text), t0, r.timed_out)
         self.checker.lean_calls += 1
         if r.timed_out:
             return None, "timeout"
@@ -778,6 +794,19 @@ class _Lean:
     def post(self, stmt, args, ret, row, outs):
         v, _ = self._one(lambda tag: post_command(tag, self.crate, stmt, args, ret, row, outs))
         return v["outs"] if v and v.get("ok") else None
+
+
+# a check's steps, named by the command each sends (_Lean.run); "env" is building the
+# crate env and the check env, "shrink" the evaluations that shrink a witness
+STEPS = {"lss_check_proof": "kernel", "lss_log_goals": "goals", "lss_eval_spec": "eval", "lss_eval_post": "vacuity",
+         "lss_eval_ops": "ops", "lss_eval_plan": "plan"}
+STEP_NAMES = {"env": "building the evaluation env", "plan": "reading the statement", "eval": "evaluating the inputs",
+              "shrink": "shrinking the witness", "vacuity": "trying wrong outputs", "ops": "naming the operations",
+              "kernel": "the kernel's proof", "goals": "the goals the kernel left"}
+
+
+def _step(text):
+    return next((s for k, s in STEPS.items() if k in text), "other")
 
 
 def _bad(kind, row):
@@ -871,8 +900,26 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
     status: pass, refuted, vacuous, not_evaluated, timeout or skipped; warning:
     None, narrow, no_witness or vacuity_unchecked; a refutation carries the shrunk witness, whether
     the kernel checked it, and the feedback text a repair prompt uses. `helpers` (a
-    Rust spec's own definitions) are defined before each command."""
+    Rust spec's own definitions) are defined before each command. `seconds` is the
+    time each step took (STEPS); a time-out names the step that ran out. an evaluation
+    server this check restarted (a time-out) gets its envs back before the check
+    returns, so their time is this check's, not the next one's."""
     lean = _Lean(checker, project_dir, helpers) if helpers else _Lean(checker, project_dir)
+    timed = hasattr(lean, "seconds")  # a test's stand-in has no clock
+    server = _eval_server() if timed else None
+    n0 = server.stats()["restarts"] if timed else 0
+    verdict = _verdict(lean, stmt, unit, project_dir, seed)
+    if timed:
+        if server.stats()["restarts"] != n0 and lean.crate is not None:
+            lean._env(server)
+        verdict["seconds"] = {k: round(v, 1) for k, v in lean.seconds.items()}
+        if verdict.get("status") == "timeout" and lean.timed_out:
+            step = STEP_NAMES.get(lean.timed_out, lean.timed_out)
+            verdict["detail"] = (verdict.get("detail") or "timeout") + f" (at {step})"
+    return verdict
+
+
+def _verdict(lean, stmt, unit, project_dir, seed):
     try:
         plan, why = lean.plan(stmt)
     except OSError as e:  # no translated crate at project_dir: nothing to run
@@ -945,7 +992,9 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
             cands = cands[:2 * tc.MAX_BATCH]
             if not cands:
                 break
+            lean.phase = "shrink"
             sev, _ = lean.eval(stmt, args, ret, cands, alone=False)
+            lean.phase = None
             hits = [k for k, r in enumerate(sev["rows"]) if _bad(kind, r)] if sev else []
             if not hits:
                 break
