@@ -474,6 +474,16 @@ def run_static_check():
     got = _check(fn_out)
     check("one whose wrong outputs cannot be tried (a function in the result) passes, saying so",
           got["status"] == "pass" and got["warning"] == "vacuity_unchecked", str(got))
+    lanes = ["array", ["int", "Std.U16"], {"binder": "N"}]
+    seen = []
+    const_n = FakeLean(lambda r: {"outcome": "holds", "value": json.dumps([str(x) for x in r[1]])},
+                       post_outcome=lambda r, o: seen.append((len(r[1]), len(o))) or "holds",
+                       plan=_plan(free=[{"name": "N", "ir": ["int", "Std.Usize"]}, {"name": "a", "ir": lanes}],
+                                  ret=lanes, binders=[{"k": "arg", "i": 0}, {"k": "arg", "i": 1}]))
+    got = _check(const_n)
+    check("an always-true statement about an array whose length a binder gives is vacuous: "
+          "its wrong outputs keep the row's length",
+          got["status"] == "vacuous" and seen and all(a == b for a, b in seen), f"{str(got)[:200]} {seen}")
     lcnf = bounded._no_code("error: Failed to find LCNF signature for symcrust.mlkem.ntt.sample_loop")
     check("and so is one whose loop was never compiled (Lean's other message for it)",
           (lcnf or {}).get("detail", "").startswith("cannot run: symcrust.mlkem.ntt.sample_loop has no code"), str(lcnf))

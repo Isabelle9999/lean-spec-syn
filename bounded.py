@@ -239,7 +239,10 @@ def _children(T, v, self_T):
 
 
 def perturb(T, v, self_T=None):
-    """wrong values of type T near v (never v itself)."""
+    """wrong values of type T near v (never v itself); an array whose length a binder
+    gives keeps v's length, which is the binder's value."""
+    if T[0] == "array" and T[2] is None:
+        T = ("array", T[1], len(v))
     T = _sized(T)
     kind = T[0]
     if kind == "self":
@@ -898,7 +901,9 @@ def check_spec(checker, stmt, unit, project_dir, seed=0, helpers=""):
             row[k] = len(row[j])
         return row
     try:
-        ret = type_ir(plan["ret"])
+        # an array whose length a binder gives (SymCrypt's lanewise functions return one):
+        # its wrong outputs keep the length of the output they change, which the row set
+        ret = type_ir(plan["ret"], top=True)
     except tc.Unsupported:
         ret = None  # outcomes still evaluate; no values, perturbations or kernel refutation
     binders, insts = plan["binders"], plan.get("insts", [])
