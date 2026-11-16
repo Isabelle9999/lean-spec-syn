@@ -175,6 +175,7 @@ class CallGraph:
         self.aeneas_version = None
         self.charon_version = None
         self.crate: str | None = None
+        self.root: str | None = None  # the module root its code is imported by (`import <root>.Code.Funs`)
         self.project_path = None
         self._callees = {}
         self._generic = {}
@@ -345,7 +346,7 @@ def for_project(project_path):
     g = CallGraph(text, result["units"], manifest_info=manifest_info)
     g.lean_version = result.get("lean_version")
     g.aeneas_version, g.charon_version = _loader.manifest_versions(manifest)
-    g.crate = crate
+    g.crate, g.root = crate, root
     g.project_path = project_path
     _PROJECT_CACHE[key] = g
     return g
