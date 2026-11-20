@@ -130,6 +130,14 @@ def run_static_routing():
               sent["env"] is None and sent["code"].startswith("import Mathlib") and sent["prelude"] == lean.proof_check_text(),
               str(sent)[:200])
 
+        class _Own(_Graph):  # a crate with its own layout: imported as Own, its namespace own
+            crate, root = "own", "Own"
+        with Patch((callgraph, "for_project", lambda p: _Own())):
+            checker._aeneas_build_env("/own")
+        lean.run_in_project("import Aeneas\nimport Own.Code.Funs\n#check 1")
+        check("a crate imported under a module root that is not its namespace (SymCrypt's) runs in its env",
+              fake.sent[-1]["env"] == 7 and "import" not in fake.sent[-1]["code"], str(fake.sent[-1])[:200])
+
         lean.run_in_project("import Aeneas\nimport Other.Code.Funs\n#check 1")
         check("a crate no checker keeps is not routed", fake.sent[-1]["env"] is None, str(fake.sent[-1])[:200])
 
